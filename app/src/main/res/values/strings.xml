@@ -13,6 +13,5 @@
     <string name="sales_empty">Your sale invoices will appear here.</string>
     <string name="items_empty">Add products and services with price, GST rate and stock.</string>
     <string name="parties_empty">Add customers and suppliers to track what they owe.</string>
-    <string name="more_empty">Purchases, expenses, reports, backup and settings.</string>
     <string name="new_sale_empty">Fast billing screen: search or scan items, then Save &amp; Print.</string>
 </resources>

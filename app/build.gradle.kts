@@ -15,8 +15,8 @@ android {
         applicationId = "online.draran.billing"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -33,12 +33,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 dependencies {
     implementation(project(":core:designsystem"))
+    implementation(project(":core:datastore"))
     implementation(project(":feature:dashboard"))
+    implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

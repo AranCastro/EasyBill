@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import online.draran.billing.core.designsystem.theme.BillingTheme
-import online.draran.billing.core.designsystem.theme.ThemeMode
+import online.draran.billing.core.model.ThemeMode
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,7 +31,7 @@ class DashboardScreenshotTest {
         composeRule.setContent {
             BillingTheme(themeMode = mode) {
                 Box(Modifier.height(height.dp)) {
-                    DashboardScreen(state = state, onNavigate = {})
+                    DashboardScreen(state = state, onNavigate = {}, isDarkTheme = mode == ThemeMode.DARK)
                 }
             }
         }

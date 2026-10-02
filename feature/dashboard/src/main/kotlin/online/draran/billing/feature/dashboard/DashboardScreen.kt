@@ -18,24 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallMade
-import androidx.compose.material.icons.automirrored.rounded.CallReceived
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.automirrored.rounded.TrendingDown
-import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.AddShoppingCart
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.Payments
-import androidx.compose.material.icons.rounded.PointOfSale
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.ShoppingBag
-import androidx.compose.material.icons.rounded.Wallet
-import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +47,7 @@ import online.draran.billing.core.designsystem.component.QuickAction
 import online.draran.billing.core.designsystem.component.SectionHeader
 import online.draran.billing.core.designsystem.component.SurfaceCard
 import online.draran.billing.core.designsystem.component.WeeklyBarChart
+import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
 import online.draran.billing.core.designsystem.theme.TABULAR_NUMBERS
@@ -80,11 +63,19 @@ import kotlin.math.abs
 @Composable
 fun DashboardRoute(
     onNavigate: (DashboardDestination) -> Unit,
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit,
     contentPadding: PaddingValues,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    DashboardScreen(state = state, onNavigate = onNavigate, contentPadding = contentPadding)
+    DashboardScreen(
+        state = state,
+        onNavigate = onNavigate,
+        isDarkTheme = isDarkTheme,
+        onToggleTheme = onToggleTheme,
+        contentPadding = contentPadding,
+    )
 }
 
 /** Stateless dashboard; rendered directly in previews and screenshot tests. */
@@ -93,6 +84,8 @@ fun DashboardScreen(
     state: DashboardUiState,
     onNavigate: (DashboardDestination) -> Unit,
     modifier: Modifier = Modifier,
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(),
 ) {
     val ext = BillingTheme.extendedColors
@@ -110,7 +103,13 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             item(key = "header") {
-                Header(state.greeting, state.businessName, onSettings = { onNavigate(DashboardDestination.SETTINGS) })
+                Header(
+                    greeting = state.greeting,
+                    businessName = state.businessName,
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onSettings = { onNavigate(DashboardDestination.SETTINGS) },
+                )
             }
             item(key = "hero") {
                 HeroSalesCard(state)
@@ -120,7 +119,7 @@ fun DashboardScreen(
                     KpiCard(
                         label = stringResource(R.string.dashboard_to_collect),
                         amount = state.toCollect,
-                        icon = Icons.AutoMirrored.Rounded.CallReceived,
+                        icon = AppIcons.ArrowDownLeft,
                         accent = ext.due,
                         accentContainer = ext.dueContainer,
                         caption = pluralStringResource(
@@ -134,7 +133,7 @@ fun DashboardScreen(
                     KpiCard(
                         label = stringResource(R.string.dashboard_to_pay),
                         amount = state.toPay,
-                        icon = Icons.AutoMirrored.Rounded.CallMade,
+                        icon = AppIcons.ArrowUpRight,
                         accent = MaterialTheme.colorScheme.error,
                         accentContainer = MaterialTheme.colorScheme.errorContainer,
                         caption = pluralStringResource(
@@ -176,7 +175,7 @@ fun DashboardScreen(
                 item(key = "recent-empty") {
                     SurfaceCard {
                         EmptyState(
-                            icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                            icon = AppIcons.Receipt,
                             title = stringResource(R.string.dashboard_empty_title),
                             message = stringResource(R.string.dashboard_empty_message),
                             actionLabel = stringResource(R.string.action_new_sale),
@@ -209,7 +208,13 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun Header(greeting: Greeting, businessName: String, onSettings: () -> Unit) {
+private fun Header(
+    greeting: Greeting,
+    businessName: String,
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit,
+    onSettings: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
@@ -244,8 +249,22 @@ private fun Header(greeting: Greeting, businessName: String, onSettings: () -> U
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        // One tap to switch between light and dark
+        IconButton(onClick = onToggleTheme) {
+            Icon(
+                imageVector = if (isDarkTheme) AppIcons.Sun else AppIcons.Moon,
+                contentDescription = stringResource(
+                    if (isDarkTheme) R.string.dashboard_switch_light else R.string.dashboard_switch_dark,
+                ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         IconButton(onClick = onSettings) {
-            Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.dashboard_settings))
+            Icon(
+                AppIcons.Settings,
+                contentDescription = stringResource(R.string.dashboard_settings),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -279,7 +298,7 @@ private fun HeroSalesCard(state: DashboardUiState) {
         Column(Modifier.padding(Spacing.xl)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Rounded.Wallet,
+                    AppIcons.CurrencyInr,
                     contentDescription = null,
                     tint = ext.onHero.copy(alpha = 0.85f),
                     modifier = Modifier.size(18.dp),
@@ -324,7 +343,7 @@ private fun ChangeChip(percent: Int, contentColor: Color) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (up) Icons.AutoMirrored.Rounded.TrendingUp else Icons.AutoMirrored.Rounded.TrendingDown,
+            imageVector = if (up) AppIcons.TrendUp else AppIcons.TrendDown,
             contentDescription = null,
             tint = contentColor,
             modifier = Modifier.size(16.dp),
@@ -348,14 +367,14 @@ private data class ActionSpec(
 private enum class Tone { PRIMARY, RECEIVED, DUE, ERROR }
 
 private val quickActions = listOf(
-    ActionSpec(R.string.action_new_sale, Icons.AutoMirrored.Rounded.ReceiptLong, DashboardDestination.NEW_SALE, Tone.PRIMARY),
-    ActionSpec(R.string.action_counter, Icons.Rounded.PointOfSale, DashboardDestination.COUNTER, Tone.PRIMARY),
-    ActionSpec(R.string.action_payment_in, Icons.Rounded.Payments, DashboardDestination.PAYMENT_IN, Tone.RECEIVED),
-    ActionSpec(R.string.action_add_item, Icons.Rounded.Inventory2, DashboardDestination.ADD_ITEM, Tone.PRIMARY),
-    ActionSpec(R.string.action_purchase, Icons.Rounded.AddShoppingCart, DashboardDestination.PURCHASE, Tone.DUE),
-    ActionSpec(R.string.action_expense, Icons.Rounded.ShoppingBag, DashboardDestination.EXPENSE, Tone.ERROR),
-    ActionSpec(R.string.action_estimate, Icons.Rounded.EditNote, DashboardDestination.ESTIMATE, Tone.DUE),
-    ActionSpec(R.string.action_reports, Icons.Rounded.BarChart, DashboardDestination.REPORTS, Tone.RECEIVED),
+    ActionSpec(R.string.action_new_sale, AppIcons.Receipt, DashboardDestination.NEW_SALE, Tone.PRIMARY),
+    ActionSpec(R.string.action_counter, AppIcons.CashRegister, DashboardDestination.COUNTER, Tone.PRIMARY),
+    ActionSpec(R.string.action_payment_in, AppIcons.HandCoins, DashboardDestination.PAYMENT_IN, Tone.RECEIVED),
+    ActionSpec(R.string.action_add_item, AppIcons.Package, DashboardDestination.ADD_ITEM, Tone.PRIMARY),
+    ActionSpec(R.string.action_purchase, AppIcons.ShoppingCart, DashboardDestination.PURCHASE, Tone.DUE),
+    ActionSpec(R.string.action_expense, AppIcons.Wallet, DashboardDestination.EXPENSE, Tone.ERROR),
+    ActionSpec(R.string.action_estimate, AppIcons.NotePencil, DashboardDestination.ESTIMATE, Tone.DUE),
+    ActionSpec(R.string.action_reports, AppIcons.ChartBar, DashboardDestination.REPORTS, Tone.RECEIVED),
 )
 
 @Composable
@@ -432,7 +451,7 @@ private fun LowStockBanner(count: Int, onClick: () -> Unit) {
         color = ext.dueContainer,
     ) {
         Row(Modifier.fillMaxWidth().padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = ext.due)
+            Icon(AppIcons.Warning, contentDescription = null, tint = ext.due)
             Spacer(Modifier.width(Spacing.md))
             Column {
                 Text(
@@ -457,11 +476,11 @@ private fun TransactionRow(txn: RecentTransaction, onClick: () -> Unit) {
     val ext = BillingTheme.extendedColors
     val scheme = MaterialTheme.colorScheme
     val (icon, tint, container, typeLabel) = when (txn.type) {
-        TransactionType.SALE -> Quad(Icons.AutoMirrored.Rounded.ReceiptLong, scheme.primary, scheme.primaryContainer, R.string.txn_sale)
-        TransactionType.PURCHASE -> Quad(Icons.Rounded.AddShoppingCart, ext.due, ext.dueContainer, R.string.txn_purchase)
-        TransactionType.PAYMENT_IN -> Quad(Icons.AutoMirrored.Rounded.CallReceived, ext.received, ext.receivedContainer, R.string.txn_payment_in)
-        TransactionType.PAYMENT_OUT -> Quad(Icons.AutoMirrored.Rounded.CallMade, scheme.error, scheme.errorContainer, R.string.txn_payment_out)
-        TransactionType.EXPENSE -> Quad(Icons.Rounded.ShoppingBag, scheme.error, scheme.errorContainer, R.string.txn_expense)
+        TransactionType.SALE -> Quad(AppIcons.Receipt, scheme.primary, scheme.primaryContainer, R.string.txn_sale)
+        TransactionType.PURCHASE -> Quad(AppIcons.ShoppingCart, ext.due, ext.dueContainer, R.string.txn_purchase)
+        TransactionType.PAYMENT_IN -> Quad(AppIcons.HandCoins, ext.received, ext.receivedContainer, R.string.txn_payment_in)
+        TransactionType.PAYMENT_OUT -> Quad(AppIcons.ArrowUpRight, scheme.error, scheme.errorContainer, R.string.txn_payment_out)
+        TransactionType.EXPENSE -> Quad(AppIcons.Wallet, scheme.error, scheme.errorContainer, R.string.txn_expense)
     }
     Row(
         modifier = Modifier
@@ -522,7 +541,7 @@ private fun BackupStatus(daysAgo: Int?, onBackup: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (ok) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff,
+            imageVector = if (ok) AppIcons.CloudCheck else AppIcons.CloudSlash,
             contentDescription = null,
             tint = if (ok) ext.received else ext.due,
             modifier = Modifier.size(20.dp),

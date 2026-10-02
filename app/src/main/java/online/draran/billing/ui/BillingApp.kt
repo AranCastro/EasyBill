@@ -8,14 +8,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Construction
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -42,19 +34,27 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import online.draran.billing.R
 import online.draran.billing.core.designsystem.component.EmptyState
+import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.feature.dashboard.DashboardDestination
 import online.draran.billing.feature.dashboard.DashboardRoute
+import online.draran.billing.feature.settings.MoreScreen
+import online.draran.billing.feature.settings.SettingsRoute as SettingsScreenRoute
 import online.draran.billing.navigation.HomeRoute
 import online.draran.billing.navigation.ItemsRoute
 import online.draran.billing.navigation.MoreRoute
 import online.draran.billing.navigation.PartiesRoute
 import online.draran.billing.navigation.PlaceholderRoute
 import online.draran.billing.navigation.SalesRoute
+import online.draran.billing.navigation.SettingsRoute
 import online.draran.billing.navigation.TopLevelDestination
 
 /** Root composable: bottom navigation, "New Sale" button and the nav graph. */
 @Composable
-fun BillingApp() {
+fun BillingApp(
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit,
+    versionName: String,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -90,7 +90,7 @@ fun BillingApp() {
             ) {
                 ExtendedFloatingActionButton(
                     onClick = { navController.navigate(PlaceholderRoute(newSaleTitle, "Phase 1")) },
-                    icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                    icon = { Icon(AppIcons.Plus, contentDescription = null) },
                     text = { Text(newSaleTitle) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -106,22 +106,31 @@ fun BillingApp() {
             composable<HomeRoute> {
                 DashboardRoute(
                     contentPadding = innerPadding,
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
                     onNavigate = { destination ->
-                        navController.navigate(PlaceholderRoute(destination.title(), destination.phase()))
+                        if (destination == DashboardDestination.SETTINGS) {
+                            navController.navigate(SettingsRoute)
+                        } else {
+                            navController.navigate(PlaceholderRoute(destination.title(), destination.phase()))
+                        }
                     },
                 )
             }
             composable<SalesRoute> {
-                TabPlaceholder(innerPadding, Icons.AutoMirrored.Rounded.ReceiptLong, R.string.nav_sales, R.string.sales_empty)
+                TabPlaceholder(innerPadding, AppIcons.Receipt, R.string.nav_sales, R.string.sales_empty)
             }
             composable<ItemsRoute> {
-                TabPlaceholder(innerPadding, Icons.Rounded.Inventory2, R.string.nav_items, R.string.items_empty)
+                TabPlaceholder(innerPadding, AppIcons.Package, R.string.nav_items, R.string.items_empty)
             }
             composable<PartiesRoute> {
-                TabPlaceholder(innerPadding, Icons.Rounded.People, R.string.nav_parties, R.string.parties_empty)
+                TabPlaceholder(innerPadding, AppIcons.Parties, R.string.nav_parties, R.string.parties_empty)
             }
             composable<MoreRoute> {
-                TabPlaceholder(innerPadding, Icons.Rounded.GridView, R.string.nav_more, R.string.more_empty)
+                MoreScreen(onOpenSettings = { navController.navigate(SettingsRoute) }, contentPadding = innerPadding)
+            }
+            composable<SettingsRoute> {
+                SettingsScreenRoute(versionName = versionName, onBack = { navController.popBackStack() })
             }
             composable<PlaceholderRoute> { entry ->
                 val route = entry.toRoute<PlaceholderRoute>()
@@ -158,14 +167,14 @@ private fun PlaceholderScreen(title: String, phase: String, onBack: () -> Unit) 
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                        Icon(AppIcons.ArrowLeft, contentDescription = stringResource(R.string.back))
                     }
                 },
             )
         },
     ) { padding ->
         EmptyState(
-            icon = Icons.Rounded.Construction,
+            icon = AppIcons.Hammer,
             title = stringResource(R.string.coming_soon_title, phase),
             message = stringResource(R.string.new_sale_empty).takeIf { title == stringResource(R.string.new_sale) }
                 ?: "This screen is part of the build plan and is not implemented yet.",

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_dynamic_color">Wallpaper colours</string>
+    <string name="settings_dynamic_color_summary">Use colours from your wallpaper instead of the app\'s indigo theme</string>
+    <string name="settings_dynamic_color_unsupported">Needs Android 12 or newer</string>
+    <string name="settings_business">Business</string>
+    <string name="settings_business_profile">Business profile</string>
+    <string name="settings_business_profile_summary">Name, logo, address, GSTIN, UPI ID</string>
+    <string name="settings_invoice">Invoice settings</string>
+    <string name="settings_invoice_summary">Prefix, numbering, GST on/off, terms</string>
+    <string name="settings_printer">Printer</string>
+    <string name="settings_printer_summary">Bluetooth thermal printer, paper size</string>
+    <string name="settings_data">Data and security</string>
+    <string name="settings_backup">Backup and restore</string>
+    <string name="settings_backup_summary">Daily auto-backup, export to Google Drive</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_summary">PIN or fingerprint</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_about_summary">Offline billing for Indian businesses</string>
+    <string name="more_title">More</string>
+    <string name="more_transactions">Transactions</string>
+    <string name="more_purchases">Purchases</string>
+    <string name="more_purchases_summary">Purchase bills and payments out</string>
+    <string name="more_expenses">Expenses</string>
+    <string name="more_expenses_summary">Rent, salary, electricity and more</string>
+    <string name="more_estimates">Estimates</string>
+    <string name="more_estimates_summary">Quotations you can convert to a sale</string>
+    <string name="more_insights">Insights</string>
+    <string name="more_reports">Reports</string>
+    <string name="more_reports_summary">Sales, profit, stock and GST reports</string>
+    <string name="more_app">App</string>
+    <string name="more_settings_summary">Theme, business, printer, backup</string>
+</resources>

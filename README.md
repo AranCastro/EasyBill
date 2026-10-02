@@ -5,11 +5,15 @@ shops in India. Kotlin + Jetpack Compose + Material 3. Zero running cost: all
 data stays on the phone.
 
 - Project plan: [docs/easybill_project-plan_v2.md](docs/easybill_project-plan_v2.md)
-- Status: **Phase 0 complete** (project skeleton, design system, dashboard, CI)
+- Status: **v0.2.0** — Phase 0 complete, plus Light/Dark/System theme setting and Phosphor duotone icons
 
-| Light | Dark | Empty state |
+| Dashboard (light) | Dashboard (dark) | Empty state |
 |---|---|---|
 | ![Dashboard light](docs/screenshots/dashboard_light.png) | ![Dashboard dark](docs/screenshots/dashboard_dark.png) | ![Dashboard empty](docs/screenshots/dashboard_empty.png) |
+
+| Settings (light) | Settings (dark) | More tab |
+|---|---|---|
+| ![Settings light](docs/screenshots/settings_light.png) | ![Settings dark](docs/screenshots/settings_dark.png) | ![More](docs/screenshots/more_light.png) |
 
 ## Build
 
@@ -20,7 +24,10 @@ Requirements: Android Studio (latest stable) or JDK 21 + Android SDK (platform 3
 ./gradlew testDebugUnitTest :core:common:test   # unit + screenshot tests
 ```
 
-Screenshot tests write PNGs to `feature/dashboard/build/outputs/roborazzi/`.
+Screenshot tests write PNGs to `feature/*/build/outputs/roborazzi/`.
+
+Icons are generated from Phosphor SVGs: `python3 tools/generate_icons.py <phosphor>/assets`
+(see the script header).
 
 ## Modules
 
@@ -29,9 +36,20 @@ Screenshot tests write PNGs to `feature/dashboard/build/outputs/roborazzi/`.
 | `app` | Activity, navigation, bottom bar |
 | `core:model` | Plain Kotlin models (`Money` in paise, transactions) |
 | `core:common` | Indian currency formatting, amount in words |
-| `core:designsystem` | Theme, colours, Inter font, reusable components |
+| `core:designsystem` | Theme, colours, Inter font, Phosphor icons, reusable components |
+| `core:datastore` | Saved settings (theme, wallpaper colours) via Jetpack DataStore |
 | `feature:dashboard` | Home dashboard |
+| `feature:settings` | Settings screen and the More tab |
 
 ## Licences
 
-Inter font: SIL Open Font License 1.1 (`core/designsystem/FONT_LICENSE_Inter.txt`).
+- Inter font: SIL Open Font License 1.1 (`core/designsystem/FONT_LICENSE_Inter.txt`)
+- Phosphor Icons: MIT (`core/designsystem/ICONS_LICENSE_Phosphor.txt`)
+
+## Changelog
+
+- **0.2.0** — Theme setting (Light default, Dark, System) saved on device, with a
+  sun/moon toggle on the dashboard and a Settings screen with live previews;
+  optional wallpaper colours (Android 12+); status bar follows the app theme;
+  Phosphor duotone icon set replaces Material icons; More tab.
+- **0.1.0** — Phase 0: project skeleton, design system, dashboard, CI.

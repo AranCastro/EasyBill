@@ -9,8 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalContext
-
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+import online.draran.billing.core.model.ThemeMode
 
 /**
  * App theme. Brand colours are the default so invoices and screenshots look
@@ -18,15 +17,11 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
  */
 @Composable
 fun BillingTheme(
-    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    themeMode: ThemeMode = ThemeMode.LIGHT,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
+    val dark = themeMode.isDark()
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -52,4 +47,12 @@ object BillingTheme {
     val extendedColors: ExtendedColors
         @Composable @ReadOnlyComposable
         get() = LocalExtendedColors.current
+}
+
+/** Resolves the theme mode against the system setting. */
+@Composable
+fun ThemeMode.isDark(): Boolean = when (this) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
 }

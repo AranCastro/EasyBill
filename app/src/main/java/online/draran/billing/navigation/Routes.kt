@@ -1,20 +1,10 @@
 package online.draran.billing.navigation
 
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.People
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 import online.draran.billing.R
+import online.draran.billing.core.designsystem.icon.AppIcons
 import kotlin.reflect.KClass
 
 // Type-safe navigation routes.
@@ -23,11 +13,12 @@ import kotlin.reflect.KClass
 @Serializable data object ItemsRoute
 @Serializable data object PartiesRoute
 @Serializable data object MoreRoute
+@Serializable data object SettingsRoute
 
 /** Full-screen destinations opened from tabs. Placeholders until their phase is built. */
 @Serializable data class PlaceholderRoute(val title: String, val phase: String)
 
-/** Bottom navigation tabs. */
+/** Bottom navigation tabs: outline icon when unselected, filled when selected. */
 enum class TopLevelDestination(
     val route: Any,
     val routeClass: KClass<*>,
@@ -35,9 +26,9 @@ enum class TopLevelDestination(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
-    HOME(HomeRoute, HomeRoute::class, R.string.nav_home, Icons.Rounded.Home, Icons.Outlined.Home),
-    SALES(SalesRoute, SalesRoute::class, R.string.nav_sales, Icons.AutoMirrored.Rounded.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong),
-    ITEMS(ItemsRoute, ItemsRoute::class, R.string.nav_items, Icons.Rounded.Inventory2, Icons.Outlined.Inventory2),
-    PARTIES(PartiesRoute, PartiesRoute::class, R.string.nav_parties, Icons.Rounded.People, Icons.Outlined.People),
-    MORE(MoreRoute, MoreRoute::class, R.string.nav_more, Icons.Rounded.GridView, Icons.Outlined.GridView),
+    HOME(HomeRoute, HomeRoute::class, R.string.nav_home, AppIcons.HomeFilled, AppIcons.Home),
+    SALES(SalesRoute, SalesRoute::class, R.string.nav_sales, AppIcons.SalesFilled, AppIcons.Sales),
+    ITEMS(ItemsRoute, ItemsRoute::class, R.string.nav_items, AppIcons.ItemsFilled, AppIcons.Items),
+    PARTIES(PartiesRoute, PartiesRoute::class, R.string.nav_parties, AppIcons.PartiesFilled, AppIcons.Parties),
+    MORE(MoreRoute, MoreRoute::class, R.string.nav_more, AppIcons.MoreFilled, AppIcons.More),
 }

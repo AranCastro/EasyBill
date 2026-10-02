@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Receipt with a zig-zag tear edge and a lightning stroke for "fast billing". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Receipt body -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,32 Q38,29 41,29 L67,29 Q70,29 70,32 L70,77 L66,74 L62,77 L58,74 L54,77 L50,74 L46,77 L42,74 L38,77 Z" />
+    <!-- Text lines -->
+    <path
+        android:fillColor="#FFC7D2FE"
+        android:pathData="M44,38h20v3h-20z M44,45h14v3h-14z M44,52h17v3h-17z" />
+    <!-- Lightning bolt -->
+    <path
+        android:fillColor="#FFF59E0B"
+        android:pathData="M60,55 L54,66 L58.5,66 L56,74 L64,62 L59.5,62 L62,55 Z" />
+</vector>

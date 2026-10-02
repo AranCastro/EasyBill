@@ -30,7 +30,7 @@ class SettingsScreenshotTest {
                 Box(Modifier.height(1000.dp)) {
                     SettingsScreen(
                         preferences = UserPreferences(themeMode = mode),
-                        versionName = "0.2.0",
+                        versionName = "0.3.0",
                         dynamicColorSupported = true,
                         onThemeModeChange = {},
                         onDynamicColorChange = {},

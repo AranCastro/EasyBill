@@ -1,11 +1,13 @@
-# EasyBill (working name; app display name: Kounter)
+# Modern Kallaa Petti (MKP)
+
+*கல்லாப்பெட்டி — the shop cash box, made digital.* Repository codename: EasyBill.
 
 Offline-first billing and inventory app for Android, for GST and non-GST
 shops in India. Kotlin + Jetpack Compose + Material 3. Zero running cost: all
 data stays on the phone.
 
 - Project plan: [docs/easybill_project-plan_v2.md](docs/easybill_project-plan_v2.md)
-- Status: **v0.2.0** — Phase 0 complete, plus Light/Dark/System theme setting and Phosphor duotone icons
+- Status: **v0.3.0** — Phase 0 complete, theme setting, Phosphor duotone icons, final brand name
 
 | Dashboard (light) | Dashboard (dark) | Empty state |
 |---|---|---|
@@ -48,6 +50,7 @@ Icons are generated from Phosphor SVGs: `python3 tools/generate_icons.py <phosph
 
 ## Changelog
 
+- **0.3.0** — App renamed to **Modern Kallaa Petti**; home-screen label "Kallaa Petti".
 - **0.2.0** — Theme setting (Light default, Dark, System) saved on device, with a
   sun/moon toggle on the dashboard and a Settings screen with live previews;
   optional wallpaper colours (Android 12+); status bar follows the app theme;

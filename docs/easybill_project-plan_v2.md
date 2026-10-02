@@ -380,7 +380,18 @@ Because there is no server, data protection is a priority.
 
 ## 17. Brand
 
-### Name
+### Name — chosen: **Modern Kallaa Petti (MKP)** (2 October 2026)
+
+*Kallaa petti* (கல்லாப்பெட்டி) is the cash box at a Tamil shop counter; "Modern"
+marks it as the digital version. The full name is used in App info, Settings and
+the store listing; the home-screen label is "Kallaa Petti" because launchers cut
+labels at about 12 characters. The spelling "Kallaa" (long ā, as in கல்லா) keeps
+it apart from existing "Kalla" brands. No app named Kallaa Petti was found in a
+web search on 2 October 2026; an IP India trademark search is still required
+before the public release.
+
+Earlier shortlist (for the record):
+
 "EasyBill" is already used by at least four apps on the Play Store, including an
 Indian GST billing app, so it is kept only as the repository name.
 

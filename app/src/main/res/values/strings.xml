@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Display name: change here only. The applicationId stays fixed. -->
-    <string name="app_name">Kounter</string>
+    <!-- Brand name: change here only. The applicationId stays fixed. -->
+    <string name="app_name">Modern Kallaa Petti</string>
+    <!-- Shown under the home-screen icon, which fits about 12 characters -->
+    <string name="launcher_name">Kallaa Petti</string>
     <string name="nav_home">Home</string>
     <string name="nav_sales">Sales</string>
     <string name="nav_items">Items</string>

@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon silhouette (Android 13+): lid, notes, box and coin. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FF000000"
-        android:fillType="evenOdd"
-        android:pathData="M38,32 Q38,29 41,29 L67,29 Q70,29 70,32 L70,77 L66,74 L62,77 L58,74 L54,77 L50,74 L46,77 L42,74 L38,77 Z M44,38v3h20v-3z M44,45v3h14v-3z M44,52v3h17v-3z" />
+    <path android:fillColor="#FF000000" android:pathData="M31,54 L77,54 L74,31 L34,31 Z" />
+    <group android:rotation="-14" android:pivotX="51" android:pivotY="56">
+        <path android:fillColor="#FF000000" android:pathData="M41.5,33 H60.5 A1.5,1.5 0 0 1 62,34.5 V55.5 A1.5,1.5 0 0 1 60.5,57 H41.5 A1.5,1.5 0 0 1 40,55.5 V34.5 A1.5,1.5 0 0 1 41.5,33 Z" />
+    </group>
+    <group android:rotation="12" android:pivotX="59" android:pivotY="56">
+        <path android:fillColor="#FF000000" android:pathData="M49.5,35 H68.5 A1.5,1.5 0 0 1 70,36.5 V55.5 A1.5,1.5 0 0 1 68.5,57 H49.5 A1.5,1.5 0 0 1 48,55.5 V36.5 A1.5,1.5 0 0 1 49.5,35 Z" />
+    </group>
+    <path android:fillColor="#FF000000" android:pathData="M32,51 H76 A2,2 0 0 1 78,53 V54 A2,2 0 0 1 76,56 H32 A2,2 0 0 1 30,54 V53 A2,2 0 0 1 32,51 Z M36,55 H72 A4,4 0 0 1 76,59 V73 A4,4 0 0 1 72,77 H36 A4,4 0 0 1 32,73 V59 A4,4 0 0 1 36,55 Z" />
+    <path android:fillColor="#FF000000" android:pathData="M63,72 A7,7 0 1 1 77,72 A7,7 0 1 1 63,72 Z" />
 </vector>

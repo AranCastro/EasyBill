@@ -7,7 +7,9 @@ shops in India. Kotlin + Jetpack Compose + Material 3. Zero running cost: all
 data stays on the phone.
 
 - Project plan: [docs/easybill_project-plan_v2.md](docs/easybill_project-plan_v2.md)
-- Status: **v0.3.0** — Phase 0 complete, theme setting, Phosphor duotone icons, final brand name
+- Status: **v0.3.1** — Phase 0 complete, theme setting, Phosphor duotone icons, final brand name
+
+<img src="docs/screenshots/launcher_icon.png" alt="Launcher icon" width="360">
 
 | Dashboard (light) | Dashboard (dark) | Empty state |
 |---|---|---|
@@ -50,6 +52,7 @@ Icons are generated from Phosphor SVGs: `python3 tools/generate_icons.py <phosph
 
 ## Changelog
 
+- **0.3.1** — New launcher icon: wooden kallaa petti with rupee notes and a gold ₹ coin; indigo splash icon background.
 - **0.3.0** — App renamed to **Modern Kallaa Petti**; home-screen label "Kallaa Petti".
 - **0.2.0** — Theme setting (Light default, Dark, System) saved on device, with a
   sun/moon toggle on the dashboard and a Settings screen with live previews;

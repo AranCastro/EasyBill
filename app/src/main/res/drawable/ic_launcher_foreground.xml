@@ -1,20 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Receipt with a zig-zag tear edge and a lightning stroke for "fast billing". -->
+<!--
+  Launcher foreground: a traditional wooden kallaa petti (shop cash box) with the
+  lid open, rupee notes rising out, a brass keyhole plate and a gold rupee coin.
+  Content stays inside the 66 dp adaptive-icon safe zone (centre 54,54).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Receipt body -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M38,32 Q38,29 41,29 L67,29 Q70,29 70,32 L70,77 L66,74 L62,77 L58,74 L54,77 L50,74 L46,77 L42,74 L38,77 Z" />
-    <!-- Text lines -->
-    <path
-        android:fillColor="#FFC7D2FE"
-        android:pathData="M44,38h20v3h-20z M44,45h14v3h-14z M44,52h17v3h-17z" />
-    <!-- Lightning bolt -->
-    <path
-        android:fillColor="#FFF59E0B"
-        android:pathData="M60,55 L54,66 L58.5,66 L56,74 L64,62 L59.5,62 L62,55 Z" />
+    <!-- Soft shadow -->
+    <path android:fillColor="#33000000" android:pathData="M34,79.5 A20,2.6 0 1 1 74,79.5 A20,2.6 0 1 1 34,79.5 Z" />
+    <!-- Open lid (inside face) -->
+    <path android:fillColor="#FF7C2D12" android:pathData="M31,54 L77,54 L74,31 L34,31 Z" />
+    <path android:fillColor="#FF9A3412" android:pathData="M34.5,52 L73.5,52 L71,34 L37,34 Z" />
+    <!-- Rupee notes -->
+    <group android:rotation="-14" android:pivotX="51" android:pivotY="56">
+        <path android:fillColor="#FF15803D" android:pathData="M41.5,33 H60.5 A1.5,1.5 0 0 1 62,34.5 V55.5 A1.5,1.5 0 0 1 60.5,57 H41.5 A1.5,1.5 0 0 1 40,55.5 V34.5 A1.5,1.5 0 0 1 41.5,33 Z" />
+        <path android:fillColor="#FF22C55E" android:pathData="M43,35 H59 A1,1 0 0 1 60,36 V54 A1,1 0 0 1 59,55 H43 A1,1 0 0 1 42,54 V36 A1,1 0 0 1 43,35 Z" />
+        <path android:fillColor="#FFBBF7D0" android:pathData="M47,43 A4,4 0 1 1 55,43 A4,4 0 1 1 47,43 Z" />
+    </group>
+    <group android:rotation="12" android:pivotX="59" android:pivotY="56">
+        <path android:fillColor="#FFDB2777" android:pathData="M49.5,35 H68.5 A1.5,1.5 0 0 1 70,36.5 V55.5 A1.5,1.5 0 0 1 68.5,57 H49.5 A1.5,1.5 0 0 1 48,55.5 V36.5 A1.5,1.5 0 0 1 49.5,35 Z" />
+        <path android:fillColor="#FFF472B6" android:pathData="M51,37 H67 A1,1 0 0 1 68,38 V54 A1,1 0 0 1 67,55 H51 A1,1 0 0 1 50,54 V38 A1,1 0 0 1 51,37 Z" />
+        <path android:fillColor="#FFFCE7F3" android:pathData="M55,45 A4,4 0 1 1 63,45 A4,4 0 1 1 55,45 Z" />
+    </group>
+    <!-- Front lip and wooden body -->
+    <path android:fillColor="#FF78350F" android:pathData="M32,51 H76 A2,2 0 0 1 78,53 V54 A2,2 0 0 1 76,56 H32 A2,2 0 0 1 30,54 V53 A2,2 0 0 1 32,51 Z" />
+    <path android:pathData="M36,55 H72 A4,4 0 0 1 76,59 V73 A4,4 0 0 1 72,77 H36 A4,4 0 0 1 32,73 V59 A4,4 0 0 1 36,55 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54" android:startY="55"
+                android:endX="54" android:endY="77"
+                android:startColor="#FFD97706"
+                android:endColor="#FF9A3412" />
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#26000000" android:pathData="M32.4,65.6 H75.6 A0.4,0.4 0 0 1 76,66.0 V66.0 A0.4,0.4 0 0 1 75.6,66.4 H32.4 A0.4,0.4 0 0 1 32,66.0 V66.0 A0.4,0.4 0 0 1 32.4,65.6 Z" />
+    <!-- Brass keyhole plate -->
+    <path android:fillColor="#FFFCD34D" android:pathData="M51,59 H57 A2,2 0 0 1 59,61 V69 A2,2 0 0 1 57,71 H51 A2,2 0 0 1 49,69 V61 A2,2 0 0 1 51,59 Z" />
+    <path android:fillColor="#FF78350F" android:pathData="M52.3,63.4 A1.7,1.7 0 1 1 55.7,63.4 A1.7,1.7 0 1 1 52.3,63.4 Z M53.9,63.8 H54.1 A0.6,0.6 0 0 1 54.7,64.39999999999999 V67.4 A0.6,0.6 0 0 1 54.1,68 H53.9 A0.6,0.6 0 0 1 53.3,67.4 V64.39999999999999 A0.6,0.6 0 0 1 53.9,63.8 Z" />
+    <!-- Gold coins -->
+    <path android:fillColor="#FFF59E0B" android:pathData="M31.5,74.5 A5,5 0 1 1 41.5,74.5 A5,5 0 1 1 31.5,74.5 Z" />
+    <path android:strokeColor="#FFFDE68A" android:strokeWidth="0.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M32.9,74.5 A3.6,3.6 0 1 1 40.1,74.5 A3.6,3.6 0 1 1 32.9,74.5 Z" />
+    <path android:fillColor="#FFFBBF24" android:pathData="M63,72 A7,7 0 1 1 77,72 A7,7 0 1 1 63,72 Z" />
+    <path android:strokeColor="#FFD97706" android:strokeWidth="0.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M64.6,72 A5.4,5.4 0 1 1 75.4,72 A5.4,5.4 0 1 1 64.6,72 Z" />
+    <path android:strokeColor="#FF92400E" android:strokeWidth="1.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M67.2,68.8 H72.8 M67.2,71 H72.8 M67.7,68.8 H69.4 A2.1,2.1 0 0 1 69.4,73 H67.7 L72,76.2" />
+    <!-- Sparkle -->
+    <path android:fillColor="#E6FFFFFF" android:pathData="M77,32 Q77.7,37.3 83,38 Q77.7,38.7 77,44 Q76.3,38.7 71,38 Q76.3,37.3 77,32 Z" />
 </vector>

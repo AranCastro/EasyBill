@@ -55,4 +55,7 @@
     <string name="txn_payment_in">Payment In</string>
     <string name="txn_payment_out">Payment Out</string>
     <string name="txn_expense">Expense</string>
+    <string name="txn_estimate">Estimate</string>
+    <string name="txn_sale_return">Sale return</string>
+    <string name="txn_purchase_return">Purchase return</string>
 </resources>

@@ -66,6 +66,7 @@ fun DashboardRoute(
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
     contentPadding: PaddingValues,
+    onOpenRecent: (RecentTransaction) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -75,6 +76,7 @@ fun DashboardRoute(
         isDarkTheme = isDarkTheme,
         onToggleTheme = onToggleTheme,
         contentPadding = contentPadding,
+        onOpenRecent = onOpenRecent,
     )
 }
 
@@ -87,6 +89,7 @@ fun DashboardScreen(
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(),
+    onOpenRecent: (RecentTransaction) -> Unit = {},
 ) {
     val ext = BillingTheme.extendedColors
     // Surface sets the content colour so text and icons follow light/dark theme
@@ -188,7 +191,7 @@ fun DashboardScreen(
                     SurfaceCard {
                         Column {
                             state.recent.forEachIndexed { index, txn ->
-                                TransactionRow(txn, onClick = { onNavigate(DashboardDestination.ALL_TRANSACTIONS) })
+                                TransactionRow(txn, onClick = { onOpenRecent(txn) })
                                 if (index < state.recent.lastIndex) {
                                     HorizontalDivider(
                                         modifier = Modifier.padding(start = 68.dp),
@@ -481,6 +484,9 @@ private fun TransactionRow(txn: RecentTransaction, onClick: () -> Unit) {
         TransactionType.PAYMENT_IN -> Quad(AppIcons.HandCoins, ext.received, ext.receivedContainer, R.string.txn_payment_in)
         TransactionType.PAYMENT_OUT -> Quad(AppIcons.ArrowUpRight, scheme.error, scheme.errorContainer, R.string.txn_payment_out)
         TransactionType.EXPENSE -> Quad(AppIcons.Wallet, scheme.error, scheme.errorContainer, R.string.txn_expense)
+        TransactionType.ESTIMATE -> Quad(AppIcons.NotePencil, ext.due, ext.dueContainer, R.string.txn_estimate)
+        TransactionType.SALE_RETURN -> Quad(AppIcons.Return, scheme.error, scheme.errorContainer, R.string.txn_sale_return)
+        TransactionType.PURCHASE_RETURN -> Quad(AppIcons.Return, ext.due, ext.dueContainer, R.string.txn_purchase_return)
     }
     Row(
         modifier = Modifier

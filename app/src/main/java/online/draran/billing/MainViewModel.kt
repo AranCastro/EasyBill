@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import online.draran.billing.core.data.BackupManager
+import online.draran.billing.core.data.BusinessRepository
 import online.draran.billing.core.datastore.UserPreferencesRepository
 import online.draran.billing.core.model.ThemeMode
 import online.draran.billing.core.model.UserPreferences
@@ -15,19 +17,28 @@ import javax.inject.Inject
 
 sealed interface MainUiState {
     data object Loading : MainUiState
-    data class Ready(val preferences: UserPreferences) : MainUiState
+    data class Ready(val preferences: UserPreferences, val onboarded: Boolean) : MainUiState
 }
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val repository: UserPreferencesRepository,
+    private val preferencesRepository: UserPreferencesRepository,
+    businessRepository: BusinessRepository,
+    backupManager: BackupManager,
 ) : ViewModel() {
 
-    val uiState: StateFlow<MainUiState> = repository.preferences
-        .map<UserPreferences, MainUiState> { MainUiState.Ready(it) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, MainUiState.Loading)
+    val uiState: StateFlow<MainUiState> = combine(preferencesRepository.preferences, businessRepository.business) { prefs, business ->
+        MainUiState.Ready(prefs, business.onboarded)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, MainUiState.Loading)
+
+    init {
+        // Daily safety copy in app storage; cheap when not due
+        viewModelScope.launch {
+            if (businessRepository.get().onboarded) runCatching { backupManager.autoBackupIfDue() }
+        }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
-        viewModelScope.launch { repository.setThemeMode(mode) }
+        viewModelScope.launch { preferencesRepository.setThemeMode(mode) }
     }
 }

@@ -55,14 +55,19 @@ class BackupManager @Inject constructor(
     fun autoBackups(): List<File> = autoDir.listFiles { f -> f.name.endsWith(".zip") }?.sortedByDescending { it.lastModified() }.orEmpty()
 
     /** Writes a daily copy when the last backup is older than 24 hours. Returns true if one was made. */
-    suspend fun autoBackupIfDue(now: Long = System.currentTimeMillis()): Boolean = withContext(Dispatchers.IO) {
+    suspend fun autoBackupIfDue(now: Long = System.currentTimeMillis()): Boolean {
         val last = autoBackups().firstOrNull()?.lastModified() ?: 0L
-        if (now - last < DAY_MS) return@withContext false
-        val file = File(autoDir, suggestedFileName())
+        if (now - last < DAY_MS) return false
+        saveCopy()
+        return true
+    }
+
+    /** Saves a copy in app storage now, keeping the newest [KEEP]. */
+    suspend fun saveCopy() = withContext(Dispatchers.IO) {
+        val file = File(autoDir, suggestedFileName().replace(".zip", "-" + System.currentTimeMillis() % 100_000 + ".zip"))
         file.outputStream().use { write(it) }
         autoBackups().drop(KEEP).forEach { it.delete() }
-        markBackedUp(now)
-        true
+        markBackedUp()
     }
 
     private fun markBackedUp(now: Long = System.currentTimeMillis()) {

@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.draran.billing.core.designsystem.component.ListRow
-import online.draran.billing.core.designsystem.component.StatusPill
 import online.draran.billing.core.designsystem.component.SurfaceCard
 import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.designsystem.theme.BillingTheme
@@ -59,6 +58,10 @@ import online.draran.billing.core.model.UserPreferences
 fun SettingsRoute(
     versionName: String,
     onBack: () -> Unit,
+    onBusinessProfile: () -> Unit = {},
+    onInvoiceSettings: () -> Unit = {},
+    onPrinter: () -> Unit = {},
+    onBackup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
@@ -69,6 +72,10 @@ fun SettingsRoute(
         onThemeModeChange = viewModel::setThemeMode,
         onDynamicColorChange = viewModel::setDynamicColor,
         onBack = onBack,
+        onBusinessProfile = onBusinessProfile,
+        onInvoiceSettings = onInvoiceSettings,
+        onPrinter = onPrinter,
+        onBackup = onBackup,
     )
 }
 
@@ -81,6 +88,10 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
     onBack: () -> Unit,
+    onBusinessProfile: () -> Unit = {},
+    onInvoiceSettings: () -> Unit = {},
+    onPrinter: () -> Unit = {},
+    onBackup: () -> Unit = {},
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -143,9 +154,9 @@ fun SettingsScreen(
                 val ext = BillingTheme.extendedColors
                 SettingsGroup(
                     listOf(
-                        SettingEntry(AppIcons.Storefront, R.string.settings_business_profile, R.string.settings_business_profile_summary, "Phase 1"),
-                        SettingEntry(AppIcons.Receipt, R.string.settings_invoice, R.string.settings_invoice_summary, "Phase 1"),
-                        SettingEntry(AppIcons.Printer, R.string.settings_printer, R.string.settings_printer_summary, "Phase 1", ext.due, ext.dueContainer),
+                        SettingEntry(AppIcons.Storefront, R.string.settings_business_profile, R.string.settings_business_profile_summary, onBusinessProfile),
+                        SettingEntry(AppIcons.Receipt, R.string.settings_invoice, R.string.settings_invoice_summary, onInvoiceSettings),
+                        SettingEntry(AppIcons.Printer, R.string.settings_printer, R.string.settings_printer_summary, onPrinter, ext.due, ext.dueContainer),
                     ),
                 )
             }
@@ -155,8 +166,7 @@ fun SettingsScreen(
                 val ext = BillingTheme.extendedColors
                 SettingsGroup(
                     listOf(
-                        SettingEntry(AppIcons.Database, R.string.settings_backup, R.string.settings_backup_summary, "Phase 1", ext.received, ext.receivedContainer),
-                        SettingEntry(AppIcons.ShieldCheck, R.string.settings_app_lock, R.string.settings_app_lock_summary, "Phase 4", ext.received, ext.receivedContainer),
+                        SettingEntry(AppIcons.Database, R.string.settings_backup, R.string.settings_backup_summary, onBackup, ext.received, ext.receivedContainer),
                     ),
                 )
             }
@@ -180,7 +190,7 @@ private data class SettingEntry(
     val icon: ImageVector,
     val title: Int,
     val summary: Int,
-    val phase: String,
+    val onClick: () -> Unit,
     val tint: Color? = null,
     val container: Color? = null,
 )
@@ -196,8 +206,7 @@ private fun SettingsGroup(rows: List<SettingEntry>) {
                     icon = row.icon,
                     tint = row.tint ?: MaterialTheme.colorScheme.primary,
                     container = row.container ?: MaterialTheme.colorScheme.primaryContainer,
-                    enabled = false,
-                    trailing = { StatusPill(row.phase) },
+                    onClick = row.onClick,
                 )
                 if (index < rows.lastIndex) {
                     HorizontalDivider(

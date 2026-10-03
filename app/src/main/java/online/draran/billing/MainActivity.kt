@@ -34,13 +34,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
-            val preferences = (state as? MainUiState.Ready)?.preferences ?: UserPreferences()
+            val ready = state as? MainUiState.Ready
+            val preferences = ready?.preferences ?: UserPreferences()
             val dark = preferences.themeMode.isDark()
 
             SystemBarsFollowTheme(dark)
 
             BillingTheme(themeMode = preferences.themeMode, dynamicColor = preferences.dynamicColor) {
-                BillingApp(
+                if (ready != null) BillingApp(
+                    onboarded = ready.onboarded,
                     isDarkTheme = dark,
                     onToggleTheme = { viewModel.setThemeMode(if (dark) ThemeMode.LIGHT else ThemeMode.DARK) },
                     versionName = BuildConfig.VERSION_NAME,

@@ -50,7 +50,7 @@ class SettingsScreenshotTest {
         composeRule.setContent {
             BillingTheme(themeMode = ThemeMode.LIGHT) {
                 androidx.compose.material3.Surface {
-                    Box(Modifier.height(760.dp)) { MoreScreen(onOpenSettings = {}) }
+                    Box(Modifier.height(760.dp)) { MoreScreen(onOpen = {}) }
                 }
             }
         }

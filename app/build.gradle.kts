@@ -15,8 +15,8 @@ android {
         applicationId = "online.draran.billing"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 10
+        versionName = "1.0.0"
     }
 
     buildTypes {
@@ -48,8 +48,16 @@ android {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:data"))
+    implementation(project(":core:print"))
     implementation(project(":feature:dashboard"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:onboarding"))
+    implementation(project(":feature:items"))
+    implementation(project(":feature:parties"))
+    implementation(project(":feature:billing"))
+    implementation(project(":feature:money"))
+    implementation(project(":feature:reports"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -62,6 +70,9 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)

@@ -20,7 +20,11 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            all { it.systemProperty("roborazzi.test.record", "true") }
+            all {
+                it.systemProperty("roborazzi.test.record", "true")
+                // UI here is covered by the app module journey tests
+                it.failOnNoDiscoveredTests = false
+            }
         }
     }
 }

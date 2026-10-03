@@ -5,7 +5,7 @@ import java.time.LocalDate
 /** Total sales for one calendar day, used by the weekly chart. */
 data class DaySales(val date: LocalDate, val total: Money)
 
-enum class TransactionType { SALE, PURCHASE, PAYMENT_IN, PAYMENT_OUT, EXPENSE }
+enum class TransactionType { SALE, PURCHASE, PAYMENT_IN, PAYMENT_OUT, EXPENSE, ESTIMATE, SALE_RETURN, PURCHASE_RETURN }
 
 /** A row in the "Recent activity" list on the dashboard. */
 data class RecentTransaction(

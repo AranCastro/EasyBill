@@ -35,6 +35,9 @@ class BrandingManager @Inject constructor(
     fun logo(fileName: String): Bitmap? = load(fileName)
     fun signature(fileName: String): Bitmap? = load(fileName)
 
+    /** Main colours of the logo for bill colour suggestions, most used first. */
+    fun logoColours(fileName: String): List<Int> = logo(fileName)?.let { coloursOf(it) }.orEmpty()
+
     private fun load(fileName: String): Bitmap? =
         fileName.takeIf { it.isNotBlank() }?.let { File(dir, it) }?.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
 
@@ -42,7 +45,10 @@ class BrandingManager @Inject constructor(
     suspend fun setLogo(uri: Uri) = withContext(Dispatchers.IO) {
         val bitmap = decode(uri, MAX_LOGO) ?: error("Could not read this image")
         save(LOGO, bitmap)
-        businessRepository.save(businessRepository.get().copy(logoFile = LOGO))
+        val current = businessRepository.get()
+        // First logo sets the bill colour, unless one was already chosen
+        val colour = if (current.billColor == 0) coloursOf(bitmap).firstOrNull() ?: 0 else current.billColor
+        businessRepository.save(current.copy(logoFile = LOGO, billColor = colour))
         _version.value++
     }
 
@@ -98,6 +104,14 @@ class BrandingManager @Inject constructor(
         const val SIGNATURE = "signature.png"
         private const val MAX_LOGO = 600
         private const val MAX_SIGNATURE = 900
+
+        /** Samples a 64 px thumbnail; enough for the main colours and fast on any phone. */
+        fun coloursOf(bitmap: Bitmap): List<Int> {
+            val small = scaleDown(bitmap, 64)
+            val pixels = IntArray(small.width * small.height)
+            small.getPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
+            return online.draran.billing.core.model.BillColors.fromLogo(pixels)
+        }
 
         fun scaleDown(bitmap: Bitmap, maxSize: Int): Bitmap {
             val largest = max(bitmap.width, bitmap.height)

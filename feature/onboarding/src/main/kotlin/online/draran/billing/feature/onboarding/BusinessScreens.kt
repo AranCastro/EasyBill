@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
+import online.draran.billing.core.designsystem.component.BillColourPicker
 import online.draran.billing.core.designsystem.component.BusinessTypePicker
 import online.draran.billing.core.designsystem.component.LogoBox
 import online.draran.billing.core.designsystem.component.SignatureBox
@@ -216,6 +217,23 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
                 supporting = "Used to decide CGST + SGST or IGST",
             )
             FormField(form.email, { v -> viewModel.update { it.copy(email = v) } }, "Email (optional)", keyboardType = KeyboardType.Email, capitalization = KeyboardCapitalization.None)
+        }
+    }
+    SectionCard(title = "Bill colour") {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text(
+                if (viewModel.logoColours.isEmpty()) "Colour of the bill's top bar, title, table header and total. Upload a logo to get matching colours."
+                else "Colour of the bill's top bar, title, table header and total. Colours from your logo come first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            BillColourPicker(
+                selected = form.billColor,
+                logoColours = viewModel.logoColours,
+                businessName = form.name,
+                billTitle = if (form.gstEnabled) "Tax Invoice" else form.type.billTitle,
+                onSelect = { c -> viewModel.update { it.copy(billColor = c) } },
+            )
         }
     }
     SectionCard {

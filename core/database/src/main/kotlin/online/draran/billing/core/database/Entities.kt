@@ -50,6 +50,8 @@ data class BusinessEntity(
     @ColumnInfo(defaultValue = "''") val udyamNumber: String = "",
     @ColumnInfo(defaultValue = "''") val msmeCategory: String = "",
     @ColumnInfo(defaultValue = "1") val printMsmeNote: Boolean = true,
+    // Added in version 4
+    @ColumnInfo(defaultValue = "0") val billColor: Int = 0,
 )
 
 @Entity(tableName = "party", indices = [Index("name")])

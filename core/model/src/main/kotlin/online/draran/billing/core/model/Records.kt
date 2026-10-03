@@ -36,7 +36,12 @@ data class Business(
     val udyamNumber: String = "",
     val msmeCategory: MsmeCategory? = null,
     val printMsmeNote: Boolean = true,
+    /** Bill accent colour (ARGB); 0 = app default. */
+    val billColor: Int = 0,
 ) {
+    /** Accent colour actually printed, darkened if needed so white text on it is readable. */
+    fun accent(): Int = BillColors.accentOf(billColor)
+
     fun prefix(type: DocType) = prefixes[type] ?: type.defaultPrefix
 
     /** Sale bill title as printed: GST bills must say Tax Invoice. */

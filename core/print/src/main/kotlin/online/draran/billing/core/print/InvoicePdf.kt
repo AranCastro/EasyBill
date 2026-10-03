@@ -37,6 +37,9 @@ class InvoicePdf(
     private val margin = 36f
     private val contentW = pageW - 2 * margin
     private val gst = invoice.gstEnabled
+    /** Business accent colour (from its logo or chosen in the profile). */
+    private val brand = business.accent()
+    private val brandTint = online.draran.billing.core.model.BillColors.tint(brand)
     /** Notes, the MSME payment note (sale bills only) and terms, in that order. */
     private val termsText: String = listOfNotNull(
         invoice.notes.takeIf { it.isNotBlank() },
@@ -161,7 +164,7 @@ class InvoicePdf(
         val (range, withTotals) = pages[index]
         canvas.drawColor(android.graphics.Color.WHITE)
         // Brand strip
-        canvas.drawRect(0f, 0f, pageW, 6f, Paint().apply { color = PdfFonts.BRAND })
+        canvas.drawRect(0f, 0f, pageW, 6f, Paint().apply { color = brand })
         var y = if (index == 0) drawHeader(canvas) else drawContinuationHeader(canvas)
         if (!range.isEmpty() || index == 0) y = drawTable(canvas, y, range)
         if (withTotals) drawTotals(canvas, y + 10f)
@@ -185,7 +188,7 @@ class InvoicePdf(
 
         // Title block on the right
         val right = pageW - margin
-        val titleP = fonts.paint(16f, fonts.bold, PdfFonts.BRAND, Paint.Align.RIGHT)
+        val titleP = fonts.paint(16f, fonts.bold, brand, Paint.Align.RIGHT)
         canvas.drawText(title(), right, margin + 18f, titleP)
         val metaL = fonts.paint(8.5f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT)
         val metaV = fonts.paint(9.5f, fonts.bold, align = Paint.Align.RIGHT)
@@ -261,9 +264,9 @@ class InvoicePdf(
 
     private fun drawTable(canvas: Canvas, top: Float, range: IntRange): Float {
         val xs = colX()
-        val headerFill = Paint().apply { color = PdfFonts.BRAND_TINT }
+        val headerFill = Paint().apply { color = brandTint }
         canvas.drawRoundRect(RectF(margin, top, pageW - margin, top + tableHeaderH), 4f, 4f, headerFill)
-        val hp = fonts.paint(8f, fonts.bold, PdfFonts.BRAND)
+        val hp = fonts.paint(8f, fonts.bold, brand)
         columns.forEachIndexed { i, (title, w, right) ->
             val width = if (w == 0f) itemColW else w
             if (right) {
@@ -325,7 +328,7 @@ class InvoicePdf(
         }
         if (!t.roundOff.isZero) row("Round off", t.roundOff)
         // Grand total band
-        val band = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PdfFonts.BRAND }
+        val band = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = brand }
         canvas.drawRoundRect(RectF(boxL, y + 2f, pageW - margin, y + 28f), 5f, 5f, band)
         canvas.drawText("Total", boxL + 8f, y + 19.5f, fonts.paint(11f, fonts.bold, android.graphics.Color.WHITE))
         canvas.drawText(rs(t.total), right, y + 19.5f, fonts.paint(11f, fonts.bold, android.graphics.Color.WHITE, Paint.Align.RIGHT))
@@ -366,7 +369,7 @@ class InvoicePdf(
             canvas.drawBitmap(qr, null, RectF(margin, ly, margin + 92f, ly + 92f), Paint(Paint.FILTER_BITMAP_FLAG))
             val qx = margin + 102f
             canvas.drawText("Scan to pay with any UPI app", qx, ly + 22f, fonts.paint(9f, fonts.bold))
-            canvas.drawText(rs(amount), qx, ly + 40f, fonts.paint(12f, fonts.bold, PdfFonts.BRAND))
+            canvas.drawText(rs(amount), qx, ly + 40f, fonts.paint(12f, fonts.bold, brand))
             canvas.drawText("UPI ID: ${business.upiId}", qx, ly + 56f, bodyMuted)
             canvas.drawText("GPay · PhonePe · Paytm · BHIM", qx, ly + 70f, bodyMuted)
             ly += 104f

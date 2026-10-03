@@ -32,6 +32,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import online.draran.billing.core.model.BillColors
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -219,3 +226,93 @@ fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (SignatureStrokes) -> Unit
 }
 
 private fun Modifier.matchParentSizeCompat(): Modifier = this.fillMaxWidth().height(180.dp)
+
+/**
+ * Bill colour choice: a small bill preview, colours taken from the logo, then
+ * ready-made colours. Values are ARGB ints; 0 means the default colour.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun BillColourPicker(
+    selected: Int,
+    logoColours: List<Int>,
+    businessName: String,
+    billTitle: String,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val current = BillColors.accentOf(selected)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        BillColourPreview(Color(current), businessName, billTitle)
+        if (logoColours.isNotEmpty()) {
+            Text("From your logo", style = MaterialTheme.typography.labelLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                logoColours.forEachIndexed { i, c -> ColourSwatch(c, "Logo colour ${i + 1}", current == BillColors.accentOf(c)) { onSelect(c) } }
+            }
+        }
+        Text(if (logoColours.isEmpty()) "Colours" else "More colours", style = MaterialTheme.typography.labelLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            BillColors.PRESETS.forEach { (name, c) -> ColourSwatch(c, name, current == c) { onSelect(if (c == BillColors.DEFAULT) 0 else c) } }
+        }
+        if (selected != 0 && BillColors.readable(selected) != selected) {
+            Text(
+                "Darkened slightly so white text on it stays readable.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColourSwatch(argb: Int, name: String, selected: Boolean, onClick: () -> Unit) {
+    val ring = MaterialTheme.colorScheme.onSurface
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .then(if (selected) Modifier.border(2.dp, ring, CircleShape) else Modifier)
+            .padding(if (selected) 4.dp else 0.dp)
+            .clip(CircleShape)
+            .background(Color(BillColors.readable(argb)))
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .semantics { contentDescription = "Bill colour $name" },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Icon(AppIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** Miniature bill header, rows and total band in the chosen colour; white like paper in both themes. */
+@Composable
+fun BillColourPreview(accent: Color, businessName: String, billTitle: String, modifier: Modifier = Modifier) {
+    val tint = Color(BillColors.tint(accent.toArgb()))
+    val ink = Color(0xFF14142B)
+    val line = Color(0xFFE5E7EB)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+    ) {
+        Box(Modifier.fillMaxWidth().height(5.dp).background(accent))
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(businessName.ifBlank { "Your business" }, style = MaterialTheme.typography.titleSmall, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(billTitle.uppercase(), style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(tint).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("Item", style = MaterialTheme.typography.labelSmall, color = accent, modifier = Modifier.weight(1f))
+                Text("Amount", style = MaterialTheme.typography.labelSmall, color = accent)
+            }
+            repeat(2) { Box(Modifier.fillMaxWidth(if (it == 0) 0.8f else 0.6f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(line)) }
+            Row(
+                Modifier.fillMaxWidth(0.55f).align(Alignment.End).clip(RoundedCornerShape(6.dp)).background(accent).padding(horizontal = 10.dp, vertical = 5.dp),
+            ) {
+                Text("Total", style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.weight(1f))
+                Text("₹1,250.00", style = MaterialTheme.typography.labelLarge, color = Color.White)
+            }
+        }
+    }
+}

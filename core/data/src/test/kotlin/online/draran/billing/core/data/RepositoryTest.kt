@@ -266,4 +266,29 @@ class RepositoryTest {
         assertEquals(3, java.io.File(dir, BrandingManager.LOGO).length())
         assertEquals(2, java.io.File(dir, BrandingManager.SIGNATURE).length())
     }
+
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Test fun logoSetsBillColourOnce() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val branding = BrandingManager(context, business)
+        fun logoFile(r: Int, g: Int, b: Int): android.net.Uri {
+            val bmp = android.graphics.Bitmap.createBitmap(120, 120, android.graphics.Bitmap.Config.ARGB_8888)
+            android.graphics.Canvas(bmp).apply {
+                drawColor(android.graphics.Color.WHITE)
+                drawCircle(60f, 60f, 50f, android.graphics.Paint().apply { color = android.graphics.Color.rgb(r, g, b) })
+            }
+            val f = java.io.File(context.cacheDir, "logo_$r$g$b.png")
+            f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            return android.net.Uri.fromFile(f)
+        }
+        branding.setLogo(logoFile(200, 20, 40)) // red logo
+        val first = business.get().billColor
+        assertTrue("red expected, got ${online.draran.billing.core.model.BillColors.hex(first)}", online.draran.billing.core.model.BillColors.red(first) > online.draran.billing.core.model.BillColors.blue(first) + 60)
+        assertTrue(online.draran.billing.core.model.BillColors.contrastWithWhite(business.get().accent()) >= 4.5)
+        // A new logo does not override a colour already set
+        branding.setLogo(logoFile(20, 60, 200))
+        assertEquals(first, business.get().billColor)
+        assertEquals(first, branding.logoColours(BrandingManager.LOGO).let { business.get().billColor })
+        assertTrue(online.draran.billing.core.model.BillColors.blue(branding.logoColours(BrandingManager.LOGO).first()) > 100)
+    }
 }

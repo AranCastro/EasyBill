@@ -144,7 +144,7 @@ class ReportViewModel @Inject constructor(
                     s.totals.forEach { (k, v) -> rows += listOf("  $k") + List(width - 2) { "" } + listOf(v) }
                 }
                 File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".pdf").also {
-                    TablePdf(context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "), kind.title, subtitle(), columns, rows.map { r -> r + List((width - r.size).coerceAtLeast(0)) { "" } }, logo = branding.logo(b.logoFile)).writeTo(it)
+                    TablePdf(context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "), kind.title, subtitle(), columns, rows.map { r -> r + List((width - r.size).coerceAtLeast(0)) { "" } }, logo = branding.logo(b.logoFile), brand = b.accent()).writeTo(it)
                 }
             }
             Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")

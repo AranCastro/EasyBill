@@ -41,6 +41,8 @@ data class BusinessForm(
     val type: BusinessType = BusinessType.RETAIL,
     val signatoryName: String = "",
     val signatoryDesignation: String = "",
+    /** Bill accent colour (ARGB), 0 = default. */
+    val billColor: Int = 0,
     /** Load the type's starter services into the catalogue on save. */
     val addStarter: Boolean = true,
 )
@@ -62,6 +64,9 @@ class BusinessFormViewModel @Inject constructor(
         private set
     var signature by mutableStateOf<ImageBitmap?>(null)
         private set
+    /** Colours found in the logo, offered first in the bill colour picker. */
+    var logoColours by mutableStateOf<List<Int>>(emptyList())
+        private set
     var message by mutableStateOf<String?>(null)
     var working by mutableStateOf(false)
         private set
@@ -75,6 +80,7 @@ class BusinessFormViewModel @Inject constructor(
                 stateCode = original.stateCode, gstEnabled = original.gstEnabled, gstin = original.gstin,
                 upiId = original.upiId, ownerName = original.ownerName, type = original.type,
                 udyamNumber = original.udyamNumber, msmeCategory = original.msmeCategory,
+                billColor = original.billColor,
                 signatoryName = original.signatoryName, signatoryDesignation = original.signatoryDesignation,
                 addStarter = !original.onboarded,
             )
@@ -104,6 +110,9 @@ class BusinessFormViewModel @Inject constructor(
     private suspend fun reloadImages() {
         val b = repository.get()
         logo = withContext(Dispatchers.IO) { branding.logo(b.logoFile)?.asImageBitmap() }
+        logoColours = withContext(Dispatchers.Default) { branding.logoColours(b.logoFile) }
+        // A new logo may have set the bill colour; show it unless the user already picked one here
+        if (loaded && form.billColor == 0 && b.billColor != 0) update { it.copy(billColor = b.billColor) }
         signature = withContext(Dispatchers.IO) { branding.signature(b.signatureFile)?.asImageBitmap() }
     }
 
@@ -166,6 +175,7 @@ class BusinessFormViewModel @Inject constructor(
                     msmeCategory = form.msmeCategory.takeIf { form.udyamNumber.isNotBlank() },
                     type = form.type,
                     signatoryName = form.signatoryName.trim(), signatoryDesignation = form.signatoryDesignation.trim(),
+                    billColor = form.billColor,
                     customFieldLabels = if (applyType) form.type.customFields else current.customFieldLabels,
                 ),
             )

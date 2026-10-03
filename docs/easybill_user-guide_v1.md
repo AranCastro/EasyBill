@@ -1,4 +1,4 @@
-# Modern Kallaa Petti — User Guide (v1.2)
+# Modern Kallaa Petti — User Guide (v1.3)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -29,6 +29,11 @@ Android 8.0 or newer is required. The app needs no internet connection.
   registered.
 - Add your **UPI ID** to print a payment QR code on every bill.
 
+- **Bill colour**: after you upload a logo, the app takes its main colour for
+  your bills (top bar, title, table header and total). Colours from the logo
+  are shown first under **Bill colour**, followed by twelve ready-made colours;
+  the small bill above them shows how it will look. Very light colours are
+  darkened a little so the white text on the total stays readable.
 - **Authorised signatory**: tap **Upload** to use a photo of your signature on
   white paper (the paper is removed automatically), or **Sign here** to sign
   with a finger. Add the signatory's name and designation (e.g. Proprietor,

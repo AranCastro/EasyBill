@@ -6,7 +6,7 @@ Free, offline-first billing, stock and accounts app for Android, for GST and
 non-GST shops in India. Kotlin + Jetpack Compose + Material 3. All data stays
 on the phone; there is no server and no running cost.
 
-**Status: v1.2.0** — feature-complete for daily shop use (Phases 1–3 of the
+**Status: v1.3.0** — feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -46,6 +46,15 @@ authorised signature and industry modes for service businesses
 - Authorised signature: upload a photo on white paper (background removed
   automatically) or sign on the screen; signatory name and designation
   printed under it. Logo and signature are included in backups.
+
+**Bill colour** (v1.3)
+- Each business chooses the colour of its bills (top bar, title, table header,
+  total band) in Business profile, with a live miniature preview.
+- Colours are read from the uploaded logo and offered first; the first logo
+  sets the colour automatically unless one was already chosen. Twelve
+  ready-made colours are also available.
+- Every colour is darkened if needed so white text on it meets a 4.5:1
+  contrast ratio. The colour also applies to party statements and report PDFs.
 
 **MSME / Udyam** (v1.2, optional)
 - Udyam registration number (checked against the UDYAM-XX-00-0000000 format)
@@ -143,6 +152,9 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 
 ## Changelog
 
+- **1.3.0** — Bill colour per business, suggested from the logo, with
+  ready-made colours and a contrast check; used on bills, statements and
+  report PDFs; database v4 with automatic migration.
 - **1.2.0** — Optional MSME (Udyam) registration with enterprise type, printed
   on bills and receipts; MSMED Act payment-term note for micro and small
   enterprises; database v3 with automatic migration. Fixed the A4 signature

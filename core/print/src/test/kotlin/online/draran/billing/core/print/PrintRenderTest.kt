@@ -185,6 +185,18 @@ class PrintRenderTest {
         assertTrue(!ThermalReceipt(sample(), msme.copy(printMsmeNote = false)).text().contains("MSMED Act"))
     }
 
+    @Test fun billColourFollowsBusiness() {
+        val maroon = business.copy(billColor = 0xFF9F1239.toInt(), signatoryName = "R. Sharma", signatoryDesignation = "Proprietor")
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), sample(), maroon, sampleLogo(), sampleSignature())
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_a4_maroon")
+        // A very light colour is printed darker so the white total text stays readable
+        val pale = business.copy(billColor = 0xFFFDE68A.toInt())
+        renderPage({ InvoicePdf(ApplicationProvider.getApplicationContext(), sample(), pale).drawPage(it, 0) }, "invoice_a4_pale_input")
+        val bitmap = Bitmap.createBitmap(595, 842, Bitmap.Config.ARGB_8888)
+        InvoicePdf(ApplicationProvider.getApplicationContext(), sample(), maroon).drawPage(Canvas(bitmap), 0)
+        assertEquals(maroon.accent(), bitmap.getPixel(300, 2)) // top bar
+    }
+
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
         assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)

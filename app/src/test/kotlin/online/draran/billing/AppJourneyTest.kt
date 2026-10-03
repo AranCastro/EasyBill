@@ -343,6 +343,12 @@ class AppJourneyTest {
         }
         logoFile.outputStream().use { logo.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         runBlocking { branding.setLogo(android.net.Uri.fromFile(logoFile)) }
+        // The logo's pink becomes the bill colour, shown in the picker with its swatch
+        compose.waitUntil(10_000) { runBlocking { business.get().billColor != 0 } }
+        compose.onNodeWithText("Bill colour").performScrollTo()
+        compose.onNodeWithContentDescription("Bill colour Logo colour 1").performScrollTo()
+        settle(500)
+        capture("bill_colour")
 
         // Draw a signature with a finger
         compose.onNodeWithText("Sign here").performScrollTo().performClick()
@@ -394,6 +400,9 @@ class AppJourneyTest {
         settle()
         capture("bill_detail")
         runBlocking {
+            // The logo colour survived saving the profile
+            val pink = business.get().billColor
+            assertTrue("pink expected", online.draran.billing.core.model.BillColors.red(pink) > online.draran.billing.core.model.BillColors.green(pink) + 60)
             val newest = invoices.get(invoices.summaries(listOf(DocType.SALE)).first().first().id)!!
             assertEquals(listOf("Stylist" to "Kumar"), newest.customFields)
             assertEquals(2, newest.lines.size)

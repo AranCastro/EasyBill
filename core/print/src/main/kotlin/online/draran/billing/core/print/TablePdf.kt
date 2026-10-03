@@ -23,7 +23,10 @@ class TablePdf(
     private val rows: List<List<String>>,
     private val summary: List<Pair<String, String>> = emptyList(),
     private val logo: android.graphics.Bitmap? = null,
+    /** Accent colour; pass Business.accent(). */
+    private val brand: Int = PdfFonts.BRAND,
 ) {
+    private val brandTint = online.draran.billing.core.model.BillColors.tint(brand)
     private val fonts = PdfFonts(context)
     private val pageW = 595f
     private val pageH = 842f
@@ -56,7 +59,7 @@ class TablePdf(
 
     fun drawPage(canvas: Canvas, index: Int) {
         canvas.drawColor(android.graphics.Color.WHITE)
-        canvas.drawRect(0f, 0f, pageW, 6f, Paint().apply { color = PdfFonts.BRAND })
+        canvas.drawRect(0f, 0f, pageW, 6f, Paint().apply { color = brand })
         val top = if (index == 0) {
             val left = if (logo != null) margin + 56f else margin
             logo?.let {
@@ -68,7 +71,7 @@ class TablePdf(
             wrap(businessInfo, fonts.paint(8f, color = PdfFonts.MUTED), contentW * 0.6f - (left - margin)).take(3).forEach {
                 canvas.drawText(it, left, y, fonts.paint(8f, color = PdfFonts.MUTED)); y += 11f
             }
-            canvas.drawText(title.uppercase(), pageW - margin, margin + 18f, fonts.paint(13f, fonts.bold, PdfFonts.BRAND, Paint.Align.RIGHT))
+            canvas.drawText(title.uppercase(), pageW - margin, margin + 18f, fonts.paint(13f, fonts.bold, brand, Paint.Align.RIGHT))
             canvas.drawText(subtitle, pageW - margin, margin + 34f, fonts.paint(9f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
             firstTop
         } else {
@@ -80,10 +83,10 @@ class TablePdf(
         val widths = columns.map { contentW * it.weight / totalWeight }
         var y = top
         if (!range.isEmpty() || index == 0) {
-            canvas.drawRoundRect(RectF(margin, y, pageW - margin, y + headerH), 4f, 4f, Paint().apply { color = PdfFonts.BRAND_TINT })
+            canvas.drawRoundRect(RectF(margin, y, pageW - margin, y + headerH), 4f, 4f, Paint().apply { color = brandTint })
             var x = margin
             columns.forEachIndexed { i, c ->
-                val p = fonts.paint(8f, fonts.bold, PdfFonts.BRAND, if (c.alignRight) Paint.Align.RIGHT else Paint.Align.LEFT)
+                val p = fonts.paint(8f, fonts.bold, brand, if (c.alignRight) Paint.Align.RIGHT else Paint.Align.LEFT)
                 canvas.drawText(c.title, if (c.alignRight) x + widths[i] - 6f else x + 6f, y + 13.5f, p)
                 x += widths[i]
             }

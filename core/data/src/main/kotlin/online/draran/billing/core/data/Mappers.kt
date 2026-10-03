@@ -40,7 +40,7 @@ internal fun BusinessEntity.toModel() = Business(
     customFieldLabels = online.draran.billing.core.model.CustomFields.decodeLabels(customFields),
     printLogoOnReceipt = printLogoOnReceipt,
     udyamNumber = udyamNumber, msmeCategory = online.draran.billing.core.model.MsmeCategory.of(msmeCategory),
-    printMsmeNote = printMsmeNote,
+    printMsmeNote = printMsmeNote, billColor = billColor,
 )
 
 internal fun Business.toEntity() = BusinessEntity(
@@ -55,6 +55,7 @@ internal fun Business.toEntity() = BusinessEntity(
     printLogoOnReceipt = printLogoOnReceipt,
     udyamNumber = online.draran.billing.core.model.Udyam.normalise(udyamNumber),
     msmeCategory = msmeCategory?.name.orEmpty(), printMsmeNote = printMsmeNote,
+    billColor = billColor,
 )
 
 private fun encodePrefixes(map: Map<DocType, String>) = map.entries.joinToString(";") { "${it.key.name}=${it.value}" }

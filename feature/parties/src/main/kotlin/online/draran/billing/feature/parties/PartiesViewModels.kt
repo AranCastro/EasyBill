@@ -199,6 +199,7 @@ class PartyDetailViewModel @Inject constructor(
                     },
                     summary = listOf("Closing balance" to balanceLabel(p.balance)),
                     logo = branding.logo(b.logoFile),
+                    brand = b.accent(),
                 ).writeTo(f)
                 f
             }

@@ -30,4 +30,8 @@ class SettingsViewModel @Inject constructor(
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { repository.setDynamicColor(enabled) }
     }
+
+    fun setAppLock(enabled: Boolean) {
+        viewModelScope.launch { repository.setAppLock(enabled) }
+    }
 }

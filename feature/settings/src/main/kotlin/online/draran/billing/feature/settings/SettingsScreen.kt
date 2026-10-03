@@ -35,6 +35,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,12 +66,19 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // The lock uses the phone's own fingerprint, PIN or pattern, so the phone must have one set
+    val lockAvailable = remember {
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceSecure == true
+    }
     SettingsScreen(
         preferences = preferences,
         versionName = versionName,
         dynamicColorSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
         onThemeModeChange = viewModel::setThemeMode,
         onDynamicColorChange = viewModel::setDynamicColor,
+        appLockAvailable = lockAvailable,
+        onAppLockChange = viewModel::setAppLock,
         onBack = onBack,
         onBusinessProfile = onBusinessProfile,
         onInvoiceSettings = onInvoiceSettings,
@@ -88,6 +96,8 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
     onBack: () -> Unit,
+    appLockAvailable: Boolean = true,
+    onAppLockChange: (Boolean) -> Unit = {},
     onBusinessProfile: () -> Unit = {},
     onInvoiceSettings: () -> Unit = {},
     onPrinter: () -> Unit = {},
@@ -169,6 +179,26 @@ fun SettingsScreen(
                         SettingEntry(AppIcons.Database, R.string.settings_backup, R.string.settings_backup_summary, onBackup, ext.received, ext.receivedContainer),
                     ),
                 )
+            }
+
+            item { SectionLabel(stringResource(R.string.settings_security)) }
+            item {
+                SurfaceCard {
+                    ListRow(
+                        title = stringResource(R.string.settings_app_lock),
+                        subtitle = stringResource(if (appLockAvailable) R.string.settings_app_lock_summary else R.string.settings_app_lock_unavailable),
+                        icon = AppIcons.Lock,
+                        enabled = appLockAvailable,
+                        onClick = { onAppLockChange(!preferences.appLock) },
+                        trailing = {
+                            Switch(
+                                checked = preferences.appLock && appLockAvailable,
+                                onCheckedChange = onAppLockChange,
+                                enabled = appLockAvailable,
+                            )
+                        },
+                    )
+                }
             }
 
             item { SectionLabel(stringResource(R.string.settings_about)) }

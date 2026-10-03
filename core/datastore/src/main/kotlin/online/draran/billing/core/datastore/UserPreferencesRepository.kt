@@ -23,6 +23,7 @@ class UserPreferencesRepository @Inject constructor(
                 ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                 ?: UserPreferences().themeMode,
             dynamicColor = prefs[Keys.DYNAMIC_COLOR] ?: UserPreferences().dynamicColor,
+            appLock = prefs[Keys.APP_LOCK] ?: false,
         )
     }
 
@@ -34,8 +35,13 @@ class UserPreferencesRepository @Inject constructor(
         dataStore.edit { it[Keys.DYNAMIC_COLOR] = enabled }
     }
 
+    suspend fun setAppLock(enabled: Boolean) {
+        dataStore.edit { it[Keys.APP_LOCK] = enabled }
+    }
+
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val APP_LOCK = booleanPreferencesKey("app_lock")
     }
 }

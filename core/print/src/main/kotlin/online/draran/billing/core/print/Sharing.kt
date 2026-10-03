@@ -56,15 +56,17 @@ object Sharing {
 
     /** Opens a WhatsApp chat with a pre-filled message (no paid SMS gateway needed). */
     fun whatsAppMessage(context: Context, phone: String, message: String) {
-        // wa.me needs the country code: "98765 43210" and "098765 43210" both become 919876543210
-        val digits = phone.filter { it.isDigit() }.trimStart('0').let { if (it.length == 10) "91$it" else it }
-        val url = "https://wa.me/$digits?text=" + Uri.encode(message)
+        val url = "https://wa.me/${whatsAppNumber(phone)}?text=" + Uri.encode(message)
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {
             shareText(context, message)
         }
     }
+
+    /** wa.me needs the country code: "98765 43210", "098765 43210" and "+91 98765 43210" all become 919876543210. */
+    fun whatsAppNumber(phone: String): String =
+        phone.filter { it.isDigit() }.trimStart('0').let { if (it.length == 10) "91$it" else it }
 
     fun dial(context: Context, phone: String) {
         try {

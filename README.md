@@ -104,7 +104,19 @@ authorised signature and industry modes for service businesses
 **Safety and comfort**
 - Backup to a file you choose (Google Drive, Downloads, pen drive) and restore;
   automatic daily copy inside the app (last 7 kept).
+- Automatic copy also taken just before any restore, listed as "Before restore"
+  so a wrong restore can be undone; hourly check while the app stays open.
+- App lock with fingerprint, face or phone screen lock (v1.4, optional).
 - Light / dark / system theme, Phosphor duotone icons, Tamil-friendly brand.
+
+**Look and feel** (v1.4)
+- Dashboard: overdue bills card, this month's top sellers with bars, today's
+  summary to share, figures that count up.
+- Sales list grouped by day with day totals, overdue labels and filter, and
+  placeholder rows while loading.
+- Coloured initials for customers and items, coloured report icons, light
+  vibration on taps in the counter and item picker, a saved banner after each
+  bill, animated totals and screen transitions.
 
 ## Build
 
@@ -153,6 +165,24 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 - ZXing (QR codes): Apache 2.0
 
 ## Changelog
+
+- **1.4.0** — Second audit, richer screens and app lock.
+  - New: overdue tracking (Home card, Sales filter, labels with days overdue);
+    top sellers this month; share today's summary; app lock; saved banner;
+    Sales list grouped by day; coloured avatars and report icons; vibration on
+    taps; animated totals and screen transitions.
+  - Money: sale and purchase returns now reduce what is due on the party's
+    bills (database v5 with automatic migration); GSTR-3B lists nil-rated and
+    exempt sales in 3.1(c) instead of 3.1(a); decimal commas ("12,50") are read
+    correctly; party statement opening balance refreshes after an edit.
+  - Data safety: backups include changes not yet written to the main database
+    file; the copy taken before a restore is a normal backup in the list; daily
+    copies are also made when the app is never closed.
+  - Fixes: phone-camera logos and signatures are turned upright; WhatsApp
+    numbers typed with a leading 0 open the right chat; phone search ignores
+    spaces; search handles Tamil and other scripts; invoice prefixes are checked
+    for blanks and duplicates; double taps on navigation and item save no
+    longer open two screens or save twice; one-time items are added correctly.
 
 - **1.3.1** — Full audit and bug fixes.
   - Crash: sharing Profit & loss or Cash flow as PDF.

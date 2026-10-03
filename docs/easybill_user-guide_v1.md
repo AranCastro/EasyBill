@@ -1,4 +1,4 @@
-# Modern Kallaa Petti — User Guide (v1.3.1)
+# Modern Kallaa Petti — User Guide (v1.4.0)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -70,9 +70,27 @@ optional **Due date**.
 - Tap **Save**. On the bill screen: **WhatsApp**, **Share PDF**, **Print**
   (Wi-Fi printers / Save as PDF) or **Thermal** (Bluetooth receipt printer).
 
+After saving, a green **Saved** banner confirms the bill number and total.
+Amounts can be typed with Indian grouping (1,00,000) or with a decimal comma
+(12,50 is read as ₹12.50).
+
 Purchases, estimates and returns use the same screen: **More › Purchases /
 Estimates**, or the menu (⋮) on a bill for **Sale return** and **Duplicate**.
 Open an estimate and tap **Convert to sale invoice** when the customer confirms.
+
+A **sale return** (credit note) for a customer first reduces what is due on
+that customer's oldest unpaid bills; a **purchase return** (debit note) does the
+same for what you owe a supplier. A return larger than what is due stays as a
+balance in the party's favour, to be settled by a refund (Payment out or in).
+
+### The Sales list and Home screen
+- The Sales list groups bills by day, with the number of bills and the day's
+  total. Bills past their due date carry a red **Overdue · N days** label; the
+  **Overdue** filter shows only those.
+- Home shows today's sales, an **Overdue** card when any bill is past its due
+  date (tap it to open the overdue list), and this month's **Top sellers**. The
+  share button on the sales card sends today's summary (sales, received, bills)
+  to WhatsApp or any app.
 
 ## 5. Counter billing (walk-in customers)
 **More › Counter billing** (or the Counter button on Home): tap tiles, then
@@ -111,5 +129,14 @@ and choose **Google Drive** in the file picker (free) or Downloads. On a new
 phone, install the app and use **Restore from file**. The app also keeps a daily
 copy inside the phone (last 7 days) to undo mistakes. Before a restore replaces
 your data, the app checks the file and keeps the current database as a safety
-copy, so a bad file cannot wipe your records. Backups include your logo
-and signature.
+copy, so a bad file cannot wipe your records. That copy appears in the list of
+automatic copies marked **Before restore**; tap **Restore** on it to undo a
+restore. Backups include your logo and signature. If the app stays open all
+day, the daily copy is still made (the app checks every hour).
+
+## 10. App lock
+**Settings › Security › App lock** asks for your fingerprint, face or phone
+screen lock (PIN, pattern, password) when the app opens and again after the app
+has been in the background for a minute. A bill you were making is still there
+after unlocking. The switch is available only when the phone has a screen lock;
+if the screen lock is later removed, the app opens without asking.

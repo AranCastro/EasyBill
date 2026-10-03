@@ -78,7 +78,7 @@ fun BottomActionBar(
                 Column(Modifier.weight(1f)) {
                     Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (amount != null) {
-                        AmountText(amount, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                        AnimatedAmountText(amount, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, durationMillis = 300)
                     }
                 }
                 if (secondary != null) {

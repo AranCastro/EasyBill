@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import online.draran.billing.core.model.BusinessType
+import online.draran.billing.core.designsystem.component.NameAvatar
 import online.draran.billing.core.designsystem.component.icon
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,7 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.draran.billing.core.common.IndianFormat
 import online.draran.billing.core.designsystem.component.ChipRow
 import online.draran.billing.core.designsystem.component.EmptyState
-import online.draran.billing.core.designsystem.component.IconBadge
 import online.draran.billing.core.designsystem.component.Pill
 import online.draran.billing.core.designsystem.component.SearchField
 import online.draran.billing.core.designsystem.component.SurfaceCard
@@ -40,7 +40,6 @@ import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
 import online.draran.billing.core.designsystem.theme.TABULAR_NUMBERS
-import online.draran.billing.core.model.ItemType
 import online.draran.billing.core.model.ItemWithStock
 import online.draran.billing.core.model.Percent
 import online.draran.billing.core.model.Qty
@@ -182,12 +181,7 @@ internal fun ItemRow(row: ItemWithStock, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Spacing.lg, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(
-            icon = if (item.type == ItemType.SERVICE) AppIcons.Sparkle else AppIcons.Package,
-            tint = MaterialTheme.colorScheme.primary,
-            container = MaterialTheme.colorScheme.primaryContainer,
-            size = 40,
-        )
+        NameAvatar(item.name)
         Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

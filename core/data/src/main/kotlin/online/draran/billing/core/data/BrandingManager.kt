@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -95,7 +97,13 @@ class BrandingManager @Inject constructor(
         val decoded = context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
         } ?: return null
-        return scaleDown(decoded, maxSize)
+        // Phone camera photos are often stored sideways with a rotation tag
+        val orientation = runCatching {
+            context.contentResolver.openInputStream(uri)?.use {
+                ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            }
+        }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
+        return scaleDown(upright(decoded, orientation), maxSize)
     }
 
     companion object {
@@ -104,6 +112,22 @@ class BrandingManager @Inject constructor(
         const val SIGNATURE = "signature.png"
         private const val MAX_LOGO = 600
         private const val MAX_SIGNATURE = 900
+
+        /** Turns a decoded photo upright according to its EXIF orientation tag. */
+        fun upright(bitmap: Bitmap, orientation: Int): Bitmap {
+            val m = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+                ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(270f); m.postScale(-1f, 1f) }
+                else -> return bitmap
+            }
+            return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true)
+        }
 
         /** Samples a 64 px thumbnail; enough for the main colours and fast on any phone. */
         fun coloursOf(bitmap: Bitmap): List<Int> {

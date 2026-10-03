@@ -480,4 +480,69 @@ class RepositoryTest {
         assertEquals(Money.rupees(750), invoices.get(bill)!!.balance)
         assertEquals(Money.ZERO, invoices.get(note)!!.balance)
     }
+
+    @Test fun gstr3bSeparatesNilRatedSales() = runTest {
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 1000, tax = 1800)), paidNow = Money.rupees(1180)))
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 400, tax = 0)), paidNow = Money.rupees(400)))
+        val report = reports.gst(DateRange.today(today))
+        assertEquals(Money.rupees(1000), report.outwardTaxable)
+        assertEquals(Money.rupees(400), report.outwardNilExempt)
+        assertEquals(Money.rupees(180), report.outputTax)
+    }
+
+    @Test fun restoreKeepsABeforeRestoreCopyThatCanBeRestored() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        java.io.File(context.filesDir, "backups").deleteRecursively()
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        ItemRepository(fileDb.itemDao()).save(Item(name = "First"))
+        val out = ByteArrayOutputStream()
+        BackupManager(context, fileDb).write(out)
+        ItemRepository(fileDb.itemDao()).save(Item(name = "Second"))
+
+        val manager = BackupManager(context, fileDb)
+        manager.restore(out.toByteArray().inputStream())
+        val safety = manager.autoBackups().single()
+        assertTrue(manager.isBeforeRestore(safety))
+
+        // Undo the restore from the copy: both items are back
+        val reopened = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        assertEquals(listOf("First"), ItemRepository(reopened.itemDao()).items().first().map { it.item.name })
+        BackupManager(context, reopened).restoreAuto(safety)
+        val again = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        assertEquals(setOf("First", "Second"), ItemRepository(again.itemDao()).items().first().map { it.item.name }.toSet())
+        again.close()
+    }
+
+    @Test fun backupHoldsChangesStillInTheLog() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        ItemRepository(fileDb.itemDao()).save(Item(name = "Logged"))
+        // A reader holding an old snapshot stops the checkpoint from folding the log in
+        val reader = android.database.sqlite.SQLiteDatabase.openDatabase(context.getDatabasePath(BillingDatabase.NAME).path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+        reader.beginTransactionNonExclusive()
+        reader.rawQuery("SELECT count(*) FROM item", null).use { it.moveToFirst() }
+        ItemRepository(fileDb.itemDao()).save(Item(name = "After Reader"))
+        val out = ByteArrayOutputStream()
+        BackupManager(context, fileDb).write(out)
+        reader.endTransaction()
+        reader.close()
+
+        context.deleteDatabase(BillingDatabase.NAME)
+        val other = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        BackupManager(context, other).restore(out.toByteArray().inputStream())
+        val reopened = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        assertEquals(setOf("Logged", "After Reader"), ItemRepository(reopened.itemDao()).items().first().map { it.item.name }.toSet())
+        reopened.close()
+    }
+
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Test fun sidewaysPhotoIsTurnedUpright() {
+        val bmp = android.graphics.Bitmap.createBitmap(200, 100, android.graphics.Bitmap.Config.ARGB_8888)
+        val turned = BrandingManager.upright(bmp, android.media.ExifInterface.ORIENTATION_ROTATE_90)
+        assertEquals(100, turned.width)
+        assertEquals(200, turned.height)
+        assertTrue(BrandingManager.upright(bmp, android.media.ExifInterface.ORIENTATION_NORMAL) === bmp)
+    }
 }

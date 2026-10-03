@@ -37,6 +37,13 @@ object DashboardSampleData {
             RecentTransaction(5, TransactionType.SALE, "INV-0140", "Anita Verma", today.minusDays(1), Money(5_200_00), Money(2_200_00)),
         ),
         lastBackupDaysAgo = 0,
+        overdueCount = 3,
+        overdue = Money(14_250_00),
+        topItems = listOf(
+            TopItemUi("Aashirvaad Atta 5 kg", "42 bag", Money(10_920_00)),
+            TopItemUi("Fortune Sunflower Oil 1 L", "36 pcs", Money(5_760_00)),
+            TopItemUi("Tata Salt 1 kg", "80 pcs", Money(2_240_00)),
+        ),
     )
 
     val empty = DashboardUiState.empty(today, LocalTime.of(9, 30), "Sharma General Store")

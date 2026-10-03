@@ -1,5 +1,14 @@
 package online.draran.billing.feature.billing
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import online.draran.billing.core.designsystem.component.AnimatedAmountText
+import online.draran.billing.core.designsystem.component.NameAvatar
+import online.draran.billing.core.designsystem.component.bounceClick
+import online.draran.billing.core.designsystem.component.rememberHaptics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,6 +103,7 @@ fun CounterRoute(
     var charging by remember { mutableStateOf(false) }
     val totals = viewModel.totals()
     val count = viewModel.lines.sumOf { it.qtyMilli }
+    val haptics = rememberHaptics()
 
     val needle = query.trim().lowercase()
     val shown = items.filter { needle.isEmpty() || it.item.name.lowercase().contains(needle) || it.item.code.lowercase() == needle || it.item.barcode == needle }
@@ -115,7 +125,7 @@ fun CounterRoute(
                 ) {
                     Column(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable(enabled = viewModel.lines.isNotEmpty()) { showCart = true }.padding(Spacing.sm)) {
                         Text(if (viewModel.lines.isEmpty()) "Tap items to add" else "${Qty.format(count)} items · View cart", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        AmountText(totals.total, style = MaterialTheme.typography.titleLarge)
+                        AnimatedAmountText(totals.total, style = MaterialTheme.typography.titleLarge, durationMillis = 300)
                     }
                     Button(onClick = { charging = true }, enabled = viewModel.lines.isNotEmpty(), modifier = Modifier.height(52.dp)) {
                         Text("Charge ${IndianFormat.rupees(totals.total, showPaise = false)}", style = MaterialTheme.typography.titleMedium)
@@ -149,12 +159,13 @@ fun CounterRoute(
                             .clip(MaterialTheme.shapes.large)
                             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest)
                             .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
-                            .clickable { viewModel.addItem(row.item) }
+                            .bounceClick(onClickLabel = "Add ${row.item.name}") { haptics.tick(); viewModel.addItem(row.item) }
                             .padding(Spacing.md),
                     ) {
                         Column {
-                            // Leave room for the quantity badge in the corner
-                            Text(row.item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = if (selected) 22.dp else 0.dp))
+                            NameAvatar(row.item.name, size = 28)
+                            Spacer(Modifier.height(6.dp))
+                            Text(row.item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(4.dp))
                             Text(IndianFormat.rupees(row.item.salePrice), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR_NUMBERS), color = MaterialTheme.colorScheme.primary)
                             if (row.item.tracksStock) {
@@ -166,7 +177,14 @@ fun CounterRoute(
                                 Modifier.align(Alignment.TopEnd).size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(Qty.format(qty), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                // The count pops each time the tile is tapped, so a busy cashier sees the tap landed
+                                AnimatedContent(
+                                    targetState = qty,
+                                    transitionSpec = { (scaleIn(initialScale = 0.4f) + fadeIn()).togetherWith(fadeOut()) },
+                                    label = "qty",
+                                ) { q ->
+                                    Text(Qty.format(q), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                }
                             }
                         }
                     }
@@ -184,6 +202,7 @@ fun CounterRoute(
             canPrint = business.printerAddress.isNotBlank(),
             onDismiss = { charging = false },
             onSaved = { id, print ->
+                haptics.success()
                 charging = false
                 if (print) viewModel.printReceipt(context, id) { msg -> scope.launch { snackbar.showSnackbar(msg) } }
                 scope.launch {

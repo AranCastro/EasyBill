@@ -1,5 +1,6 @@
 package online.draran.billing.feature.billing
 
+import androidx.compose.animation.animateContentSize
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -235,7 +236,8 @@ fun InvoiceEditorRoute(
             } else {
                 item {
                     SurfaceCard {
-                        Column {
+                        // Lines slide in and out instead of the card jumping in size
+                        Column(Modifier.animateContentSize()) {
                             viewModel.lines.forEachIndexed { index, line ->
                                 val amounts = totals.lines.getOrNull(index)
                                 Row(

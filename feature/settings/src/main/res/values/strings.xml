@@ -36,4 +36,8 @@
     <string name="more_reports_summary">Sales, profit, stock and GST reports</string>
     <string name="more_app">App</string>
     <string name="more_settings_summary">Theme, business, printer, backup</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_summary">Ask for your fingerprint or phone PIN when the app opens, and after a minute away</string>
+    <string name="settings_app_lock_unavailable">Set a screen lock (PIN, pattern or fingerprint) on your phone first</string>
 </resources>

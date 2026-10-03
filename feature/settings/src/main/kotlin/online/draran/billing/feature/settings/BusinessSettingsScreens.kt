@@ -343,13 +343,17 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
             }
             SectionCard(title = "Automatic daily copies") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text("A copy is saved inside the app once a day (last ${BackupManager.KEEP} kept). It protects against mistakes, not against losing the phone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("A copy is saved inside the app once a day (last ${BackupManager.KEEP} kept), and another just before any restore. It protects against mistakes, not against losing the phone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (autoFiles.isEmpty()) Text("No automatic copies yet.", style = MaterialTheme.typography.bodyMedium)
                     autoFiles.forEach { f: File ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(DateUtils.formatDateTime(context, f.lastModified(), DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium)
-                                Text("${f.length() / 1024} KB", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    (if (backup.isBeforeRestore(f)) "Before restore · " else "") + "${f.length() / 1024} KB",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                             OutlinedButton(onClick = {
                                 pendingRestore = { scope.launch { runCatching { backup.restoreAuto(f) }.fold({ restartApp(context) }, ::restoreFailed) } }

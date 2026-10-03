@@ -161,23 +161,28 @@ fun initialsOf(name: String): String {
     return (if (words.size == 1) firstGrapheme(words[0]) else firstGrapheme(words[0]) + firstGrapheme(words[1])).uppercase()
 }
 
+/** Content and container colours for [name]'s hue, readable in light and dark themes. */
+@Composable
+fun huedColors(name: String): Pair<Color, Color> {
+    val hue = avatarColor(name)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return if (dark) Color.White.copy(alpha = 0.92f) to hue.copy(alpha = 0.32f) else hue to hue.copy(alpha = 0.14f)
+}
+
 /**
  * Round initials avatar tinted by the name, so lists of customers, items and
  * bills are easier to scan than identical grey icons.
  */
 @Composable
 fun NameAvatar(name: String, modifier: Modifier = Modifier, size: Int = 40) {
-    val hue = avatarColor(name)
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val container = if (dark) hue.copy(alpha = 0.32f) else hue.copy(alpha = 0.14f)
-    val content = if (dark) Color.White.copy(alpha = 0.92f) else hue
+    val (content, container) = huedColors(name)
     Box(
         modifier.size(size.dp).clip(CircleShape).background(container),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             initialsOf(name),
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            style = (if (size >= 56) MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelLarge).copy(fontWeight = FontWeight.SemiBold),
             color = content,
             maxLines = 1,
         )

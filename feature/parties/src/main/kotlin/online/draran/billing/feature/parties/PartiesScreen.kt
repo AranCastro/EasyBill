@@ -1,9 +1,7 @@
 package online.draran.billing.feature.parties
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -25,11 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import online.draran.billing.core.designsystem.component.NameAvatar
 import online.draran.billing.core.designsystem.component.AmountText
 import online.draran.billing.core.designsystem.component.EmptyState
 import online.draran.billing.core.designsystem.component.KpiCard
@@ -123,16 +120,9 @@ fun PartiesScreen(
     }
 }
 
+/** Coloured initials: each customer keeps the same colour everywhere, which makes long lists easier to scan. */
 @Composable
-internal fun Avatar(name: String, size: Int = 40) {
-    val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
-    Box(
-        Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(initials, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-    }
-}
+internal fun Avatar(name: String, size: Int = 40) = NameAvatar(name, size = size)
 
 @Composable
 private fun PartyRow(p: PartyWithBalance, onClick: () -> Unit) {

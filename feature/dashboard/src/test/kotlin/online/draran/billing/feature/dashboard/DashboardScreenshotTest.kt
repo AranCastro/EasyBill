@@ -22,7 +22,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w411dp-h1500dp-xxhdpi")
+@Config(sdk = [35], qualifiers = "w411dp-h2000dp-xxhdpi")
 class DashboardScreenshotTest {
 
     @get:Rule val composeRule = createComposeRule()
@@ -39,9 +39,9 @@ class DashboardScreenshotTest {
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 
-    @Test fun dashboardLight() = capture("dashboard_light", DashboardSampleData.filled, ThemeMode.LIGHT, 1420)
+    @Test fun dashboardLight() = capture("dashboard_light", DashboardSampleData.filled, ThemeMode.LIGHT, 1900)
 
-    @Test fun dashboardDark() = capture("dashboard_dark", DashboardSampleData.filled, ThemeMode.DARK, 1420)
+    @Test fun dashboardDark() = capture("dashboard_dark", DashboardSampleData.filled, ThemeMode.DARK, 1900)
 
     @Test fun dashboardEmpty() = capture("dashboard_empty", DashboardSampleData.empty, ThemeMode.LIGHT, 1180)
 }

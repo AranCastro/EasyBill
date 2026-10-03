@@ -48,7 +48,7 @@ object MoneyParse {
 
 /** Percent values (tax, discount) stored in basis points: 18 % = 1800. */
 object Percent {
-    fun parse(text: String): Int? = text.replace("%", "").trim().takeIf { it.isNotEmpty() }?.let {
+    fun parse(text: String): Int? = MoneyParse.normalise(text.replace("%", "")).takeIf { it.isNotEmpty() }?.let {
         runCatching { BigDecimal(it).movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValueExact() }.getOrNull()
     }
 

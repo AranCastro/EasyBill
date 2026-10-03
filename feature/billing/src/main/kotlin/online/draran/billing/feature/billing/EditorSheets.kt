@@ -1,5 +1,7 @@
 package online.draran.billing.feature.billing
 
+import online.draran.billing.core.designsystem.component.NameAvatar
+import online.draran.billing.core.designsystem.component.rememberHaptics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -183,6 +185,7 @@ internal fun ItemPickerSheet(
             Spacer(Modifier.height(Spacing.sm))
             SearchField(query, { query = it }, "Search ${itemsWord.lowercase()}", trailing = { IconButton(onClick = onScan) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") } })
             Spacer(Modifier.height(Spacing.sm))
+            val haptics = rememberHaptics()
             val needle = query.trim().lowercase()
             val shown = items.filter {
                 needle.isEmpty() || it.item.name.lowercase().contains(needle) || it.item.code.lowercase() == needle || it.item.barcode == needle
@@ -211,9 +214,11 @@ internal fun ItemPickerSheet(
                     val qty = quantityOf(row.item.id)
                     val price = if (purchase) row.item.purchasePrice else row.item.salePrice
                     Row(
-                        Modifier.fillMaxWidth().clickable { onSetQuantity(row.item, qty + Qty.ONE) }.padding(vertical = Spacing.md),
+                        Modifier.fillMaxWidth().clickable { haptics.tick(); onSetQuantity(row.item, qty + Qty.ONE) }.padding(vertical = Spacing.md),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        NameAvatar(row.item.name, size = 36)
+                        Spacer(Modifier.width(Spacing.md))
                         Column(Modifier.weight(1f)) {
                             Text(row.item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(
@@ -225,7 +230,7 @@ internal fun ItemPickerSheet(
                         if (qty > 0) {
                             QtyStepper(qty, onMinus = { onSetQuantity(row.item, qty - Qty.ONE) }, onPlus = { onSetQuantity(row.item, qty + Qty.ONE) })
                         } else {
-                            OutlinedIconButton(onClick = { onSetQuantity(row.item, Qty.ONE) }) { Icon(AppIcons.Plus, contentDescription = "Add ${row.item.name}") }
+                            OutlinedIconButton(onClick = { haptics.tick(); onSetQuantity(row.item, Qty.ONE) }) { Icon(AppIcons.Plus, contentDescription = "Add ${row.item.name}") }
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -237,11 +242,12 @@ internal fun ItemPickerSheet(
 
 @Composable
 internal fun QtyStepper(qty: Long, onMinus: () -> Unit, onPlus: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = rememberHaptics()
     Row(
         modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primaryContainer),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onMinus, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = { haptics.tick(); onMinus() }, modifier = Modifier.size(36.dp)) {
             Icon(if (qty <= Qty.ONE) AppIcons.Trash else AppIcons.Minus, contentDescription = "Less", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
         }
         Text(
@@ -250,7 +256,7 @@ internal fun QtyStepper(qty: Long, onMinus: () -> Unit, onPlus: () -> Unit, modi
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 4.dp),
         )
-        FilledIconButton(onClick = onPlus, modifier = Modifier.size(36.dp), colors = IconButtonDefaults.filledIconButtonColors()) {
+        FilledIconButton(onClick = { haptics.tick(); onPlus() }, modifier = Modifier.size(36.dp), colors = IconButtonDefaults.filledIconButtonColors()) {
             Icon(AppIcons.Plus, contentDescription = "More", modifier = Modifier.size(18.dp))
         }
     }

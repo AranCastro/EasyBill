@@ -53,6 +53,7 @@ import online.draran.billing.core.designsystem.component.AmountText
 import online.draran.billing.core.designsystem.component.AppTopBar
 import online.draran.billing.core.designsystem.component.EmptyState
 import online.draran.billing.core.designsystem.component.IconBadge
+import online.draran.billing.core.designsystem.component.huedColors
 import online.draran.billing.core.designsystem.component.ListRow
 import online.draran.billing.core.designsystem.component.SurfaceCard
 import online.draran.billing.core.designsystem.component.pretty
@@ -90,7 +91,9 @@ fun ReportsHubRoute(onBack: () -> Unit, onOpen: (ReportKind) -> Unit) {
                 SurfaceCard {
                     Column {
                         ReportKind.entries.forEachIndexed { i, k ->
-                            ListRow(title = k.title, subtitle = k.description, icon = k.icon(), onClick = { onOpen(k) })
+                            // Each report keeps its own colour, so the list reads at a glance
+                            val (tint, container) = huedColors(k.name)
+                            ListRow(title = k.title, subtitle = k.description, icon = k.icon(), tint = tint, container = container, onClick = { onOpen(k) })
                             if (i < ReportKind.entries.lastIndex) HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         }
                     }

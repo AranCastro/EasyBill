@@ -1,6 +1,7 @@
 package online.draran.billing.core.designsystem.component
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -26,9 +27,11 @@ fun QuickAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberHaptics()
     Column(
         modifier = modifier
-            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .clip(RoundedCornerShape(16.dp))
+            .bounceClick(onClickLabel = label) { haptics.tick(); onClick() }
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -39,7 +42,8 @@ fun QuickAction(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
+            minLines = 1,
         )
     }
 }

@@ -220,8 +220,8 @@ class InvoiceEditorViewModel @Inject constructor(
         }
     }
 
-    fun addCustomLine(name: String, rate: Money, qty: Long, taxBp: Int) {
-        lines = lines + InvoiceLine(itemId = null, name = name, qtyMilli = qty, rate = rate, taxRateBp = taxBp, taxInclusive = business.value.pricesIncludeTax)
+    fun addLine(line: InvoiceLine) {
+        lines = lines + line.copy(itemId = null)
     }
 
     fun updateLine(index: Int, line: InvoiceLine) {

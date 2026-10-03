@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import online.draran.billing.core.database.AllocationEntity
+import online.draran.billing.core.database.NoteAllocationEntity
 import online.draran.billing.core.database.BillingDatabase
 import online.draran.billing.core.database.ExpenseEntity
 import online.draran.billing.core.database.InvoiceEntity
@@ -67,12 +68,37 @@ class Allocator @Inject constructor(private val db: BillingDatabase) {
         if (partyId == null) return
         val invoices = db.invoiceDao()
         val payments = db.paymentDao()
+
+        // 1. Credit notes against the party's sales, debit notes against its purchases, oldest first.
+        //    What a note does not use stays open (a refund to make or receive).
+        payments.deleteNoteAllocations(partyId)
+        for ((billType, noteType) in listOf(DocType.SALE to DocType.SALE_RETURN, DocType.PURCHASE to DocType.PURCHASE_RETURN)) {
+            val notes = invoices.docsForAllocation(partyId, listOf(noteType))
+            if (notes.isEmpty()) continue
+            val bills = invoices.docsForAllocation(partyId, listOf(billType))
+            val open = bills.map { (it.total - it.paid).coerceAtLeast(0) }.toLongArray()
+            val links = mutableListOf<NoteAllocationEntity>()
+            for (note in notes) {
+                var left = (note.total - note.paid).coerceAtLeast(0)
+                for (i in bills.indices) {
+                    if (left <= 0) break
+                    if (open[i] <= 0) continue
+                    val take = minOf(left, open[i])
+                    links += NoteAllocationEntity(noteId = note.id, invoiceId = bills[i].id, amount = take)
+                    open[i] -= take
+                    left -= take
+                }
+            }
+            if (links.isNotEmpty()) payments.insertNoteAllocations(links)
+        }
+
+        // 2. Standalone payments against what is still open
         for (direction in PaymentDirection.entries) {
             val types = DocType.entries.filter { it.tracksPayment && it.paymentDirection == direction }
             val docs = invoices.docsForAllocation(partyId, types)
             val standalone = payments.standalone(partyId, direction)
             if (standalone.isEmpty()) continue
-            payments.deleteAllocations(standalone.map { it.id })
+            payments.deleteStandaloneAllocations(partyId, direction)
             val remaining = docs.map { (it.total - it.paid).coerceAtLeast(0) }.toLongArray()
             val allocations = mutableListOf<AllocationEntity>()
             for (payment in standalone) {

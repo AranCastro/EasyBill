@@ -35,7 +35,22 @@ data class DashboardUiState(
     val recent: List<RecentTransaction>,
     /** Days since the last backup; null if never backed up. */
     val lastBackupDaysAgo: Int?,
+    /** Sale bills past their due date with money still to collect. */
+    val overdueCount: Int = 0,
+    val overdue: Money = Money.ZERO,
+    /** Best sellers this month. */
+    val topItems: List<TopItemUi> = emptyList(),
 ) {
+    /** A short message to share the day's figures on WhatsApp. */
+    fun summaryText(today: LocalDate): String = buildString {
+        appendLine("$businessName · ${today.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))}")
+        appendLine("Sales today: ${online.draran.billing.core.common.IndianFormat.rupees(todaySales)} ($todayBillCount ${if (todayBillCount == 1) "bill" else "bills"})")
+        if (!toCollect.isZero) appendLine("To collect: ${online.draran.billing.core.common.IndianFormat.rupees(toCollect)}")
+        if (!toPay.isZero) appendLine("To pay: ${online.draran.billing.core.common.IndianFormat.rupees(toPay)}")
+        if (overdueCount > 0) appendLine("Overdue: $overdueCount ${if (overdueCount == 1) "bill" else "bills"}, ${online.draran.billing.core.common.IndianFormat.rupees(overdue)}")
+        if (topItems.isNotEmpty()) appendLine("Top this month: " + topItems.joinToString(", ") { it.name })
+    }.trim()
+
     companion object {
         fun empty(today: LocalDate, now: LocalTime, businessName: String) = DashboardUiState(
             greeting = Greeting.at(now),
@@ -55,8 +70,11 @@ data class DashboardUiState(
     }
 }
 
+/** One best seller: name, quantity sold (e.g. "12 kg") and sales value. */
+data class TopItemUi(val name: String, val quantity: String, val amount: Money)
+
 /** Where the dashboard can send the user. The app module maps these to routes. */
 enum class DashboardDestination {
     NEW_SALE, COUNTER, PAYMENT_IN, ADD_ITEM, PURCHASE, EXPENSE, ESTIMATE, REPORTS,
-    TO_COLLECT, TO_PAY, LOW_STOCK, ALL_TRANSACTIONS, BACKUP, SETTINGS,
+    TO_COLLECT, TO_PAY, LOW_STOCK, ALL_TRANSACTIONS, BACKUP, SETTINGS, OVERDUE, ITEM_SALES,
 }

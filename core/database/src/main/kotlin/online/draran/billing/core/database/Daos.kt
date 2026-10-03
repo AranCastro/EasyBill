@@ -144,20 +144,27 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoice_line WHERE invoiceId = :invoiceId ORDER BY position")
     fun observeLines(invoiceId: Long): Flow<List<InvoiceLineEntity>>
 
-    @Query("SELECT COALESCE(SUM(amount), 0) FROM allocation WHERE invoiceId = :invoiceId")
+    /** Payments applied plus credit/debit notes set against it (or, for a note, used). */
+    @Query(
+        "SELECT COALESCE((SELECT SUM(amount) FROM allocation WHERE invoiceId = :invoiceId), 0) + " +
+            "COALESCE((SELECT SUM(amount) FROM note_allocation WHERE invoiceId = :invoiceId OR noteId = :invoiceId), 0)",
+    )
     fun observePaid(invoiceId: Long): Flow<Long>
 
-    @Query("SELECT COALESCE(SUM(amount), 0) FROM allocation WHERE invoiceId = :invoiceId")
+    @Query(
+        "SELECT COALESCE((SELECT SUM(amount) FROM allocation WHERE invoiceId = :invoiceId), 0) + " +
+            "COALESCE((SELECT SUM(amount) FROM note_allocation WHERE invoiceId = :invoiceId OR noteId = :invoiceId), 0)",
+    )
     suspend fun paid(invoiceId: Long): Long
 
     @Query(
-        "SELECT i.id, i.type, i.number, i.date, i.partyName, i.total, " + Sql.PAID_OF_INVOICE + " AS paid " +
+        "SELECT i.id, i.type, i.number, i.date, i.partyName, i.total, " + Sql.PAID_OF_INVOICE + " AS paid, i.dueDate AS dueDate " +
             "FROM invoice i WHERE i.type IN (:types) ORDER BY i.date DESC, i.id DESC",
     )
     fun observeSummaries(types: List<DocType>): Flow<List<InvoiceSummaryRow>>
 
     @Query(
-        "SELECT i.id, i.type, i.number, i.date, i.partyName, i.total, " + Sql.PAID_OF_INVOICE + " AS paid " +
+        "SELECT i.id, i.type, i.number, i.date, i.partyName, i.total, " + Sql.PAID_OF_INVOICE + " AS paid, i.dueDate AS dueDate " +
             "FROM invoice i WHERE i.partyId = :partyId ORDER BY i.date DESC, i.id DESC",
     )
     fun observeForParty(partyId: Long): Flow<List<InvoiceSummaryRow>>
@@ -170,9 +177,10 @@ interface InvoiceDao {
 
     /** Documents of a party that still have something to settle, oldest first. */
     @Query(
+        // Settled by payments taken with the bill and by notes; standalone payments are spread afterwards
         "SELECT i.id, i.date, i.total, " +
             "COALESCE((SELECT SUM(al.amount) FROM allocation al JOIN payment p ON p.id = al.paymentId " +
-            "WHERE al.invoiceId = i.id AND p.invoiceId IS NOT NULL), 0) AS paid " +
+            "WHERE al.invoiceId = i.id AND p.invoiceId IS NOT NULL), 0) + " + Sql.NOTES_OF_INVOICE + " AS paid " +
             "FROM invoice i WHERE i.partyId = :partyId AND i.type IN (:types) ORDER BY i.date, i.id",
     )
     suspend fun docsForAllocation(partyId: Long, types: List<DocType>): List<OpenDocRow>
@@ -183,6 +191,24 @@ interface InvoiceDao {
             "WHERE i.type = 'PURCHASE' AND l.itemId = :itemId AND i.id != :exceptId",
     )
     suspend fun latestPurchaseDay(itemId: Long, exceptId: Long): Long
+
+    @Query(
+        "SELECT COUNT(*) AS count, COALESCE(SUM(i.total - " + Sql.PAID_OF_INVOICE + "), 0) AS amount FROM invoice i " +
+            "WHERE i.type = 'SALE' AND i.dueDate IS NOT NULL AND i.dueDate < :today AND i.total > " + Sql.PAID_OF_INVOICE,
+    )
+    fun observeOverdue(today: Long): Flow<OverdueRow>
+
+    /** Best sellers by value (before tax, net of returns) between two days. */
+    @Query(
+        "SELECT l.name AS name, SUM(CASE i.type WHEN 'SALE' THEN l.qty ELSE -l.qty END) AS qty, l.unit AS unit, " +
+            "SUM(CASE i.type WHEN 'SALE' THEN l.taxable ELSE -l.taxable END) AS total " +
+            "FROM invoice_line l JOIN invoice i ON i.id = l.invoiceId " +
+            "WHERE i.type IN ('SALE', 'SALE_RETURN') AND i.date BETWEEN :from AND :to " +
+            "GROUP BY COALESCE(l.itemId, l.name), l.unit " +
+            "HAVING SUM(CASE i.type WHEN 'SALE' THEN l.taxable ELSE -l.taxable END) > 0 " +
+            "ORDER BY SUM(CASE i.type WHEN 'SALE' THEN l.taxable ELSE -l.taxable END) DESC LIMIT :limit",
+    )
+    fun observeTopItems(from: Long, to: Long, limit: Int): Flow<List<TopItemRow>>
 
     @Query("SELECT COUNT(*) FROM invoice WHERE type = :type AND date = :day")
     fun observeCount(type: DocType, day: Long): Flow<Int>
@@ -283,6 +309,19 @@ interface PaymentDao {
 
     @Insert
     suspend fun insertAllocations(allocations: List<AllocationEntity>)
+
+    /** Clears how a party's standalone payments were spread (one statement, so no limit on how many). */
+    @Query("DELETE FROM allocation WHERE paymentId IN (SELECT id FROM payment WHERE partyId = :partyId AND direction = :direction AND invoiceId IS NULL)")
+    suspend fun deleteStandaloneAllocations(partyId: Long, direction: PaymentDirection)
+
+    @Insert
+    suspend fun insertNoteAllocations(allocations: List<NoteAllocationEntity>)
+
+    @Query(
+        "DELETE FROM note_allocation WHERE noteId IN (SELECT id FROM invoice WHERE partyId = :partyId) " +
+            "OR invoiceId IN (SELECT id FROM invoice WHERE partyId = :partyId)",
+    )
+    suspend fun deleteNoteAllocations(partyId: Long)
 
     @Query("DELETE FROM allocation WHERE paymentId IN (:paymentIds)")
     suspend fun deleteAllocations(paymentIds: List<Long>)

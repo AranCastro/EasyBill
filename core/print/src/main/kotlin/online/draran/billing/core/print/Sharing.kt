@@ -56,7 +56,8 @@ object Sharing {
 
     /** Opens a WhatsApp chat with a pre-filled message (no paid SMS gateway needed). */
     fun whatsAppMessage(context: Context, phone: String, message: String) {
-        val digits = phone.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
+        // wa.me needs the country code: "98765 43210" and "098765 43210" both become 919876543210
+        val digits = phone.filter { it.isDigit() }.trimStart('0').let { if (it.length == 10) "91$it" else it }
         val url = "https://wa.me/$digits?text=" + Uri.encode(message)
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

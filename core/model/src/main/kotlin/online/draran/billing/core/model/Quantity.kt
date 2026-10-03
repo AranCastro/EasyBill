@@ -11,7 +11,7 @@ object Qty {
 
     fun of(units: Long) = units * ONE
 
-    fun parse(text: String): Long? = text.trim().takeIf { it.isNotEmpty() }?.let {
+    fun parse(text: String): Long? = MoneyParse.normalise(text).takeIf { it.isNotEmpty() }?.let {
         runCatching { BigDecimal(it).movePointRight(3).setScale(0, RoundingMode.HALF_UP).longValueExact() }.getOrNull()
     }
 
@@ -24,9 +24,19 @@ object Qty {
 
 object MoneyParse {
     /** Parses "1,250.5" or "₹99" into paise; null when not a number. */
-    fun parse(text: String): Money? = text.replace(",", "").replace("₹", "").trim().takeIf { it.isNotEmpty() }?.let {
+    fun parse(text: String): Money? = normalise(text).takeIf { it.isNotEmpty() }?.let {
         runCatching { Money(BigDecimal(it).movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact()) }
             .getOrNull()
+    }
+
+    /**
+     * "1,00,000.50" -> "100000.50". A single comma followed by one or two digits ("12,50",
+     * from a decimal-comma keyboard) is a decimal point: grouping commas always have three digits after them.
+     */
+    fun normalise(text: String): String {
+        val t = text.replace("₹", "").replace(" ", "").trim()
+        return if (t.count { it == ',' } == 1 && !t.contains('.') && Regex(",\\d{1,2}$").containsMatchIn(t)) t.replace(',', '.')
+        else t.replace(",", "")
     }
 
     /** Plain editable text: 1250.5 -> "1250.50", 99 -> "99". */

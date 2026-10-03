@@ -64,6 +64,7 @@ import online.draran.billing.core.print.BluetoothPrinter
 @Composable
 fun InvoiceDetailRoute(
     invoiceId: Long,
+    justSaved: Boolean = false,
     onBack: () -> Unit,
     onEdit: (DocType, Long) -> Unit,
     onCreateFrom: (DocType, Long) -> Unit,
@@ -74,6 +75,16 @@ fun InvoiceDetailRoute(
 ) {
     val context = LocalContext.current
     LaunchedEffect(invoiceId) { viewModel.load(invoiceId, context) }
+    // A short "saved" confirmation when arriving straight from the editor; shown once per screen
+    val haptics = online.draran.billing.core.designsystem.component.rememberHaptics()
+    var showSaved by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(justSaved) }
+    LaunchedEffect(showSaved) {
+        if (showSaved) {
+            haptics.success()
+            kotlinx.coroutines.delay(2_600)
+            showSaved = false
+        }
+    }
     val invoice by viewModel.invoice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -134,6 +145,15 @@ fun InvoiceDetailRoute(
             contentPadding = PaddingValues(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
+            if (showSaved) {
+                item(key = "saved") {
+                    online.draran.billing.core.designsystem.component.SuccessBanner(
+                        visible = true,
+                        text = "${inv.type.shortTitle} saved",
+                        detail = "${inv.number} · ${online.draran.billing.core.common.IndianFormat.rupees(inv.totals.total)}",
+                    )
+                }
+            }
             item {
                 Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(ext.heroBrush).padding(Spacing.xl)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

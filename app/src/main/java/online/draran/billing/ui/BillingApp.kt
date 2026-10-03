@@ -1,6 +1,10 @@
 package online.draran.billing.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -70,6 +74,7 @@ import online.draran.billing.navigation.NavBackup
 import online.draran.billing.navigation.NavBusinessProfile
 import online.draran.billing.navigation.NavCounter
 import online.draran.billing.navigation.NavDocuments
+import online.draran.billing.feature.billing.DocFilter
 import online.draran.billing.navigation.NavExpenseEditor
 import online.draran.billing.navigation.NavExpenses
 import online.draran.billing.navigation.NavHome
@@ -110,8 +115,8 @@ fun BillingApp(
     }
     var partiesTabType by remember { mutableStateOf(PartyType.CUSTOMER) }
 
-    fun newBill(type: DocType, partyId: Long = 0) = nav.navigate(NavInvoiceEditor(type.name, partyId = partyId))
-    fun openInvoice(id: Long) = nav.navigate(NavInvoiceDetail(id))
+    fun newBill(type: DocType, partyId: Long = 0) = nav.go(NavInvoiceEditor(type.name, partyId = partyId))
+    fun openInvoice(id: Long) = nav.go(NavInvoiceDetail(id))
 
     Scaffold(
         bottomBar = {
@@ -141,8 +146,8 @@ fun BillingApp(
         floatingActionButton = {
             val fab: Pair<String, () -> Unit>? = when (currentTab) {
                 TopLevelDestination.HOME, TopLevelDestination.SALES -> businessType.newSaleLabel to { newBill(DocType.SALE) }
-                TopLevelDestination.ITEMS -> "Add ${businessType.item.lowercase()}" to { nav.navigate(NavItemEditor()) }
-                TopLevelDestination.PARTIES -> (if (partiesTabType == PartyType.CUSTOMER && businessType != BusinessType.RETAIL) "Add ${businessType.party.lowercase()}" else "Add party") to { nav.navigate(NavPartyEditor(type = partiesTabType.name)) }
+                TopLevelDestination.ITEMS -> "Add ${businessType.item.lowercase()}" to { nav.go(NavItemEditor()) }
+                TopLevelDestination.PARTIES -> (if (partiesTabType == PartyType.CUSTOMER && businessType != BusinessType.RETAIL) "Add ${businessType.party.lowercase()}" else "Add party") to { nav.go(NavPartyEditor(type = partiesTabType.name)) }
                 else -> null
             }
             AnimatedVisibility(visible = fab != null, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
@@ -156,9 +161,26 @@ fun BillingApp(
             navController = nav,
             startDestination = if (onboarded) NavHome else NavOnboarding,
             modifier = Modifier.fillMaxSize(),
+            // Tabs cross-fade; screens opened from them slide in from the right and back out again
+            enterTransition = {
+                if (initialState.isTab() && targetState.isTab()) fadeIn(tween(200))
+                else slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(260))
+            },
+            exitTransition = {
+                if (initialState.isTab() && targetState.isTab()) fadeOut(tween(160))
+                else slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { -it / 12 } + fadeOut(tween(220))
+            },
+            popEnterTransition = {
+                if (initialState.isTab() && targetState.isTab()) fadeIn(tween(200))
+                else slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { -it / 12 } + fadeIn(tween(260))
+            },
+            popExitTransition = {
+                if (initialState.isTab() && targetState.isTab()) fadeOut(tween(160))
+                else slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 4 } + fadeOut(tween(200))
+            },
         ) {
             composable<NavOnboarding> {
-                OnboardingRoute(onDone = { nav.navigate(NavHome) { popUpTo<NavOnboarding> { inclusive = true } } })
+                OnboardingRoute(onDone = { nav.go(NavHome) { popUpTo<NavOnboarding> { inclusive = true } } })
             }
 
             // Tabs
@@ -170,24 +192,26 @@ fun BillingApp(
                     onNavigate = { d ->
                         when (d) {
                             DashboardDestination.NEW_SALE -> newBill(DocType.SALE)
-                            DashboardDestination.COUNTER -> nav.navigate(NavCounter)
-                            DashboardDestination.PAYMENT_IN -> nav.navigate(NavPaymentEditor(PaymentDirection.IN.name))
-                            DashboardDestination.ADD_ITEM -> nav.navigate(NavItemEditor())
+                            DashboardDestination.COUNTER -> nav.go(NavCounter)
+                            DashboardDestination.PAYMENT_IN -> nav.go(NavPaymentEditor(PaymentDirection.IN.name))
+                            DashboardDestination.ADD_ITEM -> nav.go(NavItemEditor())
                             DashboardDestination.PURCHASE -> newBill(DocType.PURCHASE)
-                            DashboardDestination.EXPENSE -> nav.navigate(NavExpenseEditor())
+                            DashboardDestination.EXPENSE -> nav.go(NavExpenseEditor())
                             DashboardDestination.ESTIMATE -> newBill(DocType.ESTIMATE)
-                            DashboardDestination.REPORTS -> nav.navigate(NavReports)
-                            DashboardDestination.TO_COLLECT, DashboardDestination.TO_PAY -> nav.navigate(NavReport(ReportKind.PARTY_BALANCES.name))
-                            DashboardDestination.LOW_STOCK -> nav.navigate(NavReport(ReportKind.STOCK.name))
-                            DashboardDestination.ALL_TRANSACTIONS -> nav.navigate(NavReport(ReportKind.DAY_BOOK.name))
-                            DashboardDestination.BACKUP -> nav.navigate(NavBackup)
-                            DashboardDestination.SETTINGS -> nav.navigate(NavSettings)
+                            DashboardDestination.REPORTS -> nav.go(NavReports)
+                            DashboardDestination.TO_COLLECT, DashboardDestination.TO_PAY -> nav.go(NavReport(ReportKind.PARTY_BALANCES.name))
+                            DashboardDestination.LOW_STOCK -> nav.go(NavReport(ReportKind.STOCK.name))
+                            DashboardDestination.ALL_TRANSACTIONS -> nav.go(NavReport(ReportKind.DAY_BOOK.name))
+                            DashboardDestination.BACKUP -> nav.go(NavBackup)
+                            DashboardDestination.SETTINGS -> nav.go(NavSettings)
+                            DashboardDestination.OVERDUE -> nav.go(NavDocuments(DocList.SALES.name, filter = DocFilter.OVERDUE.name))
+                            DashboardDestination.ITEM_SALES -> nav.go(NavReport(ReportKind.ITEM_SALES.name))
                         }
                     },
                     onOpenRecent = { t ->
                         when (t.type) {
-                            TransactionType.PAYMENT_IN, TransactionType.PAYMENT_OUT -> nav.navigate(NavPaymentEditor(PaymentDirection.IN.name, id = t.id))
-                            TransactionType.EXPENSE -> nav.navigate(NavExpenseEditor(t.id))
+                            TransactionType.PAYMENT_IN, TransactionType.PAYMENT_OUT -> nav.go(NavPaymentEditor(PaymentDirection.IN.name, id = t.id))
+                            TransactionType.EXPENSE -> nav.go(NavExpenseEditor(t.id))
                             else -> openInvoice(t.id)
                         }
                     },
@@ -195,13 +219,13 @@ fun BillingApp(
             }
             composable<NavSales> { SalesTabRoute(contentPadding = innerPadding, onOpen = ::openInvoice) }
             composable<NavItems> {
-                ItemsRoute(contentPadding = innerPadding, onOpenItem = { nav.navigate(NavItemEditor(it)) }, onAddItem = { nav.navigate(NavItemEditor(barcode = it)) })
+                ItemsRoute(contentPadding = innerPadding, onOpenItem = { nav.go(NavItemEditor(it)) }, onAddItem = { nav.go(NavItemEditor(barcode = it)) })
             }
             composable<NavParties> {
                 PartiesRoute(
                     contentPadding = innerPadding,
-                    onOpenParty = { nav.navigate(NavPartyDetail(it)) },
-                    onAddParty = { type -> partiesTabType = type; nav.navigate(NavPartyEditor(type = type.name)) },
+                    onOpenParty = { nav.go(NavPartyDetail(it)) },
+                    onAddParty = { type -> partiesTabType = type; nav.go(NavPartyEditor(type = type.name)) },
                     onTypeChanged = { partiesTabType = it },
                 )
             }
@@ -210,14 +234,14 @@ fun BillingApp(
                     contentPadding = innerPadding,
                     onOpen = { d ->
                         when (d) {
-                            MoreDestination.COUNTER -> nav.navigate(NavCounter)
-                            MoreDestination.PURCHASES -> nav.navigate(NavDocuments(DocList.PURCHASES.name))
-                            MoreDestination.ESTIMATES -> nav.navigate(NavDocuments(DocList.ESTIMATES.name))
-                            MoreDestination.PAYMENTS -> nav.navigate(NavPayments)
-                            MoreDestination.EXPENSES -> nav.navigate(NavExpenses)
-                            MoreDestination.REPORTS -> nav.navigate(NavReports)
-                            MoreDestination.BACKUP -> nav.navigate(NavBackup)
-                            MoreDestination.SETTINGS -> nav.navigate(NavSettings)
+                            MoreDestination.COUNTER -> nav.go(NavCounter)
+                            MoreDestination.PURCHASES -> nav.go(NavDocuments(DocList.PURCHASES.name))
+                            MoreDestination.ESTIMATES -> nav.go(NavDocuments(DocList.ESTIMATES.name))
+                            MoreDestination.PAYMENTS -> nav.go(NavPayments)
+                            MoreDestination.EXPENSES -> nav.go(NavExpenses)
+                            MoreDestination.REPORTS -> nav.go(NavReports)
+                            MoreDestination.BACKUP -> nav.go(NavBackup)
+                            MoreDestination.SETTINGS -> nav.go(NavSettings)
                         }
                     },
                 )
@@ -230,10 +254,10 @@ fun BillingApp(
                     itemId = r.id,
                     prefillBarcode = r.barcode,
                     prefillName = r.name,
-                    onBack = { nav.popBackStack() },
+                    onBack = { nav.back() },
                     onSaved = { id ->
                         nav.previousBackStackEntry?.savedStateHandle?.set(NEW_ITEM_KEY, id)
-                        nav.popBackStack()
+                        nav.back()
                     },
                 )
             }
@@ -243,20 +267,20 @@ fun BillingApp(
                     partyId = r.id,
                     type = PartyType.valueOf(r.type),
                     prefillName = r.name,
-                    onBack = { nav.popBackStack() },
-                    onSaved = { id -> if (r.id == 0L) nav.navigate(NavPartyDetail(id)) { popUpTo<NavPartyEditor> { inclusive = true } } else nav.popBackStack() },
+                    onBack = { nav.back() },
+                    onSaved = { id -> if (r.id == 0L) nav.go(NavPartyDetail(id)) { popUpTo<NavPartyEditor> { inclusive = true } } else nav.back() },
                 )
             }
             composable<NavPartyDetail> { entry ->
                 val id = entry.toRoute<NavPartyDetail>().id
                 PartyDetailRoute(
                     partyId = id,
-                    onBack = { nav.popBackStack() },
-                    onEdit = { nav.navigate(NavPartyEditor(id)) },
+                    onBack = { nav.back() },
+                    onEdit = { nav.go(NavPartyEditor(id)) },
                     onNewBill = { type -> newBill(if (type == PartyType.CUSTOMER) DocType.SALE else DocType.PURCHASE, id) },
-                    onPayment = { type -> nav.navigate(NavPaymentEditor((if (type == PartyType.CUSTOMER) PaymentDirection.IN else PaymentDirection.OUT).name, partyId = id)) },
+                    onPayment = { type -> nav.go(NavPaymentEditor((if (type == PartyType.CUSTOMER) PaymentDirection.IN else PaymentDirection.OUT).name, partyId = id)) },
                     onOpenInvoice = ::openInvoice,
-                    onOpenPayment = { nav.navigate(NavPaymentEditor(PaymentDirection.IN.name, id = it)) },
+                    onOpenPayment = { nav.go(NavPaymentEditor(PaymentDirection.IN.name, id = it)) },
                 )
             }
 
@@ -270,40 +294,44 @@ fun BillingApp(
                     sourceId = r.sourceId,
                     partyId = r.partyId,
                     newItemId = newItem,
-                    onBack = { nav.popBackStack() },
+                    onBack = { nav.back() },
                     onSaved = { id ->
                         // Editing from a bill's page: go back to that page (it refreshes itself) instead of stacking a second copy
                         val cameFromDetail = nav.previousBackStackEntry?.destination?.hierarchy?.any { it.hasRoute(NavInvoiceDetail::class) } == true
-                        if (r.id != 0L && cameFromDetail) nav.popBackStack()
-                        else nav.navigate(NavInvoiceDetail(id)) { popUpTo<NavInvoiceEditor> { inclusive = true } }
+                        if (r.id != 0L && cameFromDetail) nav.back()
+                        else nav.go(NavInvoiceDetail(id, saved = true)) { popUpTo<NavInvoiceEditor> { inclusive = true } }
                     },
-                    onCreateItem = { code -> nav.navigate(createItemRoute(code)) },
+                    onCreateItem = { code -> nav.go(createItemRoute(code)) },
                 )
             }
             composable<NavCounter> { entry ->
                 val newItem by entry.newItemFlow()
                 CounterRoute(
-                    onBack = { nav.popBackStack() },
+                    onBack = { nav.back() },
                     onOpenInvoice = ::openInvoice,
-                    onCreateItem = { code -> nav.navigate(createItemRoute(code)) },
+                    onCreateItem = { code -> nav.go(createItemRoute(code)) },
                     newItemId = newItem,
                 )
             }
             composable<NavInvoiceDetail> { entry ->
+                val r = entry.toRoute<NavInvoiceDetail>()
                 InvoiceDetailRoute(
-                    invoiceId = entry.toRoute<NavInvoiceDetail>().id,
-                    onBack = { nav.popBackStack() },
-                    onEdit = { type, id -> nav.navigate(NavInvoiceEditor(type.name, id = id)) },
-                    onCreateFrom = { type, source -> nav.navigate(NavInvoiceEditor(type.name, sourceId = source)) },
-                    onOpenInvoice = { id -> nav.navigate(NavInvoiceDetail(id)) { popUpTo<NavInvoiceDetail> { inclusive = true } } },
-                    onRecordPayment = { type, partyId -> nav.navigate(NavPaymentEditor(type.paymentDirection.name, partyId = partyId ?: 0)) },
-                    onPrinterSettings = { nav.navigate(NavPrinter) },
+                    invoiceId = r.id,
+                    justSaved = r.saved,
+                    onBack = { nav.back() },
+                    onEdit = { type, id -> nav.go(NavInvoiceEditor(type.name, id = id)) },
+                    onCreateFrom = { type, source -> nav.go(NavInvoiceEditor(type.name, sourceId = source)) },
+                    onOpenInvoice = { id -> nav.go(NavInvoiceDetail(id)) { popUpTo<NavInvoiceDetail> { inclusive = true } } },
+                    onRecordPayment = { type, partyId -> nav.go(NavPaymentEditor(type.paymentDirection.name, partyId = partyId ?: 0)) },
+                    onPrinterSettings = { nav.go(NavPrinter) },
                 )
             }
             composable<NavDocuments> { entry ->
+                val r = entry.toRoute<NavDocuments>()
                 DocumentsRoute(
-                    list = DocList.valueOf(entry.toRoute<NavDocuments>().list),
-                    onBack = { nav.popBackStack() },
+                    list = DocList.valueOf(r.list),
+                    initialFilter = DocFilter.entries.firstOrNull { it.name == r.filter } ?: DocFilter.ALL,
+                    onBack = { nav.back() },
                     onOpen = ::openInvoice,
                     onNew = { newBill(it) },
                 )
@@ -312,39 +340,39 @@ fun BillingApp(
             // Money
             composable<NavPayments> {
                 PaymentsRoute(
-                    onBack = { nav.popBackStack() },
-                    onOpen = { nav.navigate(NavPaymentEditor(PaymentDirection.IN.name, id = it)) },
-                    onNew = { nav.navigate(NavPaymentEditor(it.name)) },
+                    onBack = { nav.back() },
+                    onOpen = { nav.go(NavPaymentEditor(PaymentDirection.IN.name, id = it)) },
+                    onNew = { nav.go(NavPaymentEditor(it.name)) },
                 )
             }
             composable<NavPaymentEditor> { entry ->
                 val r = entry.toRoute<NavPaymentEditor>()
-                PaymentEditorRoute(PaymentDirection.valueOf(r.direction), r.id, r.partyId, onBack = { nav.popBackStack() })
+                PaymentEditorRoute(PaymentDirection.valueOf(r.direction), r.id, r.partyId, onBack = { nav.back() })
             }
             composable<NavExpenses> {
-                ExpensesRoute(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(NavExpenseEditor(it)) }, onNew = { nav.navigate(NavExpenseEditor()) })
+                ExpensesRoute(onBack = { nav.back() }, onOpen = { nav.go(NavExpenseEditor(it)) }, onNew = { nav.go(NavExpenseEditor()) })
             }
-            composable<NavExpenseEditor> { entry -> ExpenseEditorRoute(entry.toRoute<NavExpenseEditor>().id, onBack = { nav.popBackStack() }) }
+            composable<NavExpenseEditor> { entry -> ExpenseEditorRoute(entry.toRoute<NavExpenseEditor>().id, onBack = { nav.back() }) }
 
             // Reports
-            composable<NavReports> { ReportsHubRoute(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(NavReport(it.name)) }) }
-            composable<NavReport> { entry -> ReportRoute(ReportKind.valueOf(entry.toRoute<NavReport>().kind), onBack = { nav.popBackStack() }) }
+            composable<NavReports> { ReportsHubRoute(onBack = { nav.back() }, onOpen = { nav.go(NavReport(it.name)) }) }
+            composable<NavReport> { entry -> ReportRoute(ReportKind.valueOf(entry.toRoute<NavReport>().kind), onBack = { nav.back() }) }
 
             // Settings
             composable<NavSettings> {
                 SettingsRoute(
                     versionName = versionName,
-                    onBack = { nav.popBackStack() },
-                    onBusinessProfile = { nav.navigate(NavBusinessProfile) },
-                    onInvoiceSettings = { nav.navigate(NavInvoiceSettings) },
-                    onPrinter = { nav.navigate(NavPrinter) },
-                    onBackup = { nav.navigate(NavBackup) },
+                    onBack = { nav.back() },
+                    onBusinessProfile = { nav.go(NavBusinessProfile) },
+                    onInvoiceSettings = { nav.go(NavInvoiceSettings) },
+                    onPrinter = { nav.go(NavPrinter) },
+                    onBackup = { nav.go(NavBackup) },
                 )
             }
-            composable<NavBusinessProfile> { BusinessProfileRoute(onBack = { nav.popBackStack() }) }
-            composable<NavInvoiceSettings> { InvoiceSettingsRoute(onBack = { nav.popBackStack() }) }
-            composable<NavPrinter> { PrinterSettingsRoute(onBack = { nav.popBackStack() }) }
-            composable<NavBackup> { BackupRoute(onBack = { nav.popBackStack() }) }
+            composable<NavBusinessProfile> { BusinessProfileRoute(onBack = { nav.back() }) }
+            composable<NavInvoiceSettings> { InvoiceSettingsRoute(onBack = { nav.back() }) }
+            composable<NavPrinter> { PrinterSettingsRoute(onBack = { nav.back() }) }
+            composable<NavBackup> { BackupRoute(onBack = { nav.back() }) }
         }
     }
 }
@@ -362,4 +390,21 @@ private fun NavHostController.navigateToTab(tab: TopLevelDestination) {
         launchSingleTop = true
         restoreState = true
     }
+}
+
+/** True for the five bottom-bar tabs. */
+private fun NavBackStackEntry.isTab(): Boolean =
+    TopLevelDestination.entries.any { tab -> destination.hierarchy.any { it.hasRoute(tab.routeClass) } }
+
+/**
+ * Navigates only from a settled screen: a double tap, or a tap while a screen is
+ * still sliding in or out, is ignored instead of opening the next screen twice.
+ */
+private fun NavHostController.go(route: Any, builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {}) {
+    if (currentBackStackEntry?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) navigate(route, builder)
+}
+
+/** Back, but never past the first screen: a double tap on a back arrow must not leave a blank window. */
+private fun NavHostController.back() {
+    if (currentBackStackEntry?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED && previousBackStackEntry != null) popBackStack()
 }

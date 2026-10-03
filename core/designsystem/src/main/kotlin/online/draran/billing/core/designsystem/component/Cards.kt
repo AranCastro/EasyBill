@@ -89,11 +89,12 @@ fun KpiCard(
                 )
             }
             Spacer(Modifier.height(Spacing.md))
-            AmountText(
+            AnimatedAmountText(
                 amount = amount,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 showPaise = false,
+                countUp = true,
             )
             if (caption != null) {
                 Spacer(Modifier.height(2.dp))

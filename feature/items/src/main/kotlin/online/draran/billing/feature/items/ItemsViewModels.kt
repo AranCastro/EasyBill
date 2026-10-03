@@ -162,12 +162,18 @@ class ItemEditorViewModel @Inject constructor(
         else -> null
     }
 
+    var saving by mutableStateOf(false)
+        private set
+
     fun save(onSaved: (Long) -> Unit) {
         showErrors = true
         if (form.name.isBlank()) return
+        if (saving) return // a double tap would save two items and pop the bill editor behind this screen
+        saving = true
         viewModelScope.launch {
             if (repository.nameTaken(form.name, itemId)) {
                 nameTaken = true
+                saving = false
                 return@launch
             }
             val f = form

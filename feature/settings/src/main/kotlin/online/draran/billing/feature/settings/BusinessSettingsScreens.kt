@@ -103,14 +103,29 @@ class BusinessSettingsViewModel @Inject constructor(
     }
 }
 
+private val numberedTypes = listOf(DocType.SALE, DocType.ESTIMATE, DocType.SALE_RETURN, DocType.PURCHASE_RETURN)
+
+/** Blank prefixes, and one prefix used for two kinds of document (two "INV-0001"s), are refused. */
+internal fun prefixProblems(b: Business): Map<DocType, String> = buildMap {
+    numberedTypes.forEach { type ->
+        val p = b.prefix(type).trim()
+        val clash = numberedTypes.firstOrNull { it != type && b.prefix(it).trim().equals(p, ignoreCase = true) }
+        when {
+            p.isEmpty() -> put(type, "Enter a prefix")
+            clash != null -> put(type, "Same as ${clash.title}")
+        }
+    }
+}
+
 @Composable
 fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltViewModel()) {
     val b = viewModel.business ?: return
+    val prefixErrors = prefixProblems(b)
     Scaffold(
         topBar = { AppTopBar("Invoice settings", onBack = onBack) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onBack) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
+                Button(onClick = { viewModel.save(onBack) }, enabled = prefixErrors.isEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
             }
         },
     ) { padding ->
@@ -118,10 +133,12 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
             SectionCard(title = "Bill numbering") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Prefix for each type. Numbers continue automatically, e.g. INV-0001.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    listOf(DocType.SALE, DocType.ESTIMATE, DocType.SALE_RETURN, DocType.PURCHASE_RETURN).forEach { type ->
+                    numberedTypes.forEach { type ->
                         FormField(
-                            b.prefix(type), { v -> viewModel.update { it.copy(prefixes = it.prefixes + (type to v.uppercase().take(8))) } },
+                            // ";" and "=" would break how prefixes are stored
+                            b.prefix(type), { v -> viewModel.update { it.copy(prefixes = it.prefixes + (type to v.uppercase().filter { c -> c != ';' && c != '=' }.take(8))) } },
                             type.title, capitalization = KeyboardCapitalization.Characters,
+                            error = prefixErrors[type],
                         )
                     }
                 }
@@ -339,7 +356,12 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
                             }) { Text("Restore") }
                         }
                     }
-                    OutlinedButton(onClick = { scope.launch { backup.saveCopy(); autoFiles = backup.autoBackups(); message = "Copy saved" } }) { Text("Save a copy now") }
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            message = runCatching { backup.saveCopy() }.fold({ "Copy saved" }, { "Could not save a copy: ${it.message ?: "storage error"}" })
+                            autoFiles = backup.autoBackups()
+                        }
+                    }) { Text("Save a copy now") }
                 }
             }
         }

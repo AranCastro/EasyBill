@@ -445,4 +445,39 @@ class RepositoryTest {
         assertEquals(listOf("Keep Me"), ItemRepository(fileDb.itemDao()).items().first().map { it.item.name })
         fileDb.close()
     }
+
+    @Test fun creditNoteReducesWhatTheSaleShowsAsDue() = runTest {
+        val pid = parties.save(Party(name = "Ravi", type = PartyType.CUSTOMER))
+        val saleId = sale(pid, 1000, date = today.minusDays(3))
+        val noteId = sale(pid, 300, date = today.minusDays(2), type = DocType.SALE_RETURN)
+        payments.save(Payment(direction = PaymentDirection.IN, number = "", partyId = pid, partyName = "Ravi", date = today, amount = Money.rupees(700)))
+        assertEquals(Money.rupees(1000), invoices.get(saleId)!!.paid)
+        assertTrue(invoices.get(saleId)!!.isPaid)
+        assertEquals(Money.rupees(300), invoices.get(noteId)!!.paid)
+        assertEquals(Money.ZERO, parties.party(pid).first()!!.balance)
+        // The sales list agrees
+        val summary = invoices.summaries(listOf(DocType.SALE)).first().single { it.id == saleId }
+        assertEquals(Money.ZERO, summary.balance)
+        // Deleting the note puts the amount back on the sale
+        invoices.delete(noteId)
+        assertEquals(Money.rupees(300), invoices.get(saleId)!!.balance)
+    }
+
+    @Test fun aLargerCreditNoteIsSettledByARefund() = runTest {
+        val pid = parties.save(Party(name = "Anita", type = PartyType.CUSTOMER))
+        sale(pid, 200, paid = 200, date = today.minusDays(3))
+        val noteId = sale(pid, 300, date = today.minusDays(1), type = DocType.SALE_RETURN)
+        assertEquals(Money.rupees(300), invoices.get(noteId)!!.balance) // we owe the customer
+        payments.save(Payment(direction = PaymentDirection.OUT, number = "", partyId = pid, partyName = "Anita", date = today, amount = Money.rupees(300)))
+        assertEquals(Money.ZERO, invoices.get(noteId)!!.balance)
+        assertEquals(Money.ZERO, parties.party(pid).first()!!.balance)
+    }
+
+    @Test fun debitNoteReducesWhatWeOweOnAPurchase() = runTest {
+        val sid = parties.save(Party(name = "Metro", type = PartyType.SUPPLIER))
+        val bill = invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "M1", date = today.minusDays(5), partyId = sid, partyName = "Metro", lines = listOf(line(null, 1, 1000))))
+        val note = invoices.save(InvoiceDraft(type = DocType.PURCHASE_RETURN, number = "", date = today.minusDays(2), partyId = sid, partyName = "Metro", lines = listOf(line(null, 1, 250))))
+        assertEquals(Money.rupees(750), invoices.get(bill)!!.balance)
+        assertEquals(Money.ZERO, invoices.get(note)!!.balance)
+    }
 }

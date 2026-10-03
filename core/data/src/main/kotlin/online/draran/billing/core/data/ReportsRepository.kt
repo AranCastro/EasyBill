@@ -61,7 +61,11 @@ data class GstReport(
     private fun List<GstLine>.igst() = map { it.igst }.sum()
     private fun List<GstLine>.taxable() = map { it.taxable }.sum()
 
-    val outwardTaxable: Money get() = (b2b + b2c).taxable() - creditNotes.taxable()
+    // GSTR-3B 3.1(a) is for taxed supplies only; 0% (nil-rated or exempt) sales belong in 3.1(c)
+    private fun List<GstLine>.taxed() = filter { it.rateBp > 0 }
+    private fun List<GstLine>.nil() = filter { it.rateBp == 0 }
+    val outwardTaxable: Money get() = (b2b + b2c).taxed().taxable() - creditNotes.taxed().taxable()
+    val outwardNilExempt: Money get() = (b2b + b2c).nil().taxable() - creditNotes.nil().taxable()
     val outputCgst: Money get() = (b2b + b2c).cgst() - creditNotes.cgst()
     val outputSgst: Money get() = (b2b + b2c).sgst() - creditNotes.sgst()
     val outputIgst: Money get() = (b2b + b2c).igst() - creditNotes.igst()
@@ -111,7 +115,13 @@ data class DashboardData(
     val lowStock: Int,
     val week: List<DaySales>,
     val recent: List<DayBookEntry>,
+    val overdueCount: Int = 0,
+    val overdue: Money = Money.ZERO,
+    /** Best sellers this month, by value. */
+    val topItems: List<TopItem> = emptyList(),
 )
+
+data class TopItem(val name: String, val qtyMilli: Long, val unit: String, val amount: Money)
 
 @Singleton
 class ReportsRepository @Inject constructor(
@@ -224,6 +234,10 @@ class ReportsRepository @Inject constructor(
             )
         }.combine(invoices.observeCount(DocType.SALE, today.toDay())) { data, count ->
             data.copy(todayCount = count)
+        }.combine(invoices.observeOverdue(today.toDay())) { data, overdue ->
+            data.copy(overdueCount = overdue.count, overdue = Money(overdue.amount))
+        }.combine(invoices.observeTopItems(today.withDayOfMonth(1).toDay(), today.toDay(), 3)) { data, top ->
+            data.copy(topItems = top.map { TopItem(it.name, it.qty, it.unit, Money(it.total)) })
         }
     }
 }

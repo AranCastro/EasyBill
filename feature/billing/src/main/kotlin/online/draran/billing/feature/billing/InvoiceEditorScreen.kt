@@ -94,6 +94,8 @@ fun InvoiceEditorRoute(
     var editIndex by remember { mutableIntStateOf(-2) } // -2 none, -1 new one-time line
     var editNumber by remember { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(viewModel.notes.isNotBlank()) }
+    // An edited bill's notes arrive after the first frame: keep the field open once they do, even if cleared later
+    LaunchedEffect(viewModel.notes.isNotBlank()) { if (viewModel.notes.isNotBlank()) showNotes = true }
     val ext = BillingTheme.extendedColors
     val docType = viewModel.type
     val totals = viewModel.totals()
@@ -306,7 +308,7 @@ fun InvoiceEditorRoute(
             // Notes
             item {
                 // Notes of an edited bill arrive after the screen is first drawn
-                if (showNotes || viewModel.notes.isNotBlank()) {
+                if (showNotes) {
                     FormField(viewModel.notes, { viewModel.notes = it }, "Notes (printed on the bill)", singleLine = false, minLines = 2)
                 } else {
                     OutlinedButton(onClick = { showNotes = true }) {
@@ -356,7 +358,8 @@ fun InvoiceEditorRoute(
             line = line,
             gstEnabled = viewModel.gstOn,
             interState = interState,
-            onSave = { updated -> if (line == null) viewModel.addCustomLine(updated.name, updated.rate, updated.qtyMilli, updated.taxRateBp) else viewModel.updateLine(editIndex, updated) },
+            // A one-time line keeps everything set in the sheet: discount, unit and "price includes GST"
+            onSave = { updated -> if (line == null) viewModel.addLine(updated) else viewModel.updateLine(editIndex, updated) },
             onRemove = { if (editIndex >= 0) viewModel.removeLine(editIndex) },
             onDismiss = { editIndex = -2 },
         )

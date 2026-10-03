@@ -15,7 +15,13 @@ data class InvoiceSummaryRow(
     val partyName: String,
     val total: Long,
     val paid: Long,
+    val dueDate: Long? = null,
 )
+
+/** Sale bills past their due date that still have money to collect. */
+data class OverdueRow(val count: Int, val amount: Long)
+
+data class TopItemRow(val name: String, val qty: Long, val unit: String, val total: Long)
 
 data class OpenDocRow(val id: Long, val date: Long, val total: Long, val paid: Long)
 

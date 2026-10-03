@@ -129,7 +129,7 @@ fun CounterRoute(
             if (items.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text("No ${business.type.items.lowercase()} yet", style = MaterialTheme.typography.titleMedium)
-                    Text("Add ${business.type.items.lowercase()} and mark the ones you bill most as favourites to see them here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Add ${business.type.items.lowercase()} to see them here. Favourites are shown first.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(Spacing.md))
                     Button(onClick = { onCreateItem("") }) { Text("Add ${business.type.item.lowercase()}") }
                 }

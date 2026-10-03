@@ -97,7 +97,7 @@ fun ItemEditorRoute(
         },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onSaved) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text(if (editing) "Save changes" else "Save item")
                 }
             }
@@ -201,8 +201,8 @@ fun ItemEditorRoute(
                     FormField(form.code, { v -> viewModel.update { it.copy(code = v) } }, "Item code (short)", capitalization = KeyboardCapitalization.Characters)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Show in counter", style = MaterialTheme.typography.bodyMedium)
-                            Text("Favourites appear as big buttons in Counter billing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Favourite", style = MaterialTheme.typography.bodyMedium)
+                            Text("Shown first in Counter billing and the item picker", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = form.favourite, onCheckedChange = { v -> viewModel.update { it.copy(favourite = v) } })
                     }

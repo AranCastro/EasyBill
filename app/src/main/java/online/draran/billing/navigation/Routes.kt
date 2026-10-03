@@ -19,9 +19,9 @@ import kotlin.reflect.KClass
 @Serializable data class NavPartyEditor(val id: Long = 0, val type: String = "CUSTOMER", val name: String = "")
 @Serializable data class NavPartyDetail(val id: Long)
 @Serializable data class NavInvoiceEditor(val type: String, val id: Long = 0, val sourceId: Long = 0, val partyId: Long = 0)
-@Serializable data class NavInvoiceDetail(val id: Long)
+@Serializable data class NavInvoiceDetail(val id: Long, val saved: Boolean = false)
 @Serializable data object NavCounter
-@Serializable data class NavDocuments(val list: String)
+@Serializable data class NavDocuments(val list: String, val filter: String = "")
 @Serializable data object NavPayments
 @Serializable data class NavPaymentEditor(val direction: String, val id: Long = 0, val partyId: Long = 0)
 @Serializable data object NavExpenses

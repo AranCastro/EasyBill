@@ -118,11 +118,15 @@ class ReportViewModel @Inject constructor(
     /** Shown once as a snackbar when an export fails. */
     var message by mutableStateOf<String?>(null)
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     fun load(k: ReportKind, r: DateRange = range) {
         kind = k
         range = r
         loading = true
-        viewModelScope.launch {
+        // A slower earlier range must not finish last and show under the newer chip
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             content = builder.build(k, r)
             loading = false
         }

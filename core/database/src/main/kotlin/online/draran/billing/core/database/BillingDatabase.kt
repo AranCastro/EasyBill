@@ -14,6 +14,7 @@ import androidx.room.RoomDatabase
         InvoiceLineEntity::class,
         PaymentEntity::class,
         AllocationEntity::class,
+        NoteAllocationEntity::class,
         ExpenseEntity::class,
         StockAdjustmentEntity::class,
     ],
@@ -26,6 +27,8 @@ import androidx.room.RoomDatabase
         AutoMigration(from = 2, to = 3),
         // v1.3: bill colour
         AutoMigration(from = 3, to = 4),
+        // v1.4: credit and debit notes set against bills
+        AutoMigration(from = 4, to = 5),
     ],
 )
 abstract class BillingDatabase : RoomDatabase() {
@@ -41,6 +44,6 @@ abstract class BillingDatabase : RoomDatabase() {
         const val NAME = "kallaa_petti.db"
 
         /** Schema version; the newest file in schemas/. Backups from a higher version are refused. */
-        const val VERSION = 4
+        const val VERSION = 5
     }
 }

@@ -130,7 +130,8 @@ fun PaymentEditorRoute(
     val parties by viewModel.allParties.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     val isIn = viewModel.direction == PaymentDirection.IN
-    val candidates = parties.filter { it.party.type == viewModel.partyType || it.party.id == viewModel.partyId }
+    // Usual parties first; the others stay available for refunds (money paid back to a customer, or received back from a supplier)
+    val candidates = parties.sortedBy { if (it.party.type == viewModel.partyType) 0 else 1 }
     val selected = parties.firstOrNull { it.party.id == viewModel.partyId }
     Scaffold(
         topBar = {
@@ -157,7 +158,7 @@ fun PaymentEditorRoute(
                         label = if (isIn) "Received from *" else "Paid to *",
                         options = candidates,
                         selected = selected,
-                        optionLabel = { p -> p.party.name + if (!p.balance.isZero) " (${if (p.balance.paise > 0) "owes" else "advance"} ${IndianFormat.rupees(p.balance.abs(), showPaise = false)})" else "" },
+                        optionLabel = { p -> p.party.name + if (!p.balance.isZero) " (${if (p.balance.paise > 0) "owes you" else "you owe"} ${IndianFormat.rupees(p.balance.abs(), showPaise = false)})" else "" },
                         onSelect = { viewModel.partyId = it.party.id },
                         error = viewModel.partyError.takeIf { viewModel.showErrors },
                         supporting = if (candidates.isEmpty()) "Add the ${viewModel.partyType.label.lowercase()} in Parties first" else null,

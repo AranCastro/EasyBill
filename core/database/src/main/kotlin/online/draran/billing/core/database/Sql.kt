@@ -10,7 +10,11 @@ internal object Sql {
         "(item.openingStock" +
             " + COALESCE((SELECT SUM(l.qty * " + STOCK_SIGN + ") FROM invoice_line l JOIN invoice i ON i.id = l.invoiceId WHERE l.itemId = item.id), 0)" +
             " + COALESCE((SELECT SUM(a.qty) FROM stock_adjustment a WHERE a.itemId = item.id), 0))"
-    const val PAID_OF_INVOICE = "COALESCE((SELECT SUM(al.amount) FROM allocation al WHERE al.invoiceId = i.id), 0)"
+    /** Credit/debit notes set against a bill, or (for a note) the part of it already used against bills. */
+    const val NOTES_OF_INVOICE = "COALESCE((SELECT SUM(na.amount) FROM note_allocation na WHERE na.invoiceId = i.id OR na.noteId = i.id), 0)"
+
+    /** Settled part of a document: payments applied to it plus notes set against it. */
+    const val PAID_OF_INVOICE = "(COALESCE((SELECT SUM(al.amount) FROM allocation al WHERE al.invoiceId = i.id), 0) + " + NOTES_OF_INVOICE + ")"
     const val BALANCE_OF_PARTY =
         "(p.openingBalance" +
             " + COALESCE((SELECT SUM(i.total * " + LEDGER_SIGN + ") FROM invoice i WHERE i.partyId = p.id), 0)" +

@@ -115,7 +115,7 @@ internal fun InvoiceEntity.toModel(lines: List<InvoiceLineEntity>, paid: Long): 
     )
 }
 
-internal fun InvoiceSummaryRow.toModel() = InvoiceSummary(id, type, number, date.toDate(), partyName, Money(total), Money(paid))
+internal fun InvoiceSummaryRow.toModel() = InvoiceSummary(id, type, number, date.toDate(), partyName, Money(total), Money(paid), dueDate?.toDate())
 
 internal fun PaymentEntity.toModel() = Payment(
     id = id, direction = direction, number = number, partyId = partyId, partyName = partyName,

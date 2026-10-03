@@ -205,6 +205,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                     listOf("Particulars", "Taxable", "CGST", "SGST", "IGST"),
                     listOf(
                         listOf("3.1(a) Outward taxable supplies", rs(g.outwardTaxable), rs(g.outputCgst), rs(g.outputSgst), rs(g.outputIgst)),
+                        listOf("3.1(c) Nil rated and exempted", rs(g.outwardNilExempt), "", "", ""),
                         listOf("4(A) Input tax credit", rs(g.inwardTaxable), rs(g.itcCgst), rs(g.itcSgst), rs(g.itcIgst)),
                         listOf("Net payable", "", rs(g.outputCgst - g.itcCgst), rs(g.outputSgst - g.itcSgst), rs(g.outputIgst - g.itcIgst)),
                     ),

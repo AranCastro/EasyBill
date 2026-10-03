@@ -110,7 +110,9 @@ internal fun PartyPickerSheet(
             Spacer(Modifier.height(Spacing.sm))
             val needle = query.trim().lowercase()
             val shown = parties.filter { it.party.type == type }
-                .filter { needle.isEmpty() || it.party.name.lowercase().contains(needle) || it.party.phone.contains(needle) }
+                .filter { needle.isEmpty() || it.party.name.lowercase().contains(needle) || it.party.phone.contains(needle) ||
+                    // "9876543210" also finds a number saved as "98765 43210" or "+91 98765-43210"
+                    needle.filter(Char::isDigit).let { d -> d.length >= 3 && it.party.phone.filter(Char::isDigit).contains(d) } }
             LazyColumn(Modifier.weight(1f)) {
                 item {
                     PickerRow(AppIcons.UserPlus, if (query.isBlank()) "Add new ${partyWord.lowercase()}" else "Add \"${query.trim()}\"", null) { adding = true }

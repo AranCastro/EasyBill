@@ -59,7 +59,7 @@ class MigrationTest {
             )
             close()
         }
-        val db = helper.runMigrationsAndValidate("migration-test-3", 3, true)
+        val db = helper.runMigrationsAndValidate("migration-test-3", BillingDatabase.VERSION, true)
         db.query("SELECT name, businessType, udyamNumber, msmeCategory, printMsmeNote FROM business").use { c ->
             c.moveToFirst()
             assertEquals("Sharma Store", c.getString(0))

@@ -53,13 +53,15 @@ import online.draran.billing.core.designsystem.component.payStatus
 import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
+import online.draran.billing.core.designsystem.component.NameAvatar
+import online.draran.billing.core.designsystem.component.SkeletonRows
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.InvoiceSummary
 import online.draran.billing.core.model.Money
 import java.time.LocalDate
 import javax.inject.Inject
 
-enum class DocFilter(val label: String) { ALL("All"), UNPAID("Unpaid"), PAID("Paid") }
+enum class DocFilter(val label: String) { ALL("All"), UNPAID("Unpaid"), OVERDUE("Overdue"), PAID("Paid") }
 
 /** Which list to show. */
 enum class DocList(val title: String, val types: List<DocType>, val newType: DocType, val noun: String) {
@@ -97,6 +99,7 @@ class DocumentsViewModel @Inject constructor(repository: InvoiceRepository) : Vi
                     when (f) {
                         DocFilter.ALL -> true
                         DocFilter.UNPAID -> it.type.tracksPayment && it.balance.paise > 0
+                        DocFilter.OVERDUE -> it.overdueDays(LocalDate.now()) > 0
                         DocFilter.PAID -> it.type.tracksPayment && it.balance.paise <= 0
                     }
                 },
@@ -117,8 +120,18 @@ fun SalesTabRoute(contentPadding: PaddingValues, onOpen: (Long) -> Unit, viewMod
 
 /** Full-screen list for purchases or estimates. */
 @Composable
-fun DocumentsRoute(list: DocList, onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (DocType) -> Unit, viewModel: DocumentsViewModel = hiltViewModel()) {
-    LaunchedEffect(list) { viewModel.list.value = list }
+fun DocumentsRoute(
+    list: DocList,
+    onBack: () -> Unit,
+    onOpen: (Long) -> Unit,
+    onNew: (DocType) -> Unit,
+    initialFilter: DocFilter = DocFilter.ALL,
+    viewModel: DocumentsViewModel = hiltViewModel(),
+) {
+    LaunchedEffect(list) {
+        viewModel.list.value = list
+        viewModel.filter.value = initialFilter
+    }
     Scaffold(
         topBar = { AppTopBar(list.title, onBack = onBack) },
         floatingActionButton = {
@@ -162,9 +175,12 @@ private fun DocumentsContent(
         }
         item { SearchField(query, { viewModel.query.value = it }, "Search number or party") }
         if (list != DocList.ESTIMATES) {
-            item { ChipRow(DocFilter.entries, filter, { it.label }, { viewModel.filter.value = it }) }
+            // Only sale bills have due dates
+            item { ChipRow(if (list == DocList.SALES) DocFilter.entries else DocFilter.entries - DocFilter.OVERDUE, filter, { it.label }, { viewModel.filter.value = it }) }
         }
-        if (!ui.loading && ui.docs.isEmpty()) {
+        if (ui.loading) {
+            item(key = "loading") { SurfaceCard { SkeletonRows(6) } }
+        } else if (ui.docs.isEmpty()) {
             item {
                 SurfaceCard {
                     EmptyState(
@@ -177,12 +193,27 @@ private fun DocumentsContent(
                 }
             }
         } else {
-            item {
-                SurfaceCard {
-                    Column {
-                        ui.docs.forEachIndexed { i, d ->
-                            DocRow(d) { onOpen(d.id) }
-                            if (i < ui.docs.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // One card per day, with the day's total, newest first
+            val today = LocalDate.now()
+            ui.docs.groupBy { it.date }.forEach { (day, docs) ->
+                item(key = "day-$day") {
+                    val dayTotal = Money(docs.filter { it.type == list.newType }.sumOf { it.total.paise })
+                    Row(Modifier.fillMaxWidth().padding(start = Spacing.xs, end = Spacing.xs, top = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                        Text(dayLabel(day, today), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        Text(
+                            "${docs.size} · " + online.draran.billing.core.common.IndianFormat.rupees(dayTotal, showPaise = false),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                item(key = "docs-$day") {
+                    SurfaceCard {
+                        Column {
+                            docs.forEachIndexed { i, d ->
+                                DocRow(d, today) { onOpen(d.id) }
+                                if (i < docs.lastIndex) HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                     }
                 }
@@ -192,11 +223,13 @@ private fun DocumentsContent(
 }
 
 @Composable
-private fun DocRow(d: InvoiceSummary, onClick: () -> Unit) {
+private fun DocRow(d: InvoiceSummary, today: LocalDate, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Spacing.lg, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        NameAvatar(d.partyName)
+        Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(d.partyName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -205,11 +238,23 @@ private fun DocRow(d: InvoiceSummary, onClick: () -> Unit) {
                     Pill("Return", MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.secondaryContainer)
                 }
             }
-            Text("${d.number} · ${d.date.format(ShortDateFormat)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(d.number, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Column(horizontalAlignment = Alignment.End) {
             AmountText(d.total, style = MaterialTheme.typography.titleSmall, showPaise = false)
-            if (d.type.tracksPayment) StatusBadge(payStatus(d.total, d.paid))
+            val late = d.overdueDays(today)
+            when {
+                late > 0 -> Pill(if (late == 1) "Overdue · 1 day" else "Overdue · $late days", MaterialTheme.colorScheme.onError, MaterialTheme.colorScheme.error)
+                d.type.tracksPayment -> StatusBadge(payStatus(d.total, d.paid))
+            }
         }
     }
+}
+
+/** "Today", "Yesterday", "Monday" (this week) or "28 Sep 2026". */
+internal fun dayLabel(day: LocalDate, today: LocalDate): String = when {
+    day == today -> "Today"
+    day == today.minusDays(1) -> "Yesterday"
+    day.isAfter(today.minusDays(7)) && !day.isAfter(today) -> day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+    else -> day.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))
 }

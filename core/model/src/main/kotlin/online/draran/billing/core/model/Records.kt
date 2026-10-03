@@ -159,8 +159,17 @@ data class InvoiceSummary(
     val partyName: String,
     val total: Money,
     val paid: Money,
+    val dueDate: LocalDate? = null,
 ) {
     val balance: Money get() = if (type.tracksPayment) total - paid else Money.ZERO
+
+    /** Days past the due date with money still to collect, or 0 when not overdue. */
+    fun overdueDays(today: LocalDate): Int =
+        if (type == DocType.SALE && dueDate != null && dueDate.isBefore(today) && balance.paise > 0) {
+            java.time.temporal.ChronoUnit.DAYS.between(dueDate, today).toInt()
+        } else {
+            0
+        }
 }
 
 data class Payment(

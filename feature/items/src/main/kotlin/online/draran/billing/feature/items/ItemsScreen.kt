@@ -18,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,11 @@ fun ItemsRoute(
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
+    // Stock filters are hidden for service businesses; a filter left on from before must not hide the list
+    val businessForFilter by viewModel.business.collectAsStateWithLifecycle()
+    LaunchedEffect(businessForFilter.type, filter) {
+        if (!businessForFilter.type.tracksStock && filter != ItemFilter.ALL && filter != ItemFilter.FAVOURITES) viewModel.filter.value = ItemFilter.ALL
+    }
     val business by viewModel.business.collectAsStateWithLifecycle()
     val context = LocalContext.current
     ItemsScreen(
@@ -67,7 +73,8 @@ fun ItemsRoute(
         onQuery = { viewModel.query.value = it },
         onFilter = { viewModel.filter.value = it },
         onOpenItem = onOpenItem,
-        onAddItem = { onAddItem("") },
+        // After scanning an unknown barcode, the new item starts with that code
+        onAddItem = { onAddItem(if (ui.items.isEmpty() && query.length >= 6 && query.all(Char::isDigit)) query else "") },
         onScan = {
             scanBarcode(context) { code -> viewModel.query.value = code }
         },

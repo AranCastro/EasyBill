@@ -44,6 +44,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import online.draran.billing.core.common.IndianFormat
 import online.draran.billing.core.designsystem.component.AmountText
+import online.draran.billing.core.designsystem.component.AnimatedAmountText
+import online.draran.billing.core.designsystem.component.NameAvatar
 import online.draran.billing.core.designsystem.component.EmptyState
 import online.draran.billing.core.designsystem.component.IconBadge
 import online.draran.billing.core.designsystem.component.KpiCard
@@ -126,7 +128,14 @@ fun DashboardScreen(
                 )
             }
             item(key = "hero") {
-                HeroSalesCard(state)
+                val context = androidx.compose.ui.platform.LocalContext.current
+                HeroSalesCard(state, onShare = {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, state.summaryText(java.time.LocalDate.now()))
+                    }
+                    runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share today's summary")) }
+                })
             }
             item(key = "kpis") {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -160,6 +169,11 @@ fun DashboardScreen(
                     )
                 }
             }
+            if (state.overdueCount > 0) {
+                item(key = "overdue") {
+                    OverdueCard(state.overdueCount, state.overdue, onClick = { onNavigate(DashboardDestination.OVERDUE) })
+                }
+            }
             item(key = "actions") {
                 QuickActionsCard(onNavigate, businessType)
             }
@@ -170,6 +184,11 @@ fun DashboardScreen(
             }
             item(key = "chart") {
                 WeekCard(state)
+            }
+            if (state.topItems.isNotEmpty()) {
+                item(key = "top-items") {
+                    TopItemsCard(state.topItems, onSeeAll = { onNavigate(DashboardDestination.ITEM_SALES) })
+                }
             }
             item(key = "recent-header") {
                 SectionHeader(
@@ -289,7 +308,7 @@ private fun Header(
 }
 
 @Composable
-private fun HeroSalesCard(state: DashboardUiState) {
+private fun HeroSalesCard(state: DashboardUiState, onShare: () -> Unit) {
     val ext = BillingTheme.extendedColors
     Box(
         modifier = Modifier
@@ -327,13 +346,19 @@ private fun HeroSalesCard(state: DashboardUiState) {
                     text = stringResource(R.string.dashboard_today_sales),
                     style = MaterialTheme.typography.labelLarge,
                     color = ext.onHero.copy(alpha = 0.85f),
+                    modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = onShare, modifier = Modifier.size(36.dp)) {
+                    Icon(AppIcons.Share, contentDescription = "Share today's summary", tint = ext.onHero.copy(alpha = 0.9f), modifier = Modifier.size(20.dp))
+                }
             }
             Spacer(Modifier.height(Spacing.sm))
-            AmountText(
+            AnimatedAmountText(
                 amount = state.todaySales,
                 style = MaterialTheme.typography.displaySmall,
                 color = ext.onHero,
+                countUp = true,
+                durationMillis = 900,
             )
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -462,6 +487,64 @@ private fun WeekCard(state: DashboardUiState) {
                 barColor = ext.chartBar,
                 highlightColor = ext.chartBarHighlight,
             )
+        }
+    }
+}
+
+@Composable
+private fun OverdueCard(count: Int, amount: online.draran.billing.core.model.Money, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.errorContainer,
+    ) {
+        Row(Modifier.fillMaxWidth().padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(AppIcons.Calendar, MaterialTheme.colorScheme.onError, MaterialTheme.colorScheme.error, size = 40)
+            Spacer(Modifier.width(Spacing.md))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (count == 1) "1 bill is overdue" else "$count bills are overdue",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text("Past the due date · tap to follow up", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+            }
+            AnimatedAmountText(amount, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer, showPaise = false, countUp = true)
+        }
+    }
+}
+
+@Composable
+private fun TopItemsCard(items: List<TopItemUi>, onSeeAll: () -> Unit) {
+    val max = items.maxOf { it.amount.paise }.coerceAtLeast(1)
+    val ext = BillingTheme.extendedColors
+    SurfaceCard {
+        Column(Modifier.padding(Spacing.lg)) {
+            SectionHeader(title = "Top sellers this month", action = { TextButton(onClick = onSeeAll) { Text("See all") } })
+            Spacer(Modifier.height(Spacing.sm))
+            items.forEachIndexed { index, item ->
+                // Bars grow in, a little after one another
+                val grow = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+                androidx.compose.runtime.LaunchedEffect(item.amount) {
+                    grow.animateTo(item.amount.paise.toFloat() / max, androidx.compose.animation.core.tween(600, delayMillis = 120 * index))
+                }
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NameAvatar(item.name, size = 36)
+                    Spacer(Modifier.width(Spacing.md))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(item.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            AmountText(item.amount, style = MaterialTheme.typography.titleSmall, showPaise = false)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(ext.chartBar.copy(alpha = 0.35f))) {
+                            Box(Modifier.fillMaxWidth(grow.value.coerceIn(0.02f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(ext.chartBarHighlight))
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text("${item.quantity} sold", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
     }
 }

@@ -201,6 +201,25 @@ data class AllocationEntity(
     val amount: Long,
 )
 
+/**
+ * A credit note (sale return) or debit note (purchase return) set against a bill of the
+ * same party, so the bill no longer shows that amount as due. Added in version 5.
+ */
+@Entity(
+    tableName = "note_allocation",
+    indices = [Index("noteId"), Index("invoiceId")],
+    foreignKeys = [
+        ForeignKey(entity = InvoiceEntity::class, parentColumns = ["id"], childColumns = ["noteId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = InvoiceEntity::class, parentColumns = ["id"], childColumns = ["invoiceId"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class NoteAllocationEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val noteId: Long,
+    val invoiceId: Long,
+    val amount: Long,
+)
+
 @Entity(tableName = "expense", indices = [Index("date")])
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

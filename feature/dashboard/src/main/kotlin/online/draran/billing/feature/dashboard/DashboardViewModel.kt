@@ -87,5 +87,8 @@ class DashboardViewModel @Inject constructor(
             )
         },
         lastBackupDaysAgo = lastBackup?.let { ((System.currentTimeMillis() - it) / 86_400_000L).toInt() },
+        overdueCount = overdueCount,
+        overdue = overdue,
+        topItems = topItems.map { TopItemUi(it.name, "${online.draran.billing.core.model.Qty.format(it.qtyMilli)} ${it.unit}".trim(), it.amount) },
     )
 }

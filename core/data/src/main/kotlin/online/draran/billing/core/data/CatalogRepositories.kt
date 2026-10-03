@@ -1,6 +1,7 @@
 package online.draran.billing.core.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import online.draran.billing.core.database.BusinessDao
 import online.draran.billing.core.database.ItemDao
@@ -94,9 +95,9 @@ class ItemRepository @Inject constructor(private val dao: ItemDao) {
     companion object {
         /** "rice bas" -> "rice* bas*" so typing a prefix finds matches. */
         fun ftsQuery(query: String): String? {
-            val tokens = query.trim().split(Regex("\\s+"))
-                // Vowel signs and viramas (Tamil, Hindi...) are combining marks, not letters; dropping them breaks the word
-                .map { token -> token.filter { it.isLetterOrDigit() || Character.getType(it).let { t -> t == Character.NON_SPACING_MARK.toInt() || t == Character.COMBINING_SPACING_MARK.toInt() } } }
+            // Split where the search index splits ("coca-cola" -> coca, cola; "SKU-101" -> SKU, 101), keeping
+            // vowel signs and viramas (Tamil, Hindi...), which are combining marks rather than letters
+            val tokens = query.trim().split(Regex("[^\\p{L}\\p{N}\\p{M}]+"))
                 .filter { it.isNotEmpty() }
             return if (tokens.isEmpty()) null else tokens.joinToString(" ") { "$it*" }
         }
@@ -133,7 +134,8 @@ class PartyRepository @Inject constructor(private val dao: PartyDao) {
     }
 
     /** Statement with running balance, oldest first. Opening balance comes first. */
-    fun ledger(id: Long): Flow<List<LedgerEntry>> = dao.observeLedger(id).map { rows ->
+    // Watches the party row too, so an edited opening balance shows at once
+    fun ledger(id: Long): Flow<List<LedgerEntry>> = combine(dao.observeLedger(id), dao.observeWithBalance(id)) { rows, _ -> rows }.map { rows ->
         val party = dao.get(id)
         var running = party?.openingBalance ?: 0L
         val opening = if (running != 0L && party != null) {

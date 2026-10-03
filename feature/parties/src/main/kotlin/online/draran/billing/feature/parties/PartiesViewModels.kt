@@ -63,7 +63,9 @@ class PartiesViewModel @Inject constructor(
         val needle = q.trim().lowercase()
         PartiesUi(
             parties = all.filter { it.party.type == t }
-                .filter { needle.isEmpty() || it.party.name.lowercase().contains(needle) || it.party.phone.contains(needle) },
+                .filter { needle.isEmpty() || it.party.name.lowercase().contains(needle) || it.party.phone.contains(needle) ||
+                    // "9876543210" also finds a number saved as "98765 43210" or "+91 98765-43210"
+                    needle.filter(Char::isDigit).let { d -> d.length >= 3 && it.party.phone.filter(Char::isDigit).contains(d) } },
             toCollect = Money(all.filter { it.balance.paise > 0 }.sumOf { it.balance.paise }),
             toPay = Money(-all.filter { it.balance.paise < 0 }.sumOf { it.balance.paise }),
             customerCount = all.count { it.party.type == PartyType.CUSTOMER },

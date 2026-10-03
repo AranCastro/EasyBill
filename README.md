@@ -8,7 +8,7 @@ on the phone; there is no server and no running cost. (Android's own
 Google account backup may also keep an encrypted copy of the app data, which
 you can switch off in the phone's backup settings.)
 
-**Status: v1.3.0** — feature-complete for daily shop use (Phases 1–3 of the
+**Status: v1.3.1** — feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -154,6 +154,28 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 
 ## Changelog
 
+- **1.3.1** — Full audit and bug fixes.
+  - Crash: sharing Profit & loss or Cash flow as PDF.
+  - Data safety: restore validates the backup (integrity, app version), swaps the
+    database in one step and keeps the previous database as
+    `before-restore.db`; double taps no longer save a payment, expense, party or
+    purchase twice; amounts that overflow are refused.
+  - Money: editing an old bill keeps the GST and round-off settings it was made
+    under and keeps its receipt number; bill numbers stay unique; purchase
+    price follows the newest purchase; duplicating an estimate no longer marks
+    it converted; GST input credit excludes suppliers without a GSTIN;
+    item-wise sales agree with profit and loss; day book has no 500-row cap.
+  - Printing: A4 bills never cut the buyer's GSTIN, notes, MSME wording or bank
+    details, and long names or large amounts no longer overlap; wide reports
+    print in landscape without cut amounts; CSV amounts are numbers and text is
+    protected against spreadsheet formulas; Tamil and other scripts print on
+    thermal receipts (as pictures); Bluetooth printing no longer needs the
+    Nearby-devices scan permission and prints one bill at a time.
+  - Screens: dashboard rolls over at midnight; counter shows save errors;
+    keyboard no longer hides fields; party page closes when the party is
+    deleted; reminders only for customers who owe; unit editable with GST.
+  - Release workflow runs the tests; CI lints every module; Android account
+    backup includes the logo and signature.
 - **1.3.0** — Bill colour per business, suggested from the logo, with
   ready-made colours and a contrast check; used on bills, statements and
   report PDFs; database v4 with automatic migration.

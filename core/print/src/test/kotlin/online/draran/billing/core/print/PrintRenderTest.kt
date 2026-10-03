@@ -286,6 +286,17 @@ class PrintRenderTest {
         assertTrue("height $height", height <= 200)
     }
 
+    @Test fun oldSharedFilesAreCleanedUp() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val dir = Sharing.sharedDir(context)
+        val old = File(dir, "old-bill.pdf").apply { writeText("x"); setLastModified(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L) }
+        val fresh = File(dir, "fresh-bill.pdf").apply { writeText("x") }
+        Sharing.sharedDir(context)
+        assertTrue(!old.exists())
+        assertTrue(fresh.exists())
+        fresh.delete()
+    }
+
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
         assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)

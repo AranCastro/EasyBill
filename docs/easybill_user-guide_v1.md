@@ -1,4 +1,4 @@
-# Modern Kallaa Petti — User Guide (v1.3)
+# Modern Kallaa Petti — User Guide (v1.3.1)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -99,9 +99,17 @@ Then **Settings › Printer**: allow Nearby devices, choose the printer, set 58 
 or 80 mm paper and tap **Print test page**. **Print logo on receipts** prints
 your logo in black and white at the top of each receipt.
 
+### Tamil and other scripts on receipts
+Thermal printers cannot print Tamil, Hindi or other non-English letters in
+their own font, so the app prints those lines as small pictures. They look
+slightly larger and take a little longer to print. English lines print as
+normal text.
+
 ## 9. Backup — do this every week
 Your data lives only on your phone. **More › Backup & restore › Back up now**
 and choose **Google Drive** in the file picker (free) or Downloads. On a new
 phone, install the app and use **Restore from file**. The app also keeps a daily
-copy inside the phone (last 7 days) to undo mistakes. Backups include your logo
+copy inside the phone (last 7 days) to undo mistakes. Before a restore replaces
+your data, the app checks the file and keeps the current database as a safety
+copy, so a bad file cannot wipe your records. Backups include your logo
 and signature.

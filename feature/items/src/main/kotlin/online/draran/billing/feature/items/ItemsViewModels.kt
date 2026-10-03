@@ -120,8 +120,12 @@ class ItemEditorViewModel @Inject constructor(
     val moves: StateFlow<List<StockMove>> = idFlow.flatMapLatest { if (it == 0L) emptyFlow() else repository.moves(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private var started = false
+
     fun load(id: Long, prefillBarcode: String = "", prefillName: String = "") {
-        if (id == itemId && (id != 0L || original != null || form.name.isNotEmpty())) return
+        // Once per screen: after a rotation this runs again and must not reset what was typed
+        if (started && id == itemId) return
+        started = true
         itemId = id
         idFlow.value = id
         viewModelScope.launch {

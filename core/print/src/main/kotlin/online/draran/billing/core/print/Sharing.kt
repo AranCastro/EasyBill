@@ -18,7 +18,12 @@ import java.io.FileOutputStream
 
 /** Sharing, WhatsApp, calling and system printing helpers. */
 object Sharing {
-    fun sharedDir(context: Context) = File(context.cacheDir, "shared").apply { mkdirs() }
+    /** Folder for files being shared. Anything older than a day is deleted, so old bills do not pile up on the phone. */
+    fun sharedDir(context: Context) = File(context.cacheDir, "shared").apply {
+        mkdirs()
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        listFiles()?.filter { it.isFile && it.lastModified() < cutoff }?.forEach { it.delete() }
+    }
 
     fun safeName(name: String) = name.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_').ifEmpty { "document" }
 

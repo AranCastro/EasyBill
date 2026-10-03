@@ -252,6 +252,7 @@ class InvoiceEditorViewModel @Inject constructor(
         val total = totals().total
         error = when {
             lines.isEmpty() -> "Add at least one item"
+            dueDate?.isBefore(date) == true && type == DocType.SALE -> "The due date cannot be before the bill date"
             lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) } != null -> lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) }
             type.tracksPayment && party.isCash && paidAmount().paise < total.paise ->
                 "Select a ${type.partyType.label.lowercase()} to keep a balance, or mark it fully paid"

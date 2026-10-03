@@ -136,8 +136,11 @@ class BusinessFormViewModel @Inject constructor(
     }
 
     val nameError: String? get() = if (form.name.isBlank()) "Enter your shop or business name" else null
-    val phoneError: String? get() = form.phone.filter { it.isDigit() }.let {
-        if (form.phone.isNotBlank() && it.length !in 10..12) "Enter a 10-digit mobile number" else null
+    val phoneError: String? get() = when {
+        form.phone.isBlank() -> null
+        form.phone.any { !(it.isDigit() || it in " +-()") } -> "Use digits only"
+        form.phone.count { it.isDigit() } !in 10..12 -> "Enter a 10-digit mobile number"
+        else -> null
     }
     val gstinError: String? get() = when {
         !form.gstEnabled -> null

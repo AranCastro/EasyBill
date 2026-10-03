@@ -83,7 +83,11 @@ fun PartyEditorRoute(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         PartyType.entries.forEachIndexed { i, t ->
-                            SegmentedButton(form.type == t, { viewModel.update { it.copy(type = t, openingReceivable = t == PartyType.CUSTOMER) } }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(t.label) }
+                            // Once bills or payments exist the type is fixed: switching would move their balance to the other list
+                            SegmentedButton(
+                                form.type == t, { viewModel.update { it.copy(type = t, openingReceivable = t == PartyType.CUSTOMER) } },
+                                SegmentedButtonDefaults.itemShape(i, 2), enabled = partyId == 0L || viewModel.canDelete,
+                            ) { Text(t.label) }
                         }
                     }
                     FormField(form.name, { v -> viewModel.update { it.copy(name = v) } }, "Name *", capitalization = KeyboardCapitalization.Words, error = viewModel.nameError.takeIf { errors })

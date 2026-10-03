@@ -125,7 +125,12 @@ class PartyEditorViewModel @Inject constructor(
 
     val nameError get() = if (form.name.isBlank()) "Enter a name" else null
     val gstinError get() = if (form.gstin.isNotBlank() && !Gstin.isValid(form.gstin)) "This GSTIN is not valid" else null
-    val phoneError get() = form.phone.filter { it.isDigit() }.let { if (form.phone.isNotBlank() && it.length !in 10..12) "Enter a 10-digit number" else null }
+    val phoneError: String? get() = when {
+        form.phone.isBlank() -> null
+        form.phone.any { !(it.isDigit() || it in " +-()") } -> "Use digits only"
+        form.phone.count { it.isDigit() } !in 10..12 -> "Enter a 10-digit number"
+        else -> null
+    }
 
     var saving by mutableStateOf(false)
         private set

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Bluetooth thermal printers. No internet permission: all data stays on the phone. -->
+    <!-- Bluetooth thermal printers. (The Google code scanner library adds INTERNET so Play services
+         can fetch its scanner module; the app itself never sends your data anywhere.) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />

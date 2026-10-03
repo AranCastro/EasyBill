@@ -55,8 +55,9 @@ fun PartiesRoute(
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val type by viewModel.type.collectAsStateWithLifecycle()
+    val business by viewModel.business.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(type) { onTypeChanged(type) }
-    PartiesScreen(ui, query, type, contentPadding, { viewModel.query.value = it }, { viewModel.type.value = it }, onOpenParty, { onAddParty(type) })
+    PartiesScreen(ui, query, type, contentPadding, { viewModel.query.value = it }, { viewModel.type.value = it }, onOpenParty, { onAddParty(type) }, customerWord = business.type.party)
 }
 
 @Composable
@@ -69,6 +70,7 @@ fun PartiesScreen(
     onType: (PartyType) -> Unit,
     onOpenParty: (Long) -> Unit,
     onAdd: () -> Unit,
+    customerWord: String = "Customer",
 ) {
     val ext = BillingTheme.extendedColors
     LazyColumn(
@@ -89,7 +91,7 @@ fun PartiesScreen(
         }
         item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(type == PartyType.CUSTOMER, { onType(PartyType.CUSTOMER) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Customers (${ui.customerCount})") }
+                SegmentedButton(type == PartyType.CUSTOMER, { onType(PartyType.CUSTOMER) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("${customerWord}s (${ui.customerCount})") }
                 SegmentedButton(type == PartyType.SUPPLIER, { onType(PartyType.SUPPLIER) }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("Suppliers (${ui.supplierCount})") }
             }
         }
@@ -99,9 +101,9 @@ fun PartiesScreen(
                 SurfaceCard {
                     EmptyState(
                         icon = if (type == PartyType.CUSTOMER) AppIcons.User else AppIcons.Truck,
-                        title = if (query.isBlank()) "No ${if (type == PartyType.CUSTOMER) "customers" else "suppliers"} yet" else "No matches",
+                        title = if (query.isBlank()) "No ${if (type == PartyType.CUSTOMER) customerWord.lowercase() + "s" else "suppliers"} yet" else "No matches",
                         message = "Add parties to give credit, track dues and share statements on WhatsApp.",
-                        actionLabel = "Add ${if (type == PartyType.CUSTOMER) "customer" else "supplier"}",
+                        actionLabel = "Add ${if (type == PartyType.CUSTOMER) customerWord.lowercase() else "supplier"}",
                         onAction = onAdd,
                     )
                 }

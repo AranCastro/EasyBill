@@ -7,9 +7,17 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import online.draran.billing.core.data.BackupManager
+import online.draran.billing.core.data.BrandingManager
+import online.draran.billing.core.data.BusinessRepository
 import online.draran.billing.core.data.DashboardData
 import online.draran.billing.core.data.ReportsRepository
+import online.draran.billing.core.model.BusinessType
 import online.draran.billing.core.model.RecentTransaction
 import online.draran.billing.core.model.TransactionType
 import java.time.LocalDate
@@ -21,7 +29,17 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     reports: ReportsRepository,
     backup: BackupManager,
+    businessRepository: BusinessRepository,
+    branding: BrandingManager,
 ) : ViewModel() {
+
+    val businessType: StateFlow<BusinessType> = businessRepository.business.map { it.type }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BusinessType.RETAIL)
+
+    /** Business logo for the header; reloads when it is changed in the profile. */
+    val logo: StateFlow<ImageBitmap?> = combine(businessRepository.business, branding.version) { b, _ -> b.logoFile }
+        .map { file -> withContext(Dispatchers.IO) { branding.logo(file)?.asImageBitmap() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val state: StateFlow<DashboardUiState> = combine(reports.dashboard(), backup.lastBackup) { data, last ->
         data.toUi(last)

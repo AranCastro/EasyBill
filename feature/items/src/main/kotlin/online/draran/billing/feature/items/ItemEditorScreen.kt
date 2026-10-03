@@ -83,7 +83,7 @@ fun ItemEditorRoute(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = if (editing) "Edit item" else "New item",
+                title = (if (editing) "Edit " else "New ") + viewModel.business.collectAsStateWithLifecycle().value.type.item.lowercase(),
                 onBack = onBack,
                 actions = {
                     if (editing) {

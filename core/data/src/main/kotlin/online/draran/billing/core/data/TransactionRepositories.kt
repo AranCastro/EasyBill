@@ -44,6 +44,8 @@ data class InvoiceDraft(
     val paidNow: Money = Money.ZERO,
     val paymentMode: PaymentMode = PaymentMode.CASH,
     val convertedFromId: Long? = null,
+    /** Industry fields (label to value), e.g. Roll no. or Stylist. */
+    val customFields: List<Pair<String, String>> = emptyList(),
 )
 
 const val CASH_CUSTOMER = "Cash Customer"
@@ -158,6 +160,7 @@ class InvoiceRepository @Inject constructor(
                 notes = draft.notes.trim(),
                 convertedFromId = draft.convertedFromId ?: existing?.convertedFromId,
                 createdAt = existing?.createdAt ?: now,
+                customFields = online.draran.billing.core.model.CustomFields.encode(draft.customFields),
             )
             val id = if (existing == null) dao.insert(entity) else entity.id.also { dao.update(entity) }
             dao.deleteLines(id)
@@ -231,6 +234,8 @@ class InvoiceRepository @Inject constructor(
             lines = source.lines.map { it.copy(id = 0) },
             notes = source.notes,
             convertedFromId = if (source.type == DocType.ESTIMATE) source.id else null,
+            dueDate = source.dueDate,
+            customFields = source.customFields,
         )
     }
 
@@ -244,6 +249,7 @@ class InvoiceRepository @Inject constructor(
             partyAddress = inv.partyAddress, partyStateCode = party?.stateCode ?: inv.placeOfSupply.takeIf { inv.interState }.orEmpty(),
             lines = inv.lines, notes = inv.notes, paidNow = Money(linked?.amount ?: 0),
             paymentMode = linked?.mode ?: PaymentMode.CASH, convertedFromId = inv.convertedFromId,
+            customFields = inv.customFields,
         )
     }
 

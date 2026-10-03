@@ -15,6 +15,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.Offset
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -72,6 +76,7 @@ class AppJourneyTest {
     @Inject lateinit var invoices: InvoiceRepository
     @Inject lateinit var payments: PaymentRepository
     @Inject lateinit var expenses: ExpenseRepository
+    @Inject lateinit var branding: online.draran.billing.core.data.BrandingManager
 
     @Before fun inject() = hilt.inject()
 
@@ -306,5 +311,139 @@ class AppJourneyTest {
         clickFab("Add party")
         waitForText("Opening balance")
         capture("party_editor")
+    }
+
+    /** Salon setup through the UI: type, starter services, drawn signature, logo, and a bill with a Stylist field. */
+    @Test fun salonJourney() {
+        prefix = "salon"
+        waitForText("Start billing")
+        clickText("Salon / Beauty / Spa")
+        waitForText("Add starter services")
+        capture("onboarding_type")
+        compose.onNode(hasSetTextAction() and hasText("Business name *")).performTextInput("Style Studio Unisex Salon")
+        compose.onNode(hasSetTextAction() and hasText("Mobile number")).performTextInput("9840055555")
+        compose.onNode(hasSetTextAction() and hasText("Signatory name")).performTextInput("Priya S")
+        compose.onNode(hasSetTextAction() and hasText("Designation")).performTextInput("Owner")
+
+        // Logo: the photo picker cannot run on the JVM, so hand BrandingManager a file
+        val logoFile = java.io.File(compose.activity.cacheDir, "test_logo.png")
+        val logo = android.graphics.Bitmap.createBitmap(240, 240, android.graphics.Bitmap.Config.ARGB_8888).apply {
+            val c = android.graphics.Canvas(this)
+            val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(190, 24, 93) }
+            c.drawCircle(120f, 120f, 116f, p)
+            p.color = android.graphics.Color.WHITE; p.textSize = 110f; p.textAlign = android.graphics.Paint.Align.CENTER; p.isFakeBoldText = true
+            c.drawText("SS", 120f, 158f, p)
+        }
+        logoFile.outputStream().use { logo.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        runBlocking { branding.setLogo(android.net.Uri.fromFile(logoFile)) }
+
+        // Draw a signature with a finger
+        compose.onNodeWithText("Sign here").performScrollTo().performClick()
+        waitForText("Use signature")
+        compose.onNodeWithTag("signature_pad").performTouchInput {
+            down(Offset(width * 0.1f, height * 0.7f))
+            moveTo(Offset(width * 0.25f, height * 0.25f)); moveTo(Offset(width * 0.35f, height * 0.75f))
+            moveTo(Offset(width * 0.5f, height * 0.3f)); moveTo(Offset(width * 0.65f, height * 0.7f))
+            moveTo(Offset(width * 0.9f, height * 0.35f))
+            up()
+        }
+        compose.waitForIdle()
+        capture("signature_pad")
+        clickText("Use signature")
+        compose.waitUntil(10_000) { runBlocking { business.get().signatureFile.isNotEmpty() } }
+        compose.onNodeWithText("Authorised signatory").performScrollTo()
+        settle(800)
+        capture("onboarding_signatory")
+        clickText("Start billing")
+        waitForText("Today's sales")
+        runBlocking {
+            val b = business.get()
+            assertEquals(online.draran.billing.core.model.BusinessType.SALON, b.type)
+            assertEquals(listOf("Stylist", "Appointment time"), b.customFieldLabels)
+            assertEquals("Priya S", b.signatoryName)
+            assertEquals("logo.png", b.logoFile)
+            assertTrue(items.items().first().any { it.item.name == "Haircut" })
+        }
+        settle(800)
+        capture("dashboard")
+
+        // Industry words in the bottom bar and the bill editor
+        clickText("Services")
+        waitForText("Haircut")
+        capture("services")
+        clickText("Home")
+        clickFab("New Bill")
+        waitForText("Bill details")
+        compose.onNode(hasSetTextAction() and hasText("Stylist")).performTextInput("Kumar")
+        clickText("Tap to add services")
+        waitForText("Add services")
+        compose.onNodeWithContentDescription("Add Haircut").performClick()
+        compose.onNodeWithContentDescription("Add Beard trim").performClick()
+        clickText("Done")
+        waitForText("Fully received")
+        capture("editor")
+        clickText("Save")
+        waitForText("Share PDF", timeout = 15_000)
+        settle()
+        capture("bill_detail")
+        runBlocking {
+            val newest = invoices.get(invoices.summaries(listOf(DocType.SALE)).first().first().id)!!
+            assertEquals(listOf("Stylist" to "Kumar"), newest.customFields)
+            assertEquals(2, newest.lines.size)
+        }
+    }
+
+    /** A coaching centre: fee words, bill fields from the profile, and the settings screens. */
+    @Test fun schoolTour() {
+        prefix = "school"
+        waitForText("Start billing")
+        runBlocking {
+            val school = online.draran.billing.core.model.BusinessType.EDUCATION
+            items.addPresets(school, gstEnabled = false)
+            business.save(
+                business.get().copy(
+                    name = "Bright Future Academy", phone = "9840077777", address = "8, Lake View Road, Madurai 625001",
+                    upiId = "brightfuture@okicici", type = school, customFieldLabels = school.customFields,
+                    signatoryName = "Dr. Meena Iyer", signatoryDesignation = "Principal", onboarded = true,
+                ),
+            )
+        }
+        waitForText("Today's sales")
+        waitForText("New Fee Receipt")
+        clickFab("New Fee Receipt")
+        waitForText("Roll / Admission no.")
+        compose.onNode(hasSetTextAction() and hasText("Roll / Admission no.")).performTextInput("BFA-118")
+        compose.onNode(hasSetTextAction() and hasText("Class / Course")).performTextInput("Class X")
+        clickText("Tap to add fees")
+        waitForText("Add fees")
+        compose.onNodeWithContentDescription("Add Tuition fee").performClick()
+        compose.onNodeWithContentDescription("Add Exam fee").performClick()
+        clickText("Done")
+        waitForText("Tuition fee")
+        settle(500)
+        capture("fee_editor")
+        clickText("Save")
+        waitForText("Share PDF", timeout = 15_000)
+        settle()
+        capture("fee_receipt")
+        runBlocking {
+            val newest = invoices.get(invoices.summaries(listOf(DocType.SALE)).first().first().id)!!
+            assertEquals(listOf("Roll / Admission no." to "BFA-118", "Class / Course" to "Class X"), newest.customFields)
+        }
+        back()
+        clickText("Parties")
+        waitForText("Students (")
+        capture("students")
+        clickText("More")
+        clickText("Settings")
+        clickText("Business profile")
+        waitForText("Type of business")
+        settle(500)
+        capture("business_profile")
+        back()
+        clickText("Invoice settings")
+        waitForText("Bill fields")
+        compose.onNodeWithText("Bill fields").performScrollTo()
+        capture("invoice_settings_fields")
     }
 }

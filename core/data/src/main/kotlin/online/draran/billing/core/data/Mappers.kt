@@ -35,6 +35,10 @@ internal fun BusinessEntity.toModel() = Business(
     terms = terms, roundOff = roundOff, showUpiQr = showUpiQr, pricesIncludeTax = pricesIncludeTax,
     thermalWidthMm = thermalWidthMm, printerAddress = printerAddress, printerName = printerName,
     prefixes = decodePrefixes(prefixes), onboarded = onboarded,
+    type = online.draran.billing.core.model.BusinessType.of(businessType), logoFile = logoFile, signatureFile = signatureFile,
+    signatoryName = signatoryName, signatoryDesignation = signatoryDesignation,
+    customFieldLabels = online.draran.billing.core.model.CustomFields.decodeLabels(customFields),
+    printLogoOnReceipt = printLogoOnReceipt,
 )
 
 internal fun Business.toEntity() = BusinessEntity(
@@ -43,7 +47,10 @@ internal fun Business.toEntity() = BusinessEntity(
     upiId = upiId.trim(), bankDetails = bankDetails.trim(), terms = terms.trim(), roundOff = roundOff,
     showUpiQr = showUpiQr, pricesIncludeTax = pricesIncludeTax, thermalWidthMm = thermalWidthMm,
     printerAddress = printerAddress, printerName = printerName, prefixes = encodePrefixes(prefixes),
-    onboarded = onboarded,
+    onboarded = onboarded, businessType = type.name, logoFile = logoFile, signatureFile = signatureFile,
+    signatoryName = signatoryName.trim(), signatoryDesignation = signatoryDesignation.trim(),
+    customFields = online.draran.billing.core.model.CustomFields.encodeLabels(customFieldLabels),
+    printLogoOnReceipt = printLogoOnReceipt,
 )
 
 private fun encodePrefixes(map: Map<DocType, String>) = map.entries.joinToString(";") { "${it.key.name}=${it.value}" }
@@ -98,7 +105,7 @@ internal fun InvoiceEntity.toModel(lines: List<InvoiceLineEntity>, paid: Long): 
         partyId = partyId, partyName = partyName, partyPhone = partyPhone, partyGstin = partyGstin,
         partyAddress = partyAddress, placeOfSupply = placeOfSupply, interState = interState, gstEnabled = gstEnabled,
         lines = modelLines, totals = computed, notes = notes, paid = Money(paid), convertedFromId = convertedFromId,
-        createdAt = createdAt,
+        createdAt = createdAt, customFields = online.draran.billing.core.model.CustomFields.decode(customFields),
     )
 }
 

@@ -100,7 +100,7 @@ fun CounterRoute(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            AppTopBar("Counter", onBack = onBack, subtitle = viewModel.number, actions = {
+            AppTopBar(if (business.type == online.draran.billing.core.model.BusinessType.RETAIL) "Counter" else business.type.counterLabel, onBack = onBack, subtitle = viewModel.number, actions = {
                 IconButton(onClick = {
                     scanBarcode(context) { code -> scope.launch { if (!viewModel.addByBarcode(code)) onCreateItem(code) } }
                 }) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") }
@@ -124,13 +124,13 @@ fun CounterRoute(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            SearchField(query, { query = it }, "Search items", modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm))
+            SearchField(query, { query = it }, "Search ${business.type.items.lowercase()}", modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm))
             if (items.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text("No items yet", style = MaterialTheme.typography.titleMedium)
-                    Text("Add items and mark your best sellers as favourites to see them here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("No ${business.type.items.lowercase()} yet", style = MaterialTheme.typography.titleMedium)
+                    Text("Add ${business.type.items.lowercase()} and mark the ones you bill most as favourites to see them here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(Spacing.md))
-                    Button(onClick = { onCreateItem("") }) { Text("Add item") }
+                    Button(onClick = { onCreateItem("") }) { Text("Add ${business.type.item.lowercase()}") }
                 }
             }
             LazyVerticalGrid(

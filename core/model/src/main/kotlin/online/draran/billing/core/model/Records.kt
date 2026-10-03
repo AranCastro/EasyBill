@@ -23,8 +23,25 @@ data class Business(
     val printerName: String = "",
     val prefixes: Map<DocType, String> = DocType.entries.associateWith { it.defaultPrefix },
     val onboarded: Boolean = false,
+    val type: BusinessType = BusinessType.RETAIL,
+    /** File names inside files/branding, empty when not set. */
+    val logoFile: String = "",
+    val signatureFile: String = "",
+    val signatoryName: String = "",
+    val signatoryDesignation: String = "",
+    /** Extra bill fields; defaults come from the business type. */
+    val customFieldLabels: List<String> = emptyList(),
+    val printLogoOnReceipt: Boolean = true,
 ) {
     fun prefix(type: DocType) = prefixes[type] ?: type.defaultPrefix
+
+    /** Sale bill title as printed: GST bills must say Tax Invoice. */
+    fun saleTitle(): String = if (gstEnabled) "Tax Invoice" else type.billTitle
+
+    /** Screen titles: service businesses see their own word ("Fee Receipt", "Bill") for sales. */
+    fun docTitle(doc: DocType): String = if (doc == DocType.SALE && type != BusinessType.RETAIL) saleTitle() else doc.title
+    fun docShortTitle(doc: DocType): String =
+        if (doc == DocType.SALE && type != BusinessType.RETAIL) type.billTitle.substringBefore(" /") else doc.shortTitle
 }
 
 data class Party(
@@ -104,6 +121,8 @@ data class Invoice(
     val paid: Money = Money.ZERO,
     val convertedFromId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Industry fields such as Roll no., Stylist or Job card no. */
+    val customFields: List<Pair<String, String>> = emptyList(),
 ) {
     val balance: Money get() = if (type.tracksPayment) totals.total - paid else Money.ZERO
     val isPaid: Boolean get() = type.tracksPayment && !balance.isNegative && balance.isZero

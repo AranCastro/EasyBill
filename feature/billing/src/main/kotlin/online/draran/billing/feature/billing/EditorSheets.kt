@@ -84,6 +84,7 @@ internal fun PartyPickerSheet(
     onCash: () -> Unit,
     onQuickAdd: (String, String) -> Unit,
     onDismiss: () -> Unit,
+    partyWord: String = type.label,
 ) {
     var query by remember { mutableStateOf("") }
     var adding by remember { mutableStateOf(false) }
@@ -92,7 +93,7 @@ internal fun PartyPickerSheet(
     val ext = BillingTheme.extendedColors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.fillMaxHeight(0.9f).padding(horizontal = Spacing.lg).imePadding()) {
-            Text("Select ${type.label.lowercase()}", style = MaterialTheme.typography.titleLarge)
+            Text("Select ${partyWord.lowercase()}", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(Spacing.md))
             if (adding) {
                 FormField(query, { query = it }, "Name *", capitalization = KeyboardCapitalization.Words)
@@ -112,7 +113,7 @@ internal fun PartyPickerSheet(
                 .filter { needle.isEmpty() || it.party.name.lowercase().contains(needle) || it.party.phone.contains(needle) }
             LazyColumn(Modifier.weight(1f)) {
                 item {
-                    PickerRow(AppIcons.UserPlus, if (query.isBlank()) "Add new ${type.label.lowercase()}" else "Add \"${query.trim()}\"", null) { adding = true }
+                    PickerRow(AppIcons.UserPlus, if (query.isBlank()) "Add new ${partyWord.lowercase()}" else "Add \"${query.trim()}\"", null) { adding = true }
                 }
                 if (allowCash) {
                     item { PickerRow(AppIcons.Money, CASH_CUSTOMER, "Walk-in, paid immediately") { onCash(); onDismiss() } }
@@ -166,17 +167,19 @@ internal fun ItemPickerSheet(
     onNewItem: (String) -> Unit,
     onCustomLine: () -> Unit,
     onDismiss: () -> Unit,
+    itemWord: String = "Item",
+    itemsWord: String = "Items",
 ) {
     var query by remember { mutableStateOf("") }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Spacing.lg)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Add items", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Text("Add ${itemsWord.lowercase()}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 Button(onClick = onDismiss) { Text("Done") }
             }
             Spacer(Modifier.height(Spacing.sm))
-            SearchField(query, { query = it }, "Search items", trailing = { IconButton(onClick = onScan) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") } })
+            SearchField(query, { query = it }, "Search ${itemsWord.lowercase()}", trailing = { IconButton(onClick = onScan) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") } })
             Spacer(Modifier.height(Spacing.sm))
             val needle = query.trim().lowercase()
             val shown = items.filter {
@@ -186,17 +189,17 @@ internal fun ItemPickerSheet(
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(bottom = Spacing.sm)) {
                         OutlinedButton(onClick = { onNewItem(query.trim()) }) {
-                            Icon(AppIcons.Plus, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("New item")
+                            Icon(AppIcons.Plus, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("New ${itemWord.lowercase()}")
                         }
                         OutlinedButton(onClick = onCustomLine) {
-                            Icon(AppIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("One-time item")
+                            Icon(AppIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("One-time ${itemWord.lowercase()}")
                         }
                     }
                 }
                 if (shown.isEmpty()) {
                     item {
                         Text(
-                            if (items.isEmpty()) "No items saved yet. Add a new item or a one-time item." else "No matching items.",
+                            if (items.isEmpty()) "No ${itemsWord.lowercase()} saved yet. Add a new ${itemWord.lowercase()} or a one-time ${itemWord.lowercase()}." else "No matching ${itemsWord.lowercase()}.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = Spacing.lg),
                         )

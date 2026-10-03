@@ -19,6 +19,12 @@ android {
     testOptions {
         unitTests { isIncludeAndroidResources = true }
     }
+    // Migration tests read the exported schemas
+    sourceSets {
+        getByName("test") {
+            assets.srcDir("$projectDir/schemas")
+        }
+    }
 }
 
 room {
@@ -37,4 +43,5 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.room.testing)
 }

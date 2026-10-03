@@ -58,6 +58,7 @@ import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
 import online.draran.billing.core.model.DocType
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import online.draran.billing.core.model.PaymentDirection
 import online.draran.billing.core.model.PaymentMode
 import online.draran.billing.core.model.Percent
@@ -97,6 +98,10 @@ fun InvoiceEditorRoute(
     val totals = viewModel.totals()
     val interState = viewModel.interState()
     val isPurchase = docType == DocType.PURCHASE || docType == DocType.PURCHASE_RETURN
+    // Industry words (Student, Fee head, Service…) on the selling side only
+    val words = business.type
+    val itemWord = if (isPurchase) "Item" else words.item
+    val itemsWord = if (isPurchase) "Items" else words.items
 
     fun scan() = scanBarcode(context) { code ->
         scope.launch {
@@ -137,7 +142,7 @@ fun InvoiceEditorRoute(
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     SurfaceCard(Modifier.weight(1f), onClick = { editNumber = true }) {
                         Column(Modifier.padding(horizontal = Spacing.lg, vertical = 10.dp)) {
-                            Text(if (docType == DocType.PURCHASE) "Supplier bill no." else "${docType.shortTitle} no.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (docType == DocType.PURCHASE) "Supplier bill no." else "${business.docShortTitle(docType)} no.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(viewModel.number.ifBlank { "Tap to enter" }, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                         }
                     }
@@ -152,7 +157,7 @@ fun InvoiceEditorRoute(
                         IconBadge(if (p.isCash) AppIcons.Money else if (isPurchase) AppIcons.Truck else AppIcons.User, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer, size = 44)
                         Spacer(Modifier.width(Spacing.md))
                         Column(Modifier.weight(1f)) {
-                            Text(if (isPurchase) "Supplier" else "Customer", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (isPurchase) "Supplier" else words.party, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(p.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val hint = listOfNotNull(
                                 p.phone.takeIf { it.isNotBlank() },
@@ -165,14 +170,45 @@ fun InvoiceEditorRoute(
                     }
                 }
             }
+            // Industry bill fields and due date
+            val labels = viewModel.customLabels
+            if (labels.isNotEmpty() || viewModel.showsDueDate) {
+                item {
+                    SectionCard(title = "Bill details") {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            labels.forEach { label ->
+                                FormField(
+                                    viewModel.customValues[label].orEmpty(), { viewModel.setCustomValue(label, it) }, label,
+                                    capitalization = KeyboardCapitalization.Sentences,
+                                )
+                            }
+                            if (viewModel.showsDueDate) {
+                                val due = viewModel.dueDate
+                                if (due == null) {
+                                    TextButton(onClick = { viewModel.dueDate = viewModel.date.plusDays(15) }) {
+                                        Icon(AppIcons.Calendar, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Add due date")
+                                    }
+                                } else {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        DateField("Due date", due, { viewModel.dueDate = it }, Modifier.weight(1f))
+                                        IconButton(onClick = { viewModel.dueDate = null }) { Icon(AppIcons.Close, contentDescription = "Remove due date") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // Items header
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Items", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(itemsWord, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     TextButton(onClick = { pickItems = true }) {
                         Icon(AppIcons.Plus, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Add items")
+                        Text("Add ${itemsWord.lowercase()}")
                     }
                 }
             }
@@ -188,7 +224,7 @@ fun InvoiceEditorRoute(
                         Column(Modifier.padding(Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(AppIcons.PlusCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                             Spacer(Modifier.height(Spacing.sm))
-                            Text("Tap to add items", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Text("Tap to add ${itemsWord.lowercase()}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                             Text("or scan a barcode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -295,6 +331,7 @@ fun InvoiceEditorRoute(
             onCash = { viewModel.selectCash() },
             onQuickAdd = { name, phone -> viewModel.quickAddParty(name, phone) },
             onDismiss = { pickParty = false },
+            partyWord = if (isPurchase) viewModel.partyTypeForDoc.label else words.party,
         )
     }
     if (pickItems) {
@@ -307,6 +344,8 @@ fun InvoiceEditorRoute(
             onNewItem = { name -> pickItems = false; onCreateItem("name:$name") },
             onCustomLine = { pickItems = false; editIndex = -1 },
             onDismiss = { pickItems = false },
+            itemWord = itemWord,
+            itemsWord = itemsWord,
         )
     }
     if (editIndex >= -1) {
@@ -322,7 +361,7 @@ fun InvoiceEditorRoute(
     }
     if (editNumber) {
         TextEditDialog(
-            title = if (docType == DocType.PURCHASE) "Supplier bill number" else "${docType.shortTitle} number",
+            title = if (docType == DocType.PURCHASE) "Supplier bill number" else "${business.docShortTitle(docType)} number",
             initial = viewModel.number,
             label = "Number",
             onDone = { viewModel.number = it },

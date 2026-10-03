@@ -70,6 +70,27 @@ class ItemRepository @Inject constructor(private val dao: ItemDao) {
 
     suspend fun setFavourite(item: Item, favourite: Boolean) = save(item.copy(favourite = favourite))
 
+    /** Adds the starter services of a business type, skipping names that already exist. Returns how many were added. */
+    suspend fun addPresets(type: online.draran.billing.core.model.BusinessType, gstEnabled: Boolean): Int {
+        var added = 0
+        type.presets.forEach { p ->
+            if (dao.countByName(p.name, 0) > 0) return@forEach
+            save(
+                Item(
+                    name = p.name,
+                    type = if (p.goods) online.draran.billing.core.model.ItemType.GOODS else online.draran.billing.core.model.ItemType.SERVICE,
+                    unit = p.unit,
+                    hsn = p.sac,
+                    salePrice = online.draran.billing.core.model.Money.rupees(p.rupees),
+                    taxRateBp = if (gstEnabled) p.taxRateBp else 0,
+                    favourite = true,
+                ),
+            )
+            added++
+        }
+        return added
+    }
+
     companion object {
         /** "rice bas" -> "rice* bas*" so typing a prefix finds matches. */
         fun ftsQuery(query: String): String? {

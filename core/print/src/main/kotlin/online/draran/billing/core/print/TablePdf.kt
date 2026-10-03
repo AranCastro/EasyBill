@@ -22,6 +22,7 @@ class TablePdf(
     private val columns: List<PdfColumn>,
     private val rows: List<List<String>>,
     private val summary: List<Pair<String, String>> = emptyList(),
+    private val logo: android.graphics.Bitmap? = null,
 ) {
     private val fonts = PdfFonts(context)
     private val pageW = 595f
@@ -57,10 +58,15 @@ class TablePdf(
         canvas.drawColor(android.graphics.Color.WHITE)
         canvas.drawRect(0f, 0f, pageW, 6f, Paint().apply { color = PdfFonts.BRAND })
         val top = if (index == 0) {
-            canvas.drawText(businessName, margin, margin + 18f, fonts.paint(16f, fonts.bold))
+            val left = if (logo != null) margin + 56f else margin
+            logo?.let {
+                val sc = minOf(46f / it.width, 46f / it.height)
+                canvas.drawBitmap(it, null, RectF(margin, margin, margin + it.width * sc, margin + it.height * sc), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            }
+            canvas.drawText(businessName, left, margin + 18f, fonts.paint(16f, fonts.bold))
             var y = margin + 34f
-            wrap(businessInfo, fonts.paint(8f, color = PdfFonts.MUTED), contentW * 0.6f).take(3).forEach {
-                canvas.drawText(it, margin, y, fonts.paint(8f, color = PdfFonts.MUTED)); y += 11f
+            wrap(businessInfo, fonts.paint(8f, color = PdfFonts.MUTED), contentW * 0.6f - (left - margin)).take(3).forEach {
+                canvas.drawText(it, left, y, fonts.paint(8f, color = PdfFonts.MUTED)); y += 11f
             }
             canvas.drawText(title.uppercase(), pageW - margin, margin + 18f, fonts.paint(13f, fonts.bold, PdfFonts.BRAND, Paint.Align.RIGHT))
             canvas.drawText(subtitle, pageW - margin, margin + 34f, fonts.paint(9f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))

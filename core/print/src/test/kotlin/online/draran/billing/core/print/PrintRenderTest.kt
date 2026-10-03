@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import online.draran.billing.core.model.Business
+import online.draran.billing.core.model.BusinessType
+import android.graphics.Color
+import android.graphics.Paint
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.Invoice
 import online.draran.billing.core.model.InvoiceLine
@@ -91,6 +94,81 @@ class PrintRenderTest {
         File("build/outputs/roborazzi/thermal_58mm.txt").apply { parentFile?.mkdirs() }.writeText(text)
         val wide = ThermalReceipt(sample(), business.copy(thermalWidthMm = 80))
         wide.text().lines().forEach { assertTrue(it.length <= 48) }
+    }
+
+    private fun sampleLogo(): Bitmap {
+        val b = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(15, 118, 110) }
+        c.drawCircle(100f, 100f, 96f, p)
+        p.color = Color.WHITE; p.textSize = 90f; p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
+        c.drawText("SA", 100f, 132f, p)
+        return b
+    }
+
+    private fun sampleSignature(): Bitmap {
+        val b = Bitmap.createBitmap(400, 140, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(20, 24, 60); strokeWidth = 6f; style = Paint.Style.STROKE }
+        val path = android.graphics.Path().apply {
+            moveTo(10f, 100f); cubicTo(60f, 10f, 90f, 130f, 140f, 60f); cubicTo(180f, 10f, 220f, 120f, 270f, 70f); lineTo(390f, 40f)
+        }
+        c.drawPath(path, p)
+        return b
+    }
+
+    @Test fun brandedInvoiceShowsLogoAndSignature() {
+        val branded = business.copy(signatoryName = "R. Sharma", signatoryDesignation = "Proprietor")
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), sample(), branded, sampleLogo(), sampleSignature())
+        assertEquals(1, pdf.pageCount)
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_a4_branded")
+    }
+
+    @Test fun educationFeeReceiptUsesTypeWords() {
+        val school = business.copy(
+            name = "Bright Future Academy", gstEnabled = false, gstin = "", type = BusinessType.EDUCATION,
+            customFieldLabels = BusinessType.EDUCATION.customFields, signatoryName = "Dr. Meena Iyer", signatoryDesignation = "Principal",
+        )
+        val lines = listOf(
+            InvoiceLine(itemId = 1, name = "Tuition fee", hsn = "9992", unit = "term", qtyMilli = Qty.of(1), rate = Money.rupees(18000), taxRateBp = 0),
+            InvoiceLine(itemId = 2, name = "Lab fee", hsn = "9992", unit = "term", qtyMilli = Qty.of(1), rate = Money.rupees(2500), taxRateBp = 0),
+        )
+        val invoice = sample().copy(
+            gstEnabled = false, lines = lines, totals = TaxEngine.bill(lines.map { it.toInput() }, interState = false),
+            partyName = "Ananya R", customFields = listOf("Roll / Admission no." to "BFA-2026-118", "Class / Course" to "Class X", "Fee period" to "Term 2"),
+        )
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), invoice, school, sampleLogo(), sampleSignature())
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_a4_education")
+        val receipt = ThermalReceipt(invoice, school)
+        val text = receipt.text()
+        assertTrue(text.contains("FEE RECEIPT"))
+        assertTrue(text.contains("BFA-2026-118"))
+        assertTrue(text.contains("Student"))
+        text.lines().forEach { assertTrue("Line too long: '$it'", it.length <= 32) }
+    }
+
+    @Test fun thermalLogoIsSentAsRasterImage() {
+        val plain = ThermalReceipt(sample(), business).escPos()
+        val withLogo = ThermalReceipt(sample(), business, sampleLogo()).escPos()
+        val off = ThermalReceipt(sample(), business.copy(printLogoOnReceipt = false), sampleLogo()).escPos()
+        fun hasRaster(b: ByteArray) = (0 until b.size - 2).any { b[it] == 0x1D.toByte() && b[it + 1] == 0x76.toByte() && b[it + 2] == 0x30.toByte() }
+        assertTrue(hasRaster(withLogo))
+        assertTrue(!hasRaster(plain))
+        assertTrue(!hasRaster(off))
+        val raster = ThermalReceipt.raster(sampleLogo(), 240)
+        // GS v 0 m xL xH yL yH: width in bytes ≤ 30 for 58 mm paper
+        assertTrue((raster[4].toInt() and 0xFF) + (raster[5].toInt() and 0xFF) * 256 <= 30)
+    }
+
+    @Test fun statementWithLogoRenders() {
+        val pdf = TablePdf(
+            ApplicationProvider.getApplicationContext(), business.name, "Chennai · 98400 12345", "Party Statement",
+            "Rakesh Kumar · 1 Apr 2026 to 3 Oct 2026",
+            listOf(PdfColumn("Date", 1.2f), PdfColumn("Particulars", 2.5f), PdfColumn("Amount", 1.3f, true)),
+            (1..5).map { listOf("0$it Oct 2026", "Sale INV-00$it", "₹1,200.00") },
+            listOf("Closing balance" to "₹6,000.00"), logo = sampleLogo(),
+        )
+        renderPage({ pdf.drawPage(it, 0) }, "statement_branded")
     }
 
     @Test fun upiLinkIsWellFormed() {

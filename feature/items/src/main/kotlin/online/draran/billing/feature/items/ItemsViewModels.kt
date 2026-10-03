@@ -44,8 +44,18 @@ data class ItemsUi(
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class ItemsViewModel @Inject constructor(private val repository: ItemRepository) : ViewModel() {
+class ItemsViewModel @Inject constructor(
+    private val repository: ItemRepository,
+    businessRepository: BusinessRepository,
+) : ViewModel() {
+    val business: StateFlow<Business> = businessRepository.business.stateIn(viewModelScope, SharingStarted.Eagerly, Business())
     val query = MutableStateFlow("")
+
+    /** Loads the business type's sample services (skips names already saved). */
+    fun addStarter() {
+        val b = business.value
+        viewModelScope.launch { repository.addPresets(b.type, b.gstEnabled) }
+    }
     val filter = MutableStateFlow(ItemFilter.ALL)
 
     private val all: Flow<List<ItemWithStock>> = repository.items()
@@ -117,7 +127,11 @@ class ItemEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val b = business.value.takeIf { it.onboarded } ?: businessRepository.get()
             if (id == 0L) {
-                form = ItemForm(taxInclusive = b.pricesIncludeTax, barcode = prefillBarcode, name = prefillName)
+                form = ItemForm(
+                    taxInclusive = b.pricesIncludeTax, barcode = prefillBarcode, name = prefillName,
+                    // Schools, salons, clinics and consultants mostly bill services
+                    type = if (b.type.tracksStock) ItemType.GOODS else ItemType.SERVICE,
+                )
                 return@launch
             }
             val item = repository.get(id) ?: return@launch

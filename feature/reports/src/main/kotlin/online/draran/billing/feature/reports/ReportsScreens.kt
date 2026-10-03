@@ -104,6 +104,7 @@ fun ReportsHubRoute(onBack: () -> Unit, onOpen: (ReportKind) -> Unit) {
 class ReportViewModel @Inject constructor(
     private val builder: ReportBuilder,
     private val businessRepository: BusinessRepository,
+    private val branding: online.draran.billing.core.data.BrandingManager,
 ) : ViewModel() {
     var kind by mutableStateOf(ReportKind.SALES)
         private set
@@ -143,7 +144,7 @@ class ReportViewModel @Inject constructor(
                     s.totals.forEach { (k, v) -> rows += listOf("  $k") + List(width - 2) { "" } + listOf(v) }
                 }
                 File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".pdf").also {
-                    TablePdf(context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "), kind.title, subtitle(), columns, rows.map { r -> r + List((width - r.size).coerceAtLeast(0)) { "" } }).writeTo(it)
+                    TablePdf(context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "), kind.title, subtitle(), columns, rows.map { r -> r + List((width - r.size).coerceAtLeast(0)) { "" } }, logo = branding.logo(b.logoFile)).writeTo(it)
                 }
             }
             Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")
@@ -166,7 +167,7 @@ class ReportViewModel @Inject constructor(
                         s.totals.forEach { (k, v) -> appendLine(esc(k) + "," + esc(v.replace(",", ""))) }
                     }
                 }
-                File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("﻿" + text) }
+                File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads ₹ correctly */ }
             }
             Sharing.shareFile(context, file, "text/csv", kind.title)
         }

@@ -6,8 +6,10 @@ Free, offline-first billing, stock and accounts app for Android, for GST and
 non-GST shops in India. Kotlin + Jetpack Compose + Material 3. All data stays
 on the phone; there is no server and no running cost.
 
-**Status: v1.0.0** — feature-complete for daily shop use (Phases 1–3 of the
-[project plan](docs/easybill_project-plan_v2.md)). User guide:
+**Status: v1.1.0** — feature-complete for daily shop use (Phases 1–3 of the
+[project plan](docs/easybill_project-plan_v2.md)), plus business logo,
+authorised signature and industry modes for service businesses
+([plan](docs/easybill_industry-plan_v1.md)). User guide:
 [docs/easybill_user-guide_v1.md](docs/easybill_user-guide_v1.md).
 
 | Dashboard | New sale | Bill + PDF | Counter (UPI QR) |
@@ -18,7 +20,32 @@ on the phone; there is no server and no running cost.
 |---|---|---|---|
 | ![](docs/screenshots/app/parties.png) | ![](docs/screenshots/app/party_detail.png) | ![](docs/screenshots/app/reports.png) | ![](docs/screenshots/app/gst.png) |
 
+| Business type | Logo and signature | Salon bill | Fee receipt |
+|---|---|---|---|
+| ![](docs/screenshots/app/business_type.png) | ![](docs/screenshots/app/signatory.png) | ![](docs/screenshots/app/salon_bill_editor.png) | ![](docs/screenshots/app/fee_receipt.png) |
+
 ## Features
+
+**Industry modes** (v1.1)
+- Seven business types: Shop / Retail, School / Coaching / Training,
+  Research / Consultancy / Lab, Salon / Beauty / Spa, Clinic / Healthcare,
+  Repair / Service centre, Freelancer / Professional.
+- Each type sets the words on screen and on bills (Student, Client, Patient;
+  Fee head, Service), the bill title without GST (Fee Receipt, Bill, Job
+  Invoice), whether stock is tracked, and up to four extra bill fields (e.g.
+  Roll / Admission no., Stylist, Job card no., PO / Work order no.), printed in
+  the bill's Details box and on thermal receipts. Optional due date for
+  invoice-style types.
+- Optional starter services with SAC codes and default GST rates (editable).
+  With GST on, sale bills are always titled "Tax Invoice".
+
+**Branding** (v1.1)
+- Business logo (Android photo picker, no storage permission) on A4 bills,
+  statements, report PDFs, the dashboard and, as a black-and-white raster
+  image, on Bluetooth thermal receipts.
+- Authorised signature: upload a photo on white paper (background removed
+  automatically) or sign on the screen; signatory name and designation
+  printed under it. Logo and signature are included in backups.
 
 **Billing**
 - Sale invoices, purchase bills, estimates/quotations, sale returns (credit
@@ -106,6 +133,11 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 
 ## Changelog
 
+- **1.1.0** — Business logo; authorised signature (photo or drawn) with name
+  and designation; seven industry modes with their own words, bill titles,
+  bill fields, due dates and starter services; logo on thermal receipts;
+  database v2 with automatic migration from 1.0.0. Fixed restore on Android
+  8–12 (an Android 13-only call).
 - **1.0.0** — Full app: database, onboarding with GST switch, items with stock
   and barcodes, parties with ledgers, sale/purchase/estimate/return bills,
   counter mode with UPI QR, A4 PDF, WhatsApp share, Android and Bluetooth

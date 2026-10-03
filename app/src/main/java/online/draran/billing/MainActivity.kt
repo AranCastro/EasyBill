@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
             BillingTheme(themeMode = preferences.themeMode, dynamicColor = preferences.dynamicColor) {
                 if (ready != null) BillingApp(
                     onboarded = ready.onboarded,
+                    businessType = ready.businessType,
                     isDarkTheme = dark,
                     onToggleTheme = { viewModel.setThemeMode(if (dark) ThemeMode.LIGHT else ThemeMode.DARK) },
                     versionName = BuildConfig.VERSION_NAME,

@@ -212,4 +212,58 @@ class RepositoryTest {
         assertEquals(listOf("Saved Item"), ItemRepository(reopened.itemDao()).items().first().map { it.item.name })
         reopened.close()
     }
+
+    @Test fun customFieldsAndPresets() = runTest {
+        val id = invoices.save(
+            InvoiceDraft(
+                type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 2000)), paidNow = Money.rupees(2000),
+                customFields = listOf("Roll / Admission no." to "A-102", "Class / Course" to "Class 8 B", "Batch / Section" to ""),
+            ),
+        )
+        assertEquals(listOf("Roll / Admission no." to "A-102", "Class / Course" to "Class 8 B"), invoices.get(id)!!.customFields)
+        assertEquals(listOf("Roll / Admission no." to "A-102", "Class / Course" to "Class 8 B"), invoices.draftForEdit(id)!!.customFields)
+
+        assertEquals(12, items.addPresets(online.draran.billing.core.model.BusinessType.SALON, gstEnabled = true))
+        assertEquals(0, items.addPresets(online.draran.billing.core.model.BusinessType.SALON, gstEnabled = true)) // no duplicates
+        val haircut = items.items("haircut").first().first { it.item.name == "Haircut" }.item
+        assertEquals(1800, haircut.taxRateBp)
+        assertEquals("9997", haircut.hsn)
+        assertEquals(online.draran.billing.core.model.ItemType.SERVICE, haircut.type)
+
+        val b = business.get().copy(type = online.draran.billing.core.model.BusinessType.EDUCATION, customFieldLabels = online.draran.billing.core.model.BusinessType.EDUCATION.customFields, signatoryName = "R. Lakshmi", signatoryDesignation = "Principal")
+        business.save(b)
+        val loaded = business.get()
+        assertEquals(online.draran.billing.core.model.BusinessType.EDUCATION, loaded.type)
+        assertEquals(4, loaded.customFieldLabels.size)
+        assertEquals("Principal", loaded.signatoryDesignation)
+        assertEquals("Tax Invoice", loaded.saleTitle()) // GST on in this test
+        assertEquals("Fee Receipt", loaded.copy(gstEnabled = false).saleTitle())
+    }
+
+    @Test fun signaturePhotoBackgroundIsRemoved() {
+        val w = 120
+        val h = 60
+        val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        bmp.eraseColor(android.graphics.Color.rgb(235, 232, 225)) // paper
+        for (x in 20 until 100) for (y in 28 until 32) bmp.setPixel(x, y, android.graphics.Color.rgb(30, 30, 40)) // ink stroke
+        val clean = BrandingManager.cleanSignature(bmp)
+        assertTrue(clean.width < w && clean.height < h) // trimmed to the ink
+        assertEquals(0, android.graphics.Color.alpha(clean.getPixel(0, 0)))
+        assertTrue(android.graphics.Color.alpha(clean.getPixel(clean.width / 2, clean.height / 2)) > 200)
+    }
+
+    @Test fun backupIncludesLogoAndSignature() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        val dir = java.io.File(context.filesDir, BrandingManager.DIR).apply { mkdirs() }
+        java.io.File(dir, BrandingManager.LOGO).writeBytes(byteArrayOf(1, 2, 3))
+        java.io.File(dir, BrandingManager.SIGNATURE).writeBytes(byteArrayOf(4, 5))
+        val out = ByteArrayOutputStream()
+        BackupManager(context, fileDb).write(out)
+        dir.listFiles()!!.forEach { it.delete() }
+        BackupManager(context, fileDb).restore(out.toByteArray().inputStream())
+        assertEquals(3, java.io.File(dir, BrandingManager.LOGO).length())
+        assertEquals(2, java.io.File(dir, BrandingManager.SIGNATURE).length())
+    }
 }

@@ -29,6 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import online.draran.billing.core.model.BusinessType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,8 +74,12 @@ fun DashboardRoute(
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val logo by viewModel.logo.collectAsStateWithLifecycle()
+    val businessType by viewModel.businessType.collectAsStateWithLifecycle()
     DashboardScreen(
         state = state,
+        logo = logo,
+        businessType = businessType,
         onNavigate = onNavigate,
         isDarkTheme = isDarkTheme,
         onToggleTheme = onToggleTheme,
@@ -90,6 +98,8 @@ fun DashboardScreen(
     onToggleTheme: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(),
     onOpenRecent: (RecentTransaction) -> Unit = {},
+    logo: ImageBitmap? = null,
+    businessType: BusinessType = BusinessType.RETAIL,
 ) {
     val ext = BillingTheme.extendedColors
     // Surface sets the content colour so text and icons follow light/dark theme
@@ -109,6 +119,7 @@ fun DashboardScreen(
                 Header(
                     greeting = state.greeting,
                     businessName = state.businessName,
+                    logo = logo,
                     isDarkTheme = isDarkTheme,
                     onToggleTheme = onToggleTheme,
                     onSettings = { onNavigate(DashboardDestination.SETTINGS) },
@@ -150,7 +161,7 @@ fun DashboardScreen(
                 }
             }
             item(key = "actions") {
-                QuickActionsCard(onNavigate)
+                QuickActionsCard(onNavigate, businessType)
             }
             if (state.lowStockCount > 0) {
                 item(key = "low-stock") {
@@ -214,6 +225,7 @@ fun DashboardScreen(
 private fun Header(
     greeting: Greeting,
     businessName: String,
+    logo: ImageBitmap?,
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
     onSettings: () -> Unit,
@@ -223,14 +235,18 @@ private fun Header(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(if (logo != null) Color.White else MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = businessName.initials(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            if (logo != null) {
+                Image(logo, contentDescription = "Business logo", contentScale = ContentScale.Fit, modifier = Modifier.padding(4.dp))
+            } else {
+                Text(
+                    text = businessName.initials(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
         }
         Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f)) {
@@ -381,7 +397,7 @@ private val quickActions = listOf(
 )
 
 @Composable
-private fun QuickActionsCard(onNavigate: (DashboardDestination) -> Unit) {
+private fun QuickActionsCard(onNavigate: (DashboardDestination) -> Unit, businessType: BusinessType) {
     val ext = BillingTheme.extendedColors
     val scheme = MaterialTheme.colorScheme
     SurfaceCard {
@@ -401,7 +417,12 @@ private fun QuickActionsCard(onNavigate: (DashboardDestination) -> Unit) {
                             Tone.ERROR -> scheme.error to scheme.errorContainer
                         }
                         QuickAction(
-                            label = stringResource(spec.labelRes),
+                            label = when {
+                                businessType == BusinessType.RETAIL -> stringResource(spec.labelRes)
+                                spec.destination == DashboardDestination.NEW_SALE -> businessType.newSaleLabel
+                                spec.destination == DashboardDestination.ADD_ITEM -> "Add ${businessType.item}"
+                                else -> stringResource(spec.labelRes)
+                            },
                             icon = spec.icon,
                             tint = tint,
                             container = container,

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.draran.billing.core.common.IndianFormat
+import online.draran.billing.core.data.BrandingManager
 import online.draran.billing.core.data.BusinessRepository
 import online.draran.billing.core.data.PartyRepository
 import online.draran.billing.core.designsystem.component.pretty
@@ -50,7 +51,11 @@ data class PartiesUi(
 )
 
 @HiltViewModel
-class PartiesViewModel @Inject constructor(repository: PartyRepository) : ViewModel() {
+class PartiesViewModel @Inject constructor(
+    repository: PartyRepository,
+    businessRepository: BusinessRepository,
+) : ViewModel() {
+    val business: StateFlow<Business> = businessRepository.business.stateIn(viewModelScope, SharingStarted.Eagerly, Business())
     val query = MutableStateFlow("")
     val type = MutableStateFlow(PartyType.CUSTOMER)
 
@@ -148,6 +153,7 @@ class PartyEditorViewModel @Inject constructor(
 class PartyDetailViewModel @Inject constructor(
     private val repository: PartyRepository,
     businessRepository: BusinessRepository,
+    private val branding: BrandingManager,
 ) : ViewModel() {
     private val id = MutableStateFlow(0L)
     val party: StateFlow<PartyWithBalance?> = id.flatMapLatest { if (it == 0L) flowOf(null) else repository.party(it) }
@@ -192,6 +198,7 @@ class PartyDetailViewModel @Inject constructor(
                         )
                     },
                     summary = listOf("Closing balance" to balanceLabel(p.balance)),
+                    logo = branding.logo(b.logoFile),
                 ).writeTo(f)
                 f
             }

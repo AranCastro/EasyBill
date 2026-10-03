@@ -33,6 +33,7 @@ import androidx.navigation.toRoute
 import online.draran.billing.R
 import online.draran.billing.core.designsystem.component.AppFab
 import online.draran.billing.core.designsystem.icon.AppIcons
+import online.draran.billing.core.model.BusinessType
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.PartyType
 import online.draran.billing.core.model.PaymentDirection
@@ -100,6 +101,7 @@ fun BillingApp(
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
     versionName: String,
+    businessType: BusinessType = BusinessType.RETAIL,
 ) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
@@ -121,7 +123,16 @@ fun BillingApp(
                             selected = selected,
                             onClick = { nav.navigateToTab(tab) },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.unselectedIcon, contentDescription = null) },
-                            label = { Text(stringResource(tab.label)) },
+                            label = {
+                                Text(
+                                    when (tab) {
+                                        TopLevelDestination.SALES -> businessType.salesTab
+                                        TopLevelDestination.ITEMS -> businessType.itemsTab
+                                        else -> stringResource(tab.label)
+                                    },
+                                    maxLines = 1,
+                                )
+                            },
                         )
                     }
                 }
@@ -129,9 +140,9 @@ fun BillingApp(
         },
         floatingActionButton = {
             val fab: Pair<String, () -> Unit>? = when (currentTab) {
-                TopLevelDestination.HOME, TopLevelDestination.SALES -> stringResource(R.string.new_sale) to { newBill(DocType.SALE) }
-                TopLevelDestination.ITEMS -> "Add item" to { nav.navigate(NavItemEditor()) }
-                TopLevelDestination.PARTIES -> "Add party" to { nav.navigate(NavPartyEditor(type = partiesTabType.name)) }
+                TopLevelDestination.HOME, TopLevelDestination.SALES -> businessType.newSaleLabel to { newBill(DocType.SALE) }
+                TopLevelDestination.ITEMS -> "Add ${businessType.item.lowercase()}" to { nav.navigate(NavItemEditor()) }
+                TopLevelDestination.PARTIES -> (if (partiesTabType == PartyType.CUSTOMER && businessType != BusinessType.RETAIL) "Add ${businessType.party.lowercase()}" else "Add party") to { nav.navigate(NavPartyEditor(type = partiesTabType.name)) }
                 else -> null
             }
             AnimatedVisibility(visible = fab != null, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {

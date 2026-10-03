@@ -101,7 +101,7 @@ fun InvoiceDetailRoute(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             AppTopBar(
-                title = inv?.type?.title ?: "Bill",
+                title = inv?.type?.let { viewModel.business.collectAsStateWithLifecycle().value.docTitle(it) } ?: "Bill",
                 subtitle = inv?.number,
                 onBack = onBack,
                 actions = {

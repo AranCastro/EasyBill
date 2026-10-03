@@ -112,6 +112,29 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
                     }
                 }
             }
+            SectionCard(
+                title = "Bill fields",
+                action = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.update { it.copy(customFieldLabels = it.type.customFields) } }) { Text("Reset") }
+                },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(
+                        "Up to four extra fields filled on each bill and printed in its Details box, e.g. Roll no., Stylist, Vehicle no. Leave blank to hide. Reset uses the defaults for ${b.type.label}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val slots = (b.customFieldLabels + List(MAX_BILL_FIELDS) { "" }).take(MAX_BILL_FIELDS)
+                    slots.forEachIndexed { index, label ->
+                        FormField(
+                            label,
+                            { v -> viewModel.update { it.copy(customFieldLabels = slots.toMutableList().also { list -> list[index] = v.take(30) }) } },
+                            "Field ${index + 1}",
+                            capitalization = KeyboardCapitalization.Sentences,
+                        )
+                    }
+                }
+            }
             SectionCard(title = "Calculation") {
                 Column {
                     ToggleRow("Round off totals", "Round the bill total to the nearest rupee", b.roundOff) { v -> viewModel.update { it.copy(roundOff = v) } }
@@ -131,6 +154,8 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
         }
     }
 }
+
+private const val MAX_BILL_FIELDS = 4
 
 @Composable
 private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
@@ -169,6 +194,13 @@ fun PrinterSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
                         SegmentedButton(b.thermalWidthMm == mm, { viewModel.update { it.copy(thermalWidthMm = mm) }; viewModel.save() }, SegmentedButtonDefaults.itemShape(i, 2)) { Text("$mm mm") }
                     }
                 }
+            }
+            SectionCard(title = "Receipt") {
+                ToggleRow(
+                    "Print logo on receipts",
+                    if (b.logoFile.isBlank()) "Add a logo in Business profile first" else "Printed in black and white at the top",
+                    b.printLogoOnReceipt && b.logoFile.isNotBlank(),
+                ) { v -> viewModel.update { it.copy(printLogoOnReceipt = v) }; viewModel.save() }
             }
             SectionCard(title = "Bluetooth thermal printer") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {

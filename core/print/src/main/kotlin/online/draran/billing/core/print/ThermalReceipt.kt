@@ -16,7 +16,11 @@ import java.util.Locale
  * printers, plus the ESC/POS byte stream to send over Bluetooth.
  * Printers rarely have the ₹ glyph, so amounts use "Rs.".
  */
-class ThermalReceipt(private val invoice: Invoice, private val business: Business) {
+class ThermalReceipt(
+    private val invoice: Invoice,
+    private val business: Business,
+    private val logo: android.graphics.Bitmap? = null,
+) {
 
     val width: Int = if (business.thermalWidthMm >= 80) 48 else 32
 
@@ -25,6 +29,7 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
     sealed interface Part {
         data class Text(val text: String, val center: Boolean = false, val bold: Boolean = false, val big: Boolean = false) : Part
         data class Qr(val data: String) : Part
+        data class Image(val bitmap: android.graphics.Bitmap) : Part
     }
 
     fun parts(): List<Part> {
@@ -40,6 +45,7 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
             }
         }
 
+        if (logo != null && business.printLogoOnReceipt) out += Part.Image(logo)
         out += Part.Text(ascii(business.name).take(width), center = true, bold = true, big = width >= 48 || business.name.length <= 16)
         business.address.split("\n").filter { it.isNotBlank() }.forEach { addr -> wrapText(ascii(addr), width).forEach { line(it, center = true) } }
         if (business.phone.isNotBlank()) line("Ph: ${business.phone}", center = true)
@@ -47,12 +53,13 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
         line(rule)
         val title = when {
             invoice.type == DocType.SALE && invoice.gstEnabled -> "TAX INVOICE"
-            invoice.type == DocType.SALE -> "BILL OF SUPPLY"
+            invoice.type == DocType.SALE -> business.type.billTitle.uppercase()
             else -> invoice.type.title.uppercase()
         }
         line(title, center = true, bold = true)
         lr("No: ${invoice.number}", invoice.date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH)))
-        line("To: ${ascii(invoice.partyName)}".take(width))
+        line("${if (business.type.party == "Customer") "To" else business.type.party}: ${ascii(invoice.partyName)}".take(width))
+        invoice.customFields.forEach { (k, v) -> wrapText(ascii("$k: $v"), width).forEach { line(it) } }
         line(rule)
         lr("Item", "Amount", bold = true)
         line(rule)
@@ -96,6 +103,7 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
         when (p) {
             is Part.Text -> if (p.center) p.text.padStart((width + p.text.length) / 2).padEnd(width) else p.text
             is Part.Qr -> "[UPI QR]".padStart((width + 8) / 2)
+            is Part.Image -> "[LOGO]".padStart((width + 6) / 2)
         }
     }
 
@@ -113,6 +121,11 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
                     out.write((if (p.big) p.text.take(width / 2) else p.text).toByteArray(Charsets.US_ASCII))
                     out.write(0x0A)
                     cmd(0x1D, 0x21, 0x00)
+                }
+                is Part.Image -> {
+                    cmd(0x1B, 0x61, 1)
+                    out.write(raster(p.bitmap, if (width >= 48) 320 else 240))
+                    out.write(0x0A)
                 }
                 is Part.Qr -> {
                     val data = p.data.toByteArray(Charsets.US_ASCII)
@@ -135,6 +148,40 @@ class ThermalReceipt(private val invoice: Invoice, private val business: Busines
     }
 
     companion object {
+        /**
+         * ESC/POS "GS v 0" raster image: the bitmap scaled to [maxDots] wide,
+         * flattened onto white and turned into black/white dots.
+         */
+        fun raster(source: android.graphics.Bitmap, maxDots: Int): ByteArray {
+            val scale = minOf(1f, maxDots.toFloat() / source.width)
+            val w = (source.width * scale).toInt().coerceAtLeast(8)
+            val h = (source.height * scale).toInt().coerceAtLeast(1)
+            val bmp = android.graphics.Bitmap.createScaledBitmap(source, w, h, true)
+            val bytesPerRow = (w + 7) / 8
+            val out = ByteArrayOutputStream()
+            out.write(byteArrayOf(0x1D, 0x76, 0x30, 0x00, (bytesPerRow % 256).toByte(), (bytesPerRow / 256).toByte(), (h % 256).toByte(), (h / 256).toByte()))
+            val row = IntArray(w)
+            for (y in 0 until h) {
+                bmp.getPixels(row, 0, w, 0, y, w, 1)
+                for (b in 0 until bytesPerRow) {
+                    var byte = 0
+                    for (bit in 0 until 8) {
+                        val x = b * 8 + bit
+                        if (x < w) {
+                            val p = row[x]
+                            val a = android.graphics.Color.alpha(p)
+                            // Composite on white, then threshold
+                            val lum = (android.graphics.Color.red(p) * 299 + android.graphics.Color.green(p) * 587 + android.graphics.Color.blue(p) * 114) / 1000
+                            val onWhite = (lum * a + 255 * (255 - a)) / 255
+                            if (onWhite < 140) byte = byte or (0x80 shr bit)
+                        }
+                    }
+                    out.write(byte)
+                }
+            }
+            return out.toByteArray()
+        }
+
         /** A short sample receipt to check the printer connection and width. */
         fun testPage(business: Business): ByteArray {
             val width = if (business.thermalWidthMm >= 80) 48 else 32

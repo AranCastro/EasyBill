@@ -1,5 +1,6 @@
 package online.draran.billing.core.database
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
@@ -16,8 +17,12 @@ import androidx.room.RoomDatabase
         ExpenseEntity::class,
         StockAdjustmentEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        // v1.1: business type, logo, signature, custom bill fields
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 abstract class BillingDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao

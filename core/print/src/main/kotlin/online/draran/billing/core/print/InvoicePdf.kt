@@ -21,7 +21,13 @@ import java.util.Locale
  * A4 invoice layout (595 x 842 pt). Pages are laid out first so long bills
  * break cleanly and the header row repeats on every page.
  */
-class InvoicePdf(context: Context, private val invoice: Invoice, private val business: Business) {
+class InvoicePdf(
+    context: Context,
+    private val invoice: Invoice,
+    private val business: Business,
+    private val logo: android.graphics.Bitmap? = null,
+    private val signature: android.graphics.Bitmap? = null,
+) {
 
     private val fonts = PdfFonts(context)
     private val dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
@@ -40,7 +46,7 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
     // Table columns: (title, width, right-aligned)
     private val columns: List<Triple<String, Float, Boolean>> = buildList {
         add(Triple("#", 22f, false))
-        add(Triple("Item", 0f, false)) // flexible
+        add(Triple(if (invoice.type == DocType.SALE || invoice.type == DocType.ESTIMATE) business.type.item else "Item", 0f, false)) // flexible
         add(Triple("Qty", 58f, true))
         add(Triple("Rate", 66f, true))
         add(Triple("Disc", 38f, true))
@@ -62,7 +68,10 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
 
     private val tableHeaderH = 22f
     private val footerH = 28f
-    private val firstTableTop = 236f
+    private val logoBox = 58f
+    private val textLeft: Float get() = if (logo != null) margin + logoBox + 12f else margin
+    private val textWidth: Float get() = contentW * 0.6f - (textLeft - margin)
+    private val firstTableTop: Float = computeFirstTableTop()
     private val nextTableTop = margin + 40f
     private val totalsH: Float = computeTotalsHeight()
 
@@ -70,11 +79,40 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
     private val pages: List<Pair<IntRange, Boolean>> = paginate()
     val pageCount: Int get() = pages.size
 
+    private fun headerInfo(): List<String> = buildList {
+        business.address.split("\n").filter { it.isNotBlank() }.forEach { add(it) }
+        IndianStates.byCode(business.stateCode)?.let { add("${it.name} (${it.code})") }
+        listOf(
+            business.phone.takeIf { it.isNotBlank() }?.let { "Ph: $it" },
+            business.email.takeIf { it.isNotBlank() },
+        ).filterNotNull().joinToString("  ·  ").takeIf { it.isNotBlank() }?.let { add(it) }
+        if (business.gstEnabled && business.gstin.isNotBlank()) add("GSTIN: ${business.gstin}")
+    }
+
+    /** Bottom of the business block (name, address, title, logo). */
+    private fun headerBottom(): Float {
+        var y = margin + 10f
+        y += wrap(business.name, fonts.paint(17f, fonts.bold), textWidth).size * 21f
+        headerInfo().forEach { line -> y += wrap(line, bodyMuted, textWidth).size * 12f }
+        val ry = margin + 40f + 14f * (2 + (if (invoice.dueDate != null) 1 else 0))
+        val logoBottom = if (logo != null) margin + logoBox else 0f
+        return maxOf(y, ry, logoBottom) + 12f
+    }
+
+    private fun detailRows(): Int = (if (gst) 2 else 0) + (if (invoice.type.tracksPayment) 1 else 0) + invoice.customFields.size
+
+    private fun computeFirstTableTop(): Float {
+        val boxTop = headerBottom()
+        val partyRows = 1 + listOf(invoice.partyAddress, invoice.partyPhone, invoice.partyGstin).count { it.isNotBlank() }
+        val boxH = maxOf(86f, 36f + 13f * maxOf(detailRows(), partyRows))
+        return boxTop + boxH + 14f
+    }
+
     private fun computeTotalsHeight(): Float {
         val left = 16f + 26f + (if (gst) 18f + 14f * (invoice.totals.slabs.size + 1) else 0f) +
             (if (showQr) 110f else 0f) + (if (business.bankDetails.isNotBlank()) 48f else 0f) +
             (if (business.terms.isNotBlank() || invoice.notes.isNotBlank()) 48f else 0f)
-        val right = 18f * 10 + 70f
+        val right = 18f * 10 + 70f + 40f // signature block
         return maxOf(left, right) + 20f
     }
 
@@ -120,25 +158,17 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
 
     private fun title(): String = when {
         invoice.type == DocType.SALE && gst -> "TAX INVOICE"
-        invoice.type == DocType.SALE -> "BILL OF SUPPLY"
+        invoice.type == DocType.SALE -> business.type.billTitle.uppercase()
         else -> invoice.type.title.uppercase()
     }
 
     private fun drawHeader(canvas: Canvas): Float {
         var y = margin + 10f
+        logo?.let { drawFitted(canvas, it, RectF(margin, margin, margin + logoBox, margin + logoBox), alignRight = false) }
         val nameP = fonts.paint(17f, fonts.bold, PdfFonts.INK)
-        wrap(business.name, nameP, contentW * 0.6f).forEach { canvas.drawText(it, margin, y + 8f, nameP); y += 21f }
-        val info = buildList {
-            business.address.split("\n").filter { it.isNotBlank() }.forEach { add(it) }
-            IndianStates.byCode(business.stateCode)?.let { add("${it.name} (${it.code})") }
-            listOf(
-                business.phone.takeIf { it.isNotBlank() }?.let { "Ph: $it" },
-                business.email.takeIf { it.isNotBlank() },
-            ).filterNotNull().joinToString("  ·  ").takeIf { it.isNotBlank() }?.let { add(it) }
-            if (business.gstEnabled && business.gstin.isNotBlank()) add("GSTIN: ${business.gstin}")
-        }
-        info.forEach { line ->
-            wrap(line, bodyMuted, contentW * 0.6f).forEach { canvas.drawText(it, margin, y + 4f, if (line.startsWith("GSTIN")) bold else bodyMuted); y += 12f }
+        wrap(business.name, nameP, textWidth).forEach { canvas.drawText(it, textLeft, y + 8f, nameP); y += 21f }
+        headerInfo().forEach { line ->
+            wrap(line, bodyMuted, textWidth).forEach { canvas.drawText(it, textLeft, y + 4f, if (line.startsWith("GSTIN")) bold else bodyMuted); y += 12f }
         }
 
         // Title block on the right
@@ -157,16 +187,19 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
         meta("Date", invoice.date.format(dateFmt))
         invoice.dueDate?.let { meta("Due", it.format(dateFmt)) }
 
-        y = maxOf(y, ry) + 12f
         // Bill-to box
-        val boxTop = y
+        val boxTop = headerBottom()
         val boxH = firstTableTop - 14f - boxTop
         val half = contentW / 2 - 6f
         val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PdfFonts.ROW_TINT }
         canvas.drawRoundRect(RectF(margin, boxTop, margin + half, boxTop + boxH), 6f, 6f, boxPaint)
         canvas.drawRoundRect(RectF(margin + half + 12f, boxTop, pageW - margin, boxTop + boxH), 6f, 6f, boxPaint)
         val label = fonts.paint(7.5f, fonts.medium, PdfFonts.MUTED)
-        val partyLabel = if (invoice.type == DocType.PURCHASE || invoice.type == DocType.PURCHASE_RETURN) "SUPPLIER" else "BILL TO"
+        val partyLabel = when {
+            invoice.type == DocType.PURCHASE || invoice.type == DocType.PURCHASE_RETURN -> "SUPPLIER"
+            business.type == online.draran.billing.core.model.BusinessType.RETAIL -> "BILL TO"
+            else -> business.type.party.uppercase()
+        }
         canvas.drawText(partyLabel, margin + 10f, boxTop + 15f, label)
         var by = boxTop + 30f
         canvas.drawText(invoice.partyName, margin + 10f, by, fonts.paint(10.5f, fonts.bold)); by += 13f
@@ -181,10 +214,11 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
         canvas.drawText("DETAILS", rx, boxTop + 15f, label)
         var dy = boxTop + 30f
         fun detail(k: String, v: String) {
-            canvas.drawText(k, rx, dy, bodyMuted)
-            canvas.drawText(v, rx + 80f, dy, body)
+            canvas.drawText(wrap(k, bodyMuted, 76f).first(), rx, dy, bodyMuted)
+            canvas.drawText(wrap(v, body, pageW - margin - rx - 90f).first(), rx + 80f, dy, body)
             dy += 13f
         }
+        invoice.customFields.forEach { (k, v) -> detail(k, v) }
         if (gst) detail("Place of supply", IndianStates.byCode(invoice.placeOfSupply)?.let { "${it.name} (${it.code})" } ?: invoice.placeOfSupply)
         if (gst) detail("Supply type", if (invoice.interState) "Inter-state (IGST)" else "Intra-state (CGST + SGST)")
         if (invoice.type.tracksPayment) {
@@ -336,12 +370,25 @@ class InvoicePdf(context: Context, private val invoice: Invoice, private val bus
             wrap(terms, bodyMuted, leftW).take(3).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
         }
 
-        // Signature
-        val sigY = maxOf(y, ly) + 30f
+        // Signature block
+        val sigY = maxOf(y, ly) + 24f
         val sp = fonts.paint(9f, fonts.bold, align = Paint.Align.RIGHT)
         canvas.drawText("For ${business.name}", pageW - margin, sigY, sp)
-        canvas.drawLine(pageW - margin - 150f, sigY + 34f, pageW - margin, sigY + 34f, Paint().apply { color = PdfFonts.LINE })
-        canvas.drawText("Authorised signatory", pageW - margin, sigY + 46f, fonts.paint(8f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
+        signature?.let { drawFitted(canvas, it, RectF(pageW - margin - 160f, sigY + 6f, pageW - margin, sigY + 48f), alignRight = true) }
+        canvas.drawLine(pageW - margin - 160f, sigY + 52f, pageW - margin, sigY + 52f, Paint().apply { color = PdfFonts.LINE })
+        canvas.drawText("Authorised signatory", pageW - margin, sigY + 64f, fonts.paint(8f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
+        val who = listOf(business.signatoryName, business.signatoryDesignation).filter { it.isNotBlank() }.joinToString(", ")
+        if (who.isNotBlank()) canvas.drawText(who, pageW - margin, sigY + 76f, fonts.paint(8.5f, fonts.medium, align = Paint.Align.RIGHT))
+    }
+
+    /** Draws a bitmap inside [box], keeping its aspect ratio. */
+    private fun drawFitted(canvas: Canvas, bitmap: android.graphics.Bitmap, box: RectF, alignRight: Boolean) {
+        val scale = minOf(box.width() / bitmap.width, box.height() / bitmap.height)
+        val w = bitmap.width * scale
+        val h = bitmap.height * scale
+        val left = if (alignRight) box.right - w else box.left
+        val top = box.top + (box.height() - h) / 2
+        canvas.drawBitmap(bitmap, null, RectF(left, top, left + w, top + h), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
     }
 
     private fun drawFooter(canvas: Canvas, index: Int) {

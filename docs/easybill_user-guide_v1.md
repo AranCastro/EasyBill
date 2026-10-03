@@ -1,4 +1,4 @@
-# Modern Kallaa Petti — User Guide (v1.0)
+# Modern Kallaa Petti — User Guide (v1.1)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -8,12 +8,35 @@
 Android 8.0 or newer is required. The app needs no internet connection.
 
 ## 2. First setup (one screen)
+- **Type of business**: Shop / Retail, School / Coaching / Training,
+  Research / Consultancy / Lab, Salon / Beauty / Spa, Clinic / Healthcare,
+  Repair / Service centre or Freelancer / Professional. The type sets the words
+  in the app (Student, Client, Patient; Fees, Services), the bill title when GST
+  is off (Fee Receipt, Bill, Job Invoice) and the extra bill fields. Tick
+  **Add starter services** to load a sample price list (edit the prices later).
+- **Business logo**: tap **Upload logo** and pick an image. A square logo on a
+  plain background prints best.
 - **Business name**, mobile number, address and **state** (decides CGST + SGST or IGST).
 - Turn on **GST registered** and enter your GSTIN if you charge GST. Leave it off
   for simple bills without tax (non-GST or composition shops).
 - Add your **UPI ID** to print a payment QR code on every bill.
 
+- **Authorised signatory**: tap **Upload** to use a photo of your signature on
+  white paper (the paper is removed automatically), or **Sign here** to sign
+  with a finger. Add the signatory's name and designation (e.g. Proprietor,
+  Principal, Director). The signature prints above "Authorised signatory" on
+  every A4 bill.
+
 Everything can be changed later in **More › Settings › Business profile**.
+
+### Bill fields
+Service types add fields such as Roll / Admission no. (schools), Stylist
+(salons), Job card no. (repairs) or PO / Work order no. (research and
+consultancy). Fill them under **Bill details** in the bill editor; filled fields
+print in the bill's Details box and on thermal receipts. Rename, clear or add
+fields (up to four) in **Settings › Invoice settings › Bill fields**, for
+example "Vehicle no." for a transporter. Invoice-style types also offer an
+optional **Due date**.
 
 ## 3. Add items and parties
 - **Items tab › Add item**: name, sale price, unit, purchase price (for profit),
@@ -60,10 +83,12 @@ GST portal before filing.
 ## 8. Thermal printer
 Pair the printer in the phone's Bluetooth settings (PIN usually 0000 or 1234).
 Then **Settings › Printer**: allow Nearby devices, choose the printer, set 58 mm
-or 80 mm paper and tap **Print test page**.
+or 80 mm paper and tap **Print test page**. **Print logo on receipts** prints
+your logo in black and white at the top of each receipt.
 
 ## 9. Backup — do this every week
 Your data lives only on your phone. **More › Backup & restore › Back up now**
 and choose **Google Drive** in the file picker (free) or Downloads. On a new
 phone, install the app and use **Restore from file**. The app also keeps a daily
-copy inside the phone (last 7 days) to undo mistakes.
+copy inside the phone (last 7 days) to undo mistakes. Backups include your logo
+and signature.

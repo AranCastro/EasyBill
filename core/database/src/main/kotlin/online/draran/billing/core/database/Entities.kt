@@ -1,5 +1,6 @@
 package online.draran.billing.core.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Fts4
 import androidx.room.ForeignKey
@@ -37,6 +38,14 @@ data class BusinessEntity(
     /** "SALE=INV-;PURCHASE=PUR-;..." */
     val prefixes: String,
     val onboarded: Boolean,
+    // Added in version 2
+    @ColumnInfo(defaultValue = "'RETAIL'") val businessType: String = "RETAIL",
+    @ColumnInfo(defaultValue = "''") val logoFile: String = "",
+    @ColumnInfo(defaultValue = "''") val signatureFile: String = "",
+    @ColumnInfo(defaultValue = "''") val signatoryName: String = "",
+    @ColumnInfo(defaultValue = "''") val signatoryDesignation: String = "",
+    @ColumnInfo(defaultValue = "''") val customFields: String = "",
+    @ColumnInfo(defaultValue = "1") val printLogoOnReceipt: Boolean = true,
 )
 
 @Entity(tableName = "party", indices = [Index("name")])
@@ -111,6 +120,8 @@ data class InvoiceEntity(
     val notes: String,
     val convertedFromId: Long?,
     val createdAt: Long,
+    /** Industry fields (label/value pairs). Added in version 2. */
+    @ColumnInfo(defaultValue = "''") val customFields: String = "",
 )
 
 @Entity(

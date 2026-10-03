@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import online.draran.billing.core.data.BrandingManager
 import online.draran.billing.core.data.BusinessRepository
 import online.draran.billing.core.data.CASH_CUSTOMER
 import online.draran.billing.core.data.InvoiceDraft
@@ -51,6 +52,7 @@ class InvoiceEditorViewModel @Inject constructor(
     private val items: ItemRepository,
     private val parties: PartyRepository,
     businessRepository: BusinessRepository,
+    private val branding: BrandingManager,
 ) : ViewModel() {
 
     val business: StateFlow<Business> = businessRepository.business.stateIn(viewModelScope, SharingStarted.Eagerly, Business())
@@ -68,6 +70,11 @@ class InvoiceEditorViewModel @Inject constructor(
     var lines by mutableStateOf<List<InvoiceLine>>(emptyList())
         private set
     var notes by mutableStateOf("")
+    var dueDate by mutableStateOf<LocalDate?>(null)
+    /** Industry bill fields typed for this bill, by label. */
+    var customValues by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+    private var draftLabels: List<String> = emptyList()
     var fullyPaid by mutableStateOf(true)
     var received by mutableStateOf("")
     var mode by mutableStateOf(PaymentMode.CASH)
@@ -100,6 +107,9 @@ class InvoiceEditorViewModel @Inject constructor(
                 )
                 lines = draft.lines
                 notes = draft.notes
+                dueDate = draft.dueDate
+                customValues = draft.customFields.toMap()
+                draftLabels = draft.customFields.map { it.first }
                 convertedFromId = draft.convertedFromId
                 val total = totals().total
                 fullyPaid = draft.paidNow.paise >= total.paise && total.paise > 0 || (draft.id == 0L && draft.partyId == null)
@@ -113,7 +123,18 @@ class InvoiceEditorViewModel @Inject constructor(
         }
     }
 
-    val title: String get() = (if (invoiceId == 0L) "New " else "Edit ") + type.shortTitle.lowercase().replaceFirstChar { it.uppercase() }
+    /** Bill fields for sale-side documents: the business's labels plus any already on this bill. */
+    val customLabels: List<String>
+        get() = if (type.partyType != PartyType.CUSTOMER || type == DocType.SALE_RETURN) emptyList()
+        else (business.value.customFieldLabels + draftLabels).distinct()
+
+    val showsDueDate: Boolean get() = type == DocType.SALE && (business.value.type.showsDueDate || dueDate != null)
+
+    fun setCustomValue(label: String, value: String) {
+        customValues = customValues + (label to value)
+    }
+
+    val title: String get() = (if (invoiceId == 0L) "New " else "Edit ") + business.value.docShortTitle(type).let { if (it == type.shortTitle) it.lowercase().replaceFirstChar { c -> c.uppercase() } else it }
 
     fun interState(): Boolean {
         val b = business.value
@@ -239,6 +260,8 @@ class InvoiceEditorViewModel @Inject constructor(
                         partyId = party.id, partyName = if (party.isCash) "" else party.name, partyPhone = party.phone,
                         partyGstin = party.gstin, partyAddress = party.address, partyStateCode = party.stateCode,
                         lines = lines, notes = notes, paidNow = paidAmount(), paymentMode = mode, convertedFromId = convertedFromId,
+                        dueDate = dueDate?.takeIf { type == DocType.SALE },
+                        customFields = customLabels.map { it to customValues[it].orEmpty().trim() }.filter { it.second.isNotEmpty() },
                     ),
                 )
                 onSaved(id)
@@ -254,6 +277,9 @@ class InvoiceEditorViewModel @Inject constructor(
     fun reset() {
         lines = emptyList()
         notes = ""
+        dueDate = null
+        customValues = emptyMap()
+        draftLabels = emptyList()
         received = ""
         party = PartyChoice()
         fullyPaid = true
@@ -270,7 +296,7 @@ class InvoiceEditorViewModel @Inject constructor(
         if (b.printerAddress.isBlank()) return
         viewModelScope.launch {
             val inv = invoices.get(id) ?: return@launch
-            val result = online.draran.billing.core.print.BluetoothPrinter.print(context, b.printerAddress, online.draran.billing.core.print.ThermalReceipt(inv, b).escPos())
+            val result = online.draran.billing.core.print.BluetoothPrinter.print(context, b.printerAddress, online.draran.billing.core.print.ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos())
             onResult(result.fold({ "Receipt printed" }, { "Print failed: ${it.message}" }))
         }
     }

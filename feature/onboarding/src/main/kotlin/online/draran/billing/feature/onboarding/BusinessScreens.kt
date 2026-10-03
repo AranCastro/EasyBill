@@ -1,6 +1,27 @@
 package online.draran.billing.feature.onboarding
 
 import androidx.compose.foundation.Image
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import online.draran.billing.core.designsystem.component.BusinessTypePicker
+import online.draran.billing.core.designsystem.component.LogoBox
+import online.draran.billing.core.designsystem.component.SignatureBox
+import online.draran.billing.core.designsystem.component.SignaturePadDialog
+import online.draran.billing.core.model.BusinessType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +68,10 @@ import online.draran.billing.core.model.IndianStates
 @Composable
 fun OnboardingRoute(onDone: () -> Unit, viewModel: BusinessFormViewModel = hiltViewModel()) {
     val ext = BillingTheme.extendedColors
+    val snackbar = remember { SnackbarHostState() }
+    MessageEffect(viewModel, snackbar)
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
                 Button(onClick = { viewModel.save(onDone) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
@@ -99,7 +123,7 @@ fun OnboardingRoute(onDone: () -> Unit, viewModel: BusinessFormViewModel = hiltV
                 }
             }
             Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Text("Tell us about your shop. This appears on every bill. You can change it later in Settings.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Tell us about your business. This appears on every bill. You can change it later in Settings.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 BusinessFormFields(viewModel)
             }
         }
@@ -109,7 +133,10 @@ fun OnboardingRoute(onDone: () -> Unit, viewModel: BusinessFormViewModel = hiltV
 /** Edit the business profile from Settings. */
 @Composable
 fun BusinessProfileRoute(onBack: () -> Unit, viewModel: BusinessFormViewModel = hiltViewModel()) {
+    val snackbar = remember { SnackbarHostState() }
+    MessageEffect(viewModel, snackbar)
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = { AppTopBar("Business profile", onBack = onBack) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
@@ -127,11 +154,53 @@ fun BusinessProfileRoute(onBack: () -> Unit, viewModel: BusinessFormViewModel = 
 }
 
 @Composable
+private fun MessageEffect(viewModel: BusinessFormViewModel, snackbar: SnackbarHostState) {
+    val message = viewModel.message
+    LaunchedEffect(message) {
+        if (message != null) {
+            snackbar.showSnackbar(message)
+            viewModel.message = null
+        }
+    }
+}
+
+@Composable
 private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
     val form = viewModel.form
     val errors = viewModel.showErrors
-    SectionCard(title = "Shop details") {
+    SectionCard(title = "Type of business") {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text(
+                "Sets the words, bill fields and starter services. You can change it later.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            BusinessTypePicker(selected = form.type, onSelect = viewModel::selectType)
+            TypeSummary(form.type)
+            if (form.type.presets.isNotEmpty() && viewModel.typeChanged) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .toggleable(value = form.addStarter, role = Role.Checkbox, onValueChange = { v -> viewModel.update { it.copy(addStarter = v) } })
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = form.addStarter, onCheckedChange = null)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Column(Modifier.weight(1f)) {
+                        Text("Add starter ${form.type.items.lowercase()}", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            form.type.presets.take(4).joinToString(", ") { it.name } + " and more. Prices are editable.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+    SectionCard(title = "Business details") {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            LogoRow(viewModel)
             FormField(form.name, { v -> viewModel.update { it.copy(name = v) } }, "Business name *", capitalization = KeyboardCapitalization.Words, error = viewModel.nameError.takeIf { errors })
             FormField(form.phone, { v -> viewModel.update { it.copy(phone = v) } }, "Mobile number", keyboardType = KeyboardType.Phone, error = viewModel.phoneError.takeIf { errors })
             FormField(form.address, { v -> viewModel.update { it.copy(address = v) } }, "Address", singleLine = false, minLines = 2)
@@ -175,7 +244,92 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
             capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Email,
             error = viewModel.upiError.takeIf { errors },
             supporting = "A UPI QR code with the bill amount is printed on every bill",
-            trailing = { androidx.compose.material3.Icon(AppIcons.QrCode, contentDescription = null) },
+            trailing = { Icon(AppIcons.QrCode, contentDescription = null) },
         )
+    }
+    SignatorySection(viewModel)
+}
+
+@Composable
+private fun TypeSummary(type: BusinessType) {
+    val parts = buildList {
+        add("${type.parties} · ${type.items}")
+        add(if (type.tracksStock) "Stock tracked" else "No stock")
+        if (type.customFields.isNotEmpty()) add("Bill fields: " + type.customFields.joinToString(", "))
+    }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(12.dp),
+    ) {
+        Text(type.description, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            "Bill title without GST: ${type.billTitle} · " + parts.joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun LogoRow(viewModel: BusinessFormViewModel) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) viewModel.setLogo(uri) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LogoBox(viewModel.logo)
+        Spacer(Modifier.width(Spacing.md))
+        Column(Modifier.weight(1f)) {
+            Text("Business logo", style = MaterialTheme.typography.titleSmall)
+            Text("Printed on bills, statements and receipts", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !viewModel.working) {
+                    Icon(AppIcons.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (viewModel.logo == null) "Upload logo" else "Change")
+                }
+                if (viewModel.logo != null) {
+                    TextButton(onClick = viewModel::removeLogo, enabled = !viewModel.working) { Text("Remove") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignatorySection(viewModel: BusinessFormViewModel) {
+    val form = viewModel.form
+    var drawing by remember { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) viewModel.setSignaturePhoto(uri) }
+    SectionCard(title = "Authorised signatory") {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text(
+                "Printed above \"Authorised signatory\" on every bill. Upload a photo of your signature on white paper (the paper is removed automatically) or sign on the screen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SignatureBox(viewModel.signature)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !viewModel.working, modifier = Modifier.weight(1f)) {
+                    Icon(AppIcons.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Upload")
+                }
+                OutlinedButton(onClick = { drawing = true }, enabled = !viewModel.working, modifier = Modifier.weight(1f)) {
+                    Icon(AppIcons.PenNib, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sign here")
+                }
+            }
+            if (viewModel.signature != null) {
+                TextButton(onClick = viewModel::removeSignature, enabled = !viewModel.working) { Text("Remove signature") }
+            }
+            FormField(form.signatoryName, { v -> viewModel.update { it.copy(signatoryName = v) } }, "Signatory name", capitalization = KeyboardCapitalization.Words)
+            FormField(
+                form.signatoryDesignation, { v -> viewModel.update { it.copy(signatoryDesignation = v) } }, "Designation",
+                capitalization = KeyboardCapitalization.Words,
+                supporting = "e.g. Proprietor, Partner, Principal, Director",
+            )
+        }
+    }
+    if (drawing) {
+        SignaturePadDialog(onDismiss = { drawing = false }, onSave = { strokes -> drawing = false; viewModel.setSignatureDrawn(strokes) })
     }
 }

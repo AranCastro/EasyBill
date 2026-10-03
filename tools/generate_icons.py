@@ -110,6 +110,16 @@ ICONS = {
     "Eye": ("regular", "eye"),
     "ListBullets": ("duotone", "list-bullets-duotone"),
     "Clipboard": ("duotone", "clipboard-text-duotone"),
+    # Business types and branding (v1.1)
+    "GraduationCap": ("duotone", "graduation-cap-duotone"),
+    "Flask": ("duotone", "flask-duotone"),
+    "Scissors": ("duotone", "scissors-duotone"),
+    "Stethoscope": ("duotone", "stethoscope-duotone"),
+    "Wrench": ("duotone", "wrench-duotone"),
+    "Briefcase": ("duotone", "briefcase-duotone"),
+    "ImageIcon": ("duotone", "image-duotone"),
+    "Signature": ("duotone", "signature-duotone"),
+    "PenNib": ("duotone", "pen-nib-duotone"),
     "ArrowUUpRight": ("duotone", "arrow-u-up-right-duotone"),
     "XCircle": ("regular", "x-circle"),
 }

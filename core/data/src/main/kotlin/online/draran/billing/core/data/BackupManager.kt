@@ -86,6 +86,12 @@ class BackupManager @Inject constructor(
             zip.putNextEntry(ZipEntry(DB_ENTRY))
             dbFile.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
+            // Logo and signature images
+            File(context.filesDir, BrandingManager.DIR).listFiles()?.filter { it.isFile }?.forEach { f ->
+                zip.putNextEntry(ZipEntry(BRANDING_PREFIX + f.name))
+                f.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
         }
     }
 
@@ -93,6 +99,7 @@ class BackupManager @Inject constructor(
         val temp = File(context.cacheDir, "restore.db")
         var manifestOk = false
         var dbOk = false
+        val branding = mutableMapOf<String, ByteArray>()
         ZipInputStream(input.buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
@@ -100,7 +107,11 @@ class BackupManager @Inject constructor(
                     MANIFEST -> manifestOk = zip.readBytes().decodeToString().contains("Kallaa Petti")
                     DB_ENTRY -> {
                         temp.outputStream().use { zip.copyTo(it) }
-                        dbOk = temp.inputStream().use { String(it.readNBytes(15)) } == "SQLite format 3"
+                        dbOk = temp.inputStream().use { input -> ByteArray(15).let { b -> String(b, 0, input.read(b).coerceAtLeast(0)) } } == "SQLite format 3"
+                    }
+                    else -> if (entry.name.startsWith(BRANDING_PREFIX)) {
+                        val name = File(entry.name).name // never trust paths inside a zip
+                        if (name == BrandingManager.LOGO || name == BrandingManager.SIGNATURE) branding[name] = zip.readBytes()
                     }
                 }
             }
@@ -115,12 +126,16 @@ class BackupManager @Inject constructor(
         File(dbFile.path + "-shm").delete()
         temp.copyTo(dbFile, overwrite = true)
         temp.delete()
+        val brandingDir = File(context.filesDir, BrandingManager.DIR).apply { mkdirs() }
+        brandingDir.listFiles()?.forEach { it.delete() }
+        branding.forEach { (name, bytes) -> File(brandingDir, name).writeBytes(bytes) }
     }
 
     companion object {
         private const val KEY_LAST = "last_backup"
         private const val MANIFEST = "manifest.txt"
         private const val DB_ENTRY = "database.db"
+        private const val BRANDING_PREFIX = "branding/"
         private const val DAY_MS = 24 * 60 * 60 * 1000L
         const val KEEP = 7
     }

@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import online.draran.billing.core.model.BusinessType
+import online.draran.billing.core.designsystem.component.icon
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,9 +55,12 @@ fun ItemsRoute(
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
+    val business by viewModel.business.collectAsStateWithLifecycle()
     val context = LocalContext.current
     ItemsScreen(
         ui = ui,
+        type = business.type,
+        onAddStarter = viewModel::addStarter,
         query = query,
         filter = filter,
         contentPadding = contentPadding,
@@ -80,6 +85,8 @@ fun ItemsScreen(
     onOpenItem: (Long) -> Unit,
     onAddItem: () -> Unit,
     onScan: () -> Unit,
+    type: BusinessType = BusinessType.RETAIL,
+    onAddStarter: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -93,9 +100,10 @@ fun ItemsScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Items", style = MaterialTheme.typography.headlineSmall)
+                    Text(type.items, style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "${ui.totalCount} items · Stock value ${IndianFormat.rupees(ui.stockValue, showPaise = false)}",
+                        (if (ui.totalCount == 1) "1 ${type.item.lowercase()}" else "${ui.totalCount} ${type.items.lowercase()}") +
+                            (if (type.tracksStock) " · Stock value ${IndianFormat.rupees(ui.stockValue, showPaise = false)}" else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -112,7 +120,7 @@ fun ItemsScreen(
         }
         item {
             ChipRow(
-                options = ItemFilter.entries,
+                options = if (type.tracksStock) ItemFilter.entries else listOf(ItemFilter.ALL, ItemFilter.FAVOURITES),
                 selected = filter,
                 label = { if (it == ItemFilter.LOW && ui.lowCount > 0) "${it.label} (${ui.lowCount})" else it.label },
                 onSelect = onFilter,
@@ -121,13 +129,25 @@ fun ItemsScreen(
         if (!ui.loading && ui.items.isEmpty()) {
             item {
                 SurfaceCard {
-                    EmptyState(
-                        icon = AppIcons.Package,
-                        title = if (ui.totalCount == 0) "Add your first item" else "No matching items",
-                        message = if (ui.totalCount == 0) "Save products with price, GST and stock once. Billing then takes a few taps." else "Try another name, or add it as a new item.",
-                        actionLabel = "Add item",
-                        onAction = onAddItem,
-                    )
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        EmptyState(
+                            icon = if (type.tracksStock) AppIcons.Package else type.icon,
+                            title = if (ui.totalCount == 0) "Add your first ${type.item.lowercase()}" else "No matching ${type.items.lowercase()}",
+                            message = when {
+                                ui.totalCount != 0 -> "Try another name, or add it as a new ${type.item.lowercase()}."
+                                type.tracksStock -> "Save products with price, GST and stock once. Billing then takes a few taps."
+                                else -> "Save each ${type.item.lowercase()} with its price once. Billing then takes a few taps."
+                            },
+                            actionLabel = "Add ${type.item.lowercase()}",
+                            onAction = onAddItem,
+                        )
+                        if (ui.totalCount == 0 && type.presets.isNotEmpty()) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = onAddStarter,
+                                modifier = Modifier.padding(bottom = Spacing.lg),
+                            ) { Text("Add starter ${type.items.lowercase()}") }
+                        }
+                    }
                 }
             }
         } else {

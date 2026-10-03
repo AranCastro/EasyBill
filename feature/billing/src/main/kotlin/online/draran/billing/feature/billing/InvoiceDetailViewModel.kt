@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import online.draran.billing.core.common.IndianFormat
+import online.draran.billing.core.data.BrandingManager
 import online.draran.billing.core.data.BusinessRepository
 import online.draran.billing.core.data.InvoiceRepository
 import online.draran.billing.core.model.Business
@@ -37,6 +38,7 @@ import javax.inject.Inject
 class InvoiceDetailViewModel @Inject constructor(
     private val invoices: InvoiceRepository,
     businessRepository: BusinessRepository,
+    private val branding: BrandingManager,
 ) : ViewModel() {
 
     private val id = MutableStateFlow(0L)
@@ -57,7 +59,7 @@ class InvoiceDetailViewModel @Inject constructor(
         id.value = invoiceId
         viewModelScope.launch { convertedSaleId = invoices.convertedSale(invoiceId) }
         viewModelScope.launch {
-            combine(invoice, business) { inv, b -> inv to b }.collect { (inv, b) ->
+            combine(invoice, business, branding.version) { inv, b, _ -> inv to b }.collect { (inv, b) ->
                 if (inv != null) preview = withContext(Dispatchers.Default) { render(context, inv, b) }
             }
         }
@@ -68,15 +70,18 @@ class InvoiceDetailViewModel @Inject constructor(
         val bitmap = Bitmap.createBitmap((595 * scale).toInt(), (842 * scale).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.scale(scale, scale)
-        InvoicePdf(context, inv, b).drawPage(canvas, 0)
+        pdf(context, inv, b).drawPage(canvas, 0)
         return bitmap
     }
+
+    private fun pdf(context: Context, inv: Invoice, b: Business) =
+        InvoicePdf(context, inv, b, branding.logo(b.logoFile), branding.signature(b.signatureFile))
 
     private suspend fun pdfFile(context: Context): File? {
         val inv = invoice.value ?: return null
         val b = business.value
         return withContext(Dispatchers.IO) {
-            File(Sharing.sharedDir(context), Sharing.safeName("${inv.type.shortTitle}_${inv.number}") + ".pdf").also { InvoicePdf(context, inv, b).writeTo(it) }
+            File(Sharing.sharedDir(context), Sharing.safeName("${inv.type.shortTitle}_${inv.number}") + ".pdf").also { pdf(context, inv, b).writeTo(it) }
         }
     }
 
@@ -85,7 +90,8 @@ class InvoiceDetailViewModel @Inject constructor(
         val b = business.value
         val due = if (inv.balance.paise > 0) "\nBalance due: ${IndianFormat.rupees(inv.balance)}" else ""
         val upi = if (inv.balance.paise > 0 && b.upiId.isNotBlank()) "\nPay by UPI: ${b.upiId}" else ""
-        return "${inv.type.title} ${inv.number} from ${b.name}\nAmount: ${IndianFormat.rupees(inv.totals.total)}$due$upi\nThank you!"
+        val title = if (inv.type == online.draran.billing.core.model.DocType.SALE) (if (inv.gstEnabled) "Tax Invoice" else b.type.billTitle) else inv.type.title
+        return "$title ${inv.number} from ${b.name}\nAmount: ${IndianFormat.rupees(inv.totals.total)}$due$upi\nThank you!"
     }
 
     fun share(context: Context, whatsApp: Boolean) {
@@ -111,7 +117,7 @@ class InvoiceDetailViewModel @Inject constructor(
         if (b.printerAddress.isBlank()) return false
         viewModelScope.launch {
             busy = true
-            val result = BluetoothPrinter.print(context, b.printerAddress, ThermalReceipt(inv, b).escPos())
+            val result = BluetoothPrinter.print(context, b.printerAddress, ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos())
             busy = false
             message = result.fold({ "Sent to ${b.printerName.ifBlank { "printer" }}" }, { "Printing failed: ${it.message ?: "check the printer is on and paired"}" })
         }

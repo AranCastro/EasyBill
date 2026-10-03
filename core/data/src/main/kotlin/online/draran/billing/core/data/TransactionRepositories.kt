@@ -155,7 +155,9 @@ class InvoiceRepository @Inject constructor(
             val typed = draft.number.trim()
             val number = if (typed.isNotEmpty()) {
                 // Supplier bill numbers may repeat across suppliers; our own documents must be unique
-                if (draft.type != DocType.PURCHASE && dao.countNumber(draft.type, typed, draft.id) > 0) error("Number $typed is already used")
+                // An unchanged number is always allowed (older data may already hold two bills with one number)
+                val unchanged = existing != null && existing.number == typed
+                if (!unchanged && draft.type != DocType.PURCHASE && dao.countNumber(draft.type, typed, draft.id) > 0) error("Number $typed is already used")
                 typed
             } else {
                 var s = seq

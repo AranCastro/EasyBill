@@ -66,9 +66,9 @@ class ThermalReceipt(
             else wrapText(plainName, width).forEach { line(it, center = true, bold = true) }
         }
         emit(business.address, center = true)
-        if (business.phone.isNotBlank()) line("Ph: ${business.phone}", center = true)
-        if (business.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${business.gstin}", center = true)
-        business.udyamLine()?.let { u -> wrapText(u, width).forEach { line(it, center = true) } }
+        if (business.phone.isNotBlank()) line("Ph: ${ascii(business.phone)}", center = true)
+        if (business.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${ascii(business.gstin)}", center = true)
+        business.udyamLine()?.let { u -> wrapText(ascii(u), width).forEach { line(it, center = true) } }
         line(rule)
         val title = when {
             invoice.type == DocType.SALE && invoice.gstEnabled -> "TAX INVOICE"
@@ -76,7 +76,7 @@ class ThermalReceipt(
             else -> invoice.type.title.uppercase()
         }
         line(title, center = true, bold = true)
-        lr("No: ${invoice.number}", invoice.date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH)))
+        lr("No: ${ascii(invoice.number)}", invoice.date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH)))
         if (invoice.partyName.isNotBlank()) emit("${if (business.type.party == "Customer") "To" else business.type.party}: ${invoice.partyName}")
         invoice.customFields.forEach { (k, v) -> emit("$k: $v") }
         line(rule)
@@ -230,13 +230,18 @@ class ThermalReceipt(
          * ₹ becomes "Rs.", and characters it has no glyph for are dropped. Real "?" are kept.
          */
         fun ascii(s: String): String {
-            val decomposed = java.text.Normalizer.normalize(s.replace("₹", "Rs."), java.text.Normalizer.Form.NFD)
+            // Signs that have a plain equivalent but do not decompose into ASCII
+            val plain = s.replace("₹", "Rs.").replace("µ", "u").replace("²", "2").replace("³", "3").replace("°", " deg")
+            val decomposed = java.text.Normalizer.normalize(plain, java.text.Normalizer.Form.NFD)
             return decomposed.filter { it.code in 32..126 }.replace(Regex(" {2,}"), " ").trim()
         }
 
         /** True when [s] has letters outside the Latin script (Tamil, Hindi...), which [ascii] would delete. */
         fun needsImage(s: String): Boolean = s.any {
-            it.isLetter() && Character.UnicodeScript.of(it.code) != Character.UnicodeScript.LATIN
+            // Common/inherited letters (µ, degree signs...) are handled by ascii(); only real other scripts need a picture
+            it.isLetter() && Character.UnicodeScript.of(it.code).let { script ->
+                script != Character.UnicodeScript.LATIN && script != Character.UnicodeScript.COMMON && script != Character.UnicodeScript.INHERITED
+            }
         }
 
         /** Draws [text] in black on white, wrapped to [dots] wide, using the phone's own fonts. */

@@ -44,13 +44,25 @@ internal object ReportExport {
             if (s.rows.isEmpty()) row("  No entries")
             s.rows.forEach { r -> rows += r + List((width - r.size).coerceAtLeast(0)) { "" } }
             s.totals.forEach { (k, v) -> rows += listOf("  $k") + List(width - 2) { "" } + listOf(v) }
-            if (index == c.sections.lastIndex && c.note != null) {
-                row("")
-                row(c.note)
-            }
         }
-        if (c.sections.isEmpty() && c.note != null) row(c.note)
+        c.note?.let { note ->
+            row("")
+            wrapNote(note).forEach { row(TablePdf.NOTE + it) }
+        }
         return PdfTable(columns, rows)
+    }
+
+    /** Splits a note into lines that fit across the page, so none is cut off. */
+    fun wrapNote(text: String, width: Int = 100): List<String> {
+        val lines = mutableListOf<String>()
+        var current = ""
+        text.split(" ").filter { it.isNotEmpty() }.forEach { word ->
+            if (current.isEmpty()) current = word
+            else if (current.length + 1 + word.length <= width) current += " $word"
+            else { lines += current; current = word }
+        }
+        if (current.isNotEmpty()) lines += current
+        return lines
     }
 
     private val MONEY = Regex("^\\(?-?₹?-?[\\d,]+(\\.\\d+)?%?\\)?$")

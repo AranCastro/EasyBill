@@ -26,6 +26,9 @@ import javax.inject.Singleton
  * - Manual export/import goes through the system file picker (Google Drive, pen drive, etc.).
  * - A daily automatic copy is kept in app storage (last [KEEP] files).
  */
+/** A restore that failed after the running database was closed: the app must be restarted to use the data again. */
+class RestoreFailedException(message: String, val needsRestart: Boolean, cause: Throwable? = null) : Exception(message, cause)
+
 @Singleton
 class BackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -128,31 +131,48 @@ class BackupManager @Inject constructor(
 
             val dbFile = context.getDatabasePath(BillingDatabase.NAME)
             val staged = File(dbFile.parentFile, "restore-staging.db")
-            val safety = File(File(context.filesDir, "backups").apply { mkdirs() }, "before-restore.db")
+            var closed = false
             try {
+                // Everything that can fail for lack of space happens before the live database is touched
                 temp.copyTo(staged, overwrite = true)
+                val safetyDir = File(context.filesDir, "backups").apply { mkdirs() }
                 db.close()
-                if (dbFile.exists()) dbFile.copyTo(safety, overwrite = true)
+                closed = true
+                if (dbFile.exists()) {
+                    // A new, complete copy each time (a partial one is deleted), so restoring a second wrong
+                    // file cannot overwrite the only copy of the original data. The newest three are kept.
+                    val safety = File(safetyDir, "before-restore-${System.currentTimeMillis()}.db")
+                    try {
+                        dbFile.copyTo(safety, overwrite = true)
+                    } catch (e: Exception) {
+                        safety.delete()
+                        throw e
+                    }
+                    safetyDir.listFiles { f -> f.name.startsWith("before-restore-") }?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+                }
                 File(dbFile.path + "-wal").delete()
                 File(dbFile.path + "-shm").delete()
-                // Same folder, so the swap is a single rename: the database is either the old one or the new one
+                // Same folder, so the swap is one atomic rename: the database is the old one or the new one.
+                // If the rename fails the old file is untouched, so there is nothing to put back.
                 check(staged.renameTo(dbFile)) { "Could not replace the database" }
             } catch (e: Exception) {
-                if (safety.exists()) runCatching { safety.copyTo(dbFile, overwrite = true) }
-                throw e
+                // After close() the running app holds a closed database: tell the caller to restart it
+                throw RestoreFailedException(e.message ?: "Could not restore the backup", needsRestart = closed, cause = e)
             } finally {
                 staged.delete()
             }
 
-            // Images: build the new folder first so a failure cannot leave half of them
-            val brandingDir = File(context.filesDir, BrandingManager.DIR)
-            val fresh = File(context.filesDir, BrandingManager.DIR + ".new").apply { deleteRecursively(); mkdirs() }
-            branding.forEach { (name, bytes) -> File(fresh, name).writeBytes(bytes) }
-            brandingDir.deleteRecursively()
-            if (!fresh.renameTo(brandingDir)) {
-                brandingDir.mkdirs()
-                fresh.listFiles()?.forEach { it.copyTo(File(brandingDir, it.name), overwrite = true) }
-                fresh.deleteRecursively()
+            // Images come last and cannot fail the restore: the database is already replaced
+            runCatching {
+                val brandingDir = File(context.filesDir, BrandingManager.DIR)
+                val fresh = File(context.filesDir, BrandingManager.DIR + ".new").apply { deleteRecursively(); mkdirs() }
+                branding.forEach { (name, bytes) -> File(fresh, name).writeBytes(bytes) }
+                brandingDir.deleteRecursively()
+                if (!fresh.renameTo(brandingDir)) {
+                    brandingDir.mkdirs()
+                    fresh.listFiles()?.forEach { it.copyTo(File(brandingDir, it.name), overwrite = true) }
+                    fresh.deleteRecursively()
+                }
             }
         } finally {
             temp.delete()
@@ -176,6 +196,11 @@ class BackupManager @Inject constructor(
             check(sqlite.version <= BillingDatabase.VERSION) { "This backup was made by a newer version of the app. Update the app, then restore it." }
             val hasBusiness = sqlite.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'business'", null).use { it.moveToFirst() }
             check(sqlite.version >= 1 && hasBusiness) { "This is not a Modern Kallaa Petti backup file" }
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: Exception) {
+            // Not a database at all ("file is not a database"): give the same plain message
+            error("This is not a Modern Kallaa Petti backup file")
         } finally {
             sqlite.close()
         }

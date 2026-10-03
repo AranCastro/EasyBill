@@ -297,6 +297,26 @@ class PrintRenderTest {
         fresh.delete()
     }
 
+    @Test fun sectionHeadingsRepeatAfterAPageBreak() {
+        val cols = listOf("", "", "", "").map { PdfColumn(it, 1f) }
+        val h = TablePdf.HEADING; val sh = TablePdf.SUBHEAD; val r = TablePdf.RIGHT
+        val rows = buildList {
+            add(listOf(h + "Sales", "", "", ""))
+            add(listOf(sh + "Date", "Number", r + "Total", r + "Tax"))
+            (1..60).forEach { add(listOf("0$it Oct", "INV-$it", "₹${it * 100}.00", "₹${it * 18}.00")) }
+            add(listOf(TablePdf.NOTE + "A note that explains how these figures were worked out and what they leave out.", "", "", ""))
+        }
+        val pdf = TablePdf(ApplicationProvider.getApplicationContext(), "Shop", "Chennai", "Sales register", "Oct 2026", cols, rows, autoAlign = true)
+        assertTrue(pdf.pageCount >= 2)
+        renderPage({ pdf.drawPage(it, 1) }, "report_continued_page")
+    }
+
+    @Test fun thermalTextKeepsMicroSignsAndAsciiFields() {
+        assertEquals("Wire 5um 90 deg", ThermalReceipt.ascii("Wire 5µm 90°"))
+        assertTrue(!ThermalReceipt.needsImage("Wire 5µm 90°"))
+        assertTrue(ThermalReceipt.needsImage("வயர் 5mm"))
+    }
+
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
         assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)

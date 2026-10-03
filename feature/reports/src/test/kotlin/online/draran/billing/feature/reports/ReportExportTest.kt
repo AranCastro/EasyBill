@@ -79,4 +79,15 @@ class ReportExportTest {
         assertEquals("\"Profit & loss\"", lines[0])
         assertTrue(text.contains("\"Net profit\",\"400.00\""))
     }
+
+    @Test fun notesAreWrappedIntoFullLines() {
+        val note = "A summary to help you or your accountant file returns. Verify with the GST portal before filing. " +
+            "Purchases from suppliers without a GSTIN are left out of input tax credit."
+        val lines = ReportExport.wrapNote(note)
+        assertTrue(lines.size >= 2)
+        lines.forEach { assertTrue(it.length <= 100) }
+        assertEquals(note, lines.joinToString(" "))
+        val t = ReportExport.pdfTable(ReportContent(emptyList(), twoColumn.sections, note))
+        assertEquals(lines.size, t.rows.count { it.first().startsWith(TablePdf.NOTE) })
+    }
 }

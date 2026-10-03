@@ -86,6 +86,9 @@ class InvoiceEditorViewModel @Inject constructor(
         private set
     private var convertedFromId: Long? = null
 
+    /** The number suggested for a new bill, so it can be replaced if another bill takes it first. */
+    private var suggestedNumber = ""
+
     /** GST and round-off a bill was made under, kept when it is edited (null = the shop's current settings). */
     private var editGst: Boolean? = null
     private var editRound: Boolean? = null
@@ -129,6 +132,7 @@ class InvoiceEditorViewModel @Inject constructor(
                 mode = draft.paymentMode
             } else {
                 number = if (docType == DocType.PURCHASE) "" else invoices.nextNumber(docType)
+                suggestedNumber = number
                 if (partyId != 0L) parties.get(partyId)?.let { selectParty(it) }
                 fullyPaid = party.isCash
             }
@@ -263,6 +267,11 @@ class InvoiceEditorViewModel @Inject constructor(
         saving = true
         viewModelScope.launch {
             try {
+                // The Counter cannot edit its number: if another bill used the suggestion meanwhile, take the next free one
+                if (invoiceId == 0L && type != DocType.PURCHASE && number == suggestedNumber && invoices.numberTaken(type, number, 0)) {
+                    number = invoices.nextNumber(type)
+                    suggestedNumber = number
+                }
                 if (number.isNotBlank() && number != originalNumber && type != DocType.PURCHASE && invoices.numberTaken(type, number, invoiceId)) {
                     error = "Number $number is already used"
                     saving = false
@@ -291,6 +300,7 @@ class InvoiceEditorViewModel @Inject constructor(
     /** Resets for the next bill after "Save & new". */
     fun reset() {
         saving = false
+        error = null
         date = LocalDate.now()
         editGst = null
         editRound = null
@@ -304,7 +314,7 @@ class InvoiceEditorViewModel @Inject constructor(
         fullyPaid = true
         invoiceId = 0
         convertedFromId = null
-        viewModelScope.launch { number = invoices.nextNumber(type); originalNumber = "" }
+        viewModelScope.launch { number = invoices.nextNumber(type); suggestedNumber = number; originalNumber = "" }
     }
 
     val partyTypeForDoc: PartyType get() = type.partyType

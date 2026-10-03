@@ -282,10 +282,15 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
             message = runCatching { backup.exportTo(uri) }.fold({ "Backup saved" }, { "Backup failed: ${it.message}" })
         }
     }
+    // A failure after the running database was closed leaves the app without a usable database: restart it
+    fun restoreFailed(error: Throwable) {
+        if ((error as? online.draran.billing.core.data.RestoreFailedException)?.needsRestart == true) restartApp(context)
+        else message = "Restore failed: ${error.message}"
+    }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) pendingRestore = {
             scope.launch {
-                runCatching { backup.importFrom(uri) }.fold({ restartApp(context) }, { message = "Restore failed: ${it.message}" })
+                runCatching { backup.importFrom(uri) }.fold({ restartApp(context) }, ::restoreFailed)
             }
         }
     }
@@ -330,7 +335,7 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
                                 Text("${f.length() / 1024} KB", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             OutlinedButton(onClick = {
-                                pendingRestore = { scope.launch { runCatching { backup.restoreAuto(f) }.fold({ restartApp(context) }, { message = "Restore failed: ${it.message}" }) } }
+                                pendingRestore = { scope.launch { runCatching { backup.restoreAuto(f) }.fold({ restartApp(context) }, ::restoreFailed) } }
                             }) { Text("Restore") }
                         }
                     }

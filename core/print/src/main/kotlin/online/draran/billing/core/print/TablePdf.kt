@@ -43,19 +43,36 @@ class TablePdf(
     private val nextTop = margin + 30f
     private val bottom = pageH - margin - 28f
 
+    private fun firstCell(i: Int) = rows[i].firstOrNull().orEmpty()
+    private fun isHeading(i: Int) = firstCell(i).startsWith(HEADING)
+    private fun isSubhead(i: Int) = firstCell(i).startsWith(SUBHEAD)
+
+    /**
+     * The section title and column titles that apply to row [start], so a section that runs onto
+     * another page repeats them (empty when the page begins with them or the table has none).
+     */
+    private fun contextBefore(start: Int): List<Int> {
+        if (start <= 0 || start >= rows.size || isHeading(start) || isSubhead(start)) return emptyList()
+        val sub = (start - 1 downTo 0).firstOrNull { isSubhead(it) } ?: return emptyList()
+        return if (sub > 0 && isHeading(sub - 1)) listOf(sub - 1, sub) else listOf(sub)
+    }
+
     private val pages: List<IntRange> = run {
         val list = mutableListOf<IntRange>()
         var start = 0
         var top = firstTop
         do {
-            val capacity = ((bottom - top - (if (hasHeader) headerH else 0f)) / rowH).toInt().coerceAtLeast(1)
-            val end = minOf(rows.size, start + capacity)
+            val repeated = contextBefore(start).size
+            val capacity = ((bottom - top - (if (hasHeader) headerH else 0f)) / rowH).toInt() - repeated
+            var end = minOf(rows.size, start + capacity.coerceAtLeast(1))
+            // Never leave a section title or column titles alone at the bottom of a page
+            while (end > start + 1 && end < rows.size && (isHeading(end - 1) || isSubhead(end - 1))) end--
             list += start until end
             start = end
             top = nextTop
         } while (start < rows.size)
         // Summary needs room after the last rows
-        val lastRows = list.last().count()
+        val lastRows = list.last().count() + (if (list.last().isEmpty()) 0 else contextBefore(list.last().first).size)
         val lastTop = if (list.size == 1) firstTop else nextTop
         if (summary.isNotEmpty() && lastTop + (if (hasHeader) headerH else 0f) + lastRows * rowH + 20f + summary.size * 18f > bottom) list += IntRange.EMPTY
         list
@@ -105,11 +122,16 @@ class TablePdf(
                 y += headerH
             }
             val line = Paint().apply { color = PdfFonts.LINE; strokeWidth = 0.6f }
-            for (r in range) {
+            val shown = (if (range.isEmpty()) emptyList() else contextBefore(range.first)) + range.toList()
+            for (r in shown) {
                 x = margin
                 val cells = rows[r]
                 val first = cells.firstOrNull().orEmpty()
                 when {
+                    first.startsWith(NOTE) -> {
+                        val np = fonts.paint(8f, color = PdfFonts.MUTED)
+                        canvas.drawText(ellipsize(first.removePrefix(NOTE), np, contentW - 12f), margin + 6f, y + 12.5f, np)
+                    }
                     first.startsWith(HEADING) -> {
                         // Section title spanning the row
                         canvas.drawRect(RectF(margin, y, pageW - margin, y + rowH), Paint().apply { color = brandTint })
@@ -179,6 +201,9 @@ class TablePdf(
     }
 
     companion object {
+        /** First-cell prefix: a line of explanatory text spanning the row. */
+        const val NOTE = "\u0003"
+
         /** First-cell prefix: a section title spanning the row. */
         const val HEADING = "\u0001"
 

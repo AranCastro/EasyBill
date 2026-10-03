@@ -116,11 +116,16 @@ class BusinessFormViewModel @Inject constructor(
         signature = withContext(Dispatchers.IO) { branding.signature(b.signatureFile)?.asImageBitmap() }
     }
 
+    private var imageJobs = 0
+
     private fun branding(action: suspend () -> Unit) {
         viewModelScope.launch {
+            imageJobs++
             working = true
             runCatching { action() }.onFailure { message = it.message ?: "Could not use this image" }
-            working = false
+            // Two overlapping actions: stay busy until the last one ends
+            imageJobs--
+            working = imageJobs > 0
         }
     }
 
@@ -164,7 +169,11 @@ class BusinessFormViewModel @Inject constructor(
     fun save(onDone: () -> Unit) {
         showErrors = true
         if (nameError != null || phoneError != null || gstinError != null || upiError != null || udyamError != null) return
-        if (saving || working) return // a double tap would start the app twice; wait for an image still being processed
+        if (working) {
+            message = "Please wait a moment: the image is still being processed"
+            return
+        }
+        if (saving) return // a double tap would start the app twice
         saving = true
         viewModelScope.launch {
             try {

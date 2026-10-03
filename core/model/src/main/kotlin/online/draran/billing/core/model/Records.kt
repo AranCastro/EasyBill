@@ -32,11 +32,26 @@ data class Business(
     /** Extra bill fields; defaults come from the business type. */
     val customFieldLabels: List<String> = emptyList(),
     val printLogoOnReceipt: Boolean = true,
+    /** Optional MSME (Udyam) registration; blank when not registered. */
+    val udyamNumber: String = "",
+    val msmeCategory: MsmeCategory? = null,
+    val printMsmeNote: Boolean = true,
 ) {
     fun prefix(type: DocType) = prefixes[type] ?: type.defaultPrefix
 
     /** Sale bill title as printed: GST bills must say Tax Invoice. */
     fun saleTitle(): String = if (gstEnabled) "Tax Invoice" else type.billTitle
+
+    /** "Udyam: UDYAM-TN-02-0012345 (Micro)", or null when not registered. */
+    fun udyamLine(): String? = udyamNumber.takeIf { it.isNotBlank() }?.let { "Udyam: $it" + (msmeCategory?.let { c -> " (${c.label})" } ?: "") }
+
+    /** Payment-term note for micro and small suppliers, printed on sale bills when turned on. */
+    fun msmeNote(): String? =
+        if (printMsmeNote && udyamNumber.isNotBlank() && msmeCategory?.hasPaymentProtection == true) {
+            "We are a ${msmeCategory.label.lowercase()} enterprise (MSME). Payment is due within the agreed period, not later than 45 days from acceptance, as per Section 15 of the MSMED Act, 2006."
+        } else {
+            null
+        }
 
     /** Screen titles: service businesses see their own word ("Fee Receipt", "Bill") for sales. */
     fun docTitle(doc: DocType): String = if (doc == DocType.SALE && type != BusinessType.RETAIL) saleTitle() else doc.title

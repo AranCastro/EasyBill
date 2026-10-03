@@ -46,6 +46,10 @@ data class BusinessEntity(
     @ColumnInfo(defaultValue = "''") val signatoryDesignation: String = "",
     @ColumnInfo(defaultValue = "''") val customFields: String = "",
     @ColumnInfo(defaultValue = "1") val printLogoOnReceipt: Boolean = true,
+    // Added in version 3
+    @ColumnInfo(defaultValue = "''") val udyamNumber: String = "",
+    @ColumnInfo(defaultValue = "''") val msmeCategory: String = "",
+    @ColumnInfo(defaultValue = "1") val printMsmeNote: Boolean = true,
 )
 
 @Entity(tableName = "party", indices = [Index("name")])

@@ -171,6 +171,20 @@ class PrintRenderTest {
         renderPage({ pdf.drawPage(it, 0) }, "statement_branded")
     }
 
+    @Test fun msmeDetailsPrint() {
+        val msme = business.copy(udyamNumber = "UDYAM-TN-02-0012345", msmeCategory = online.draran.billing.core.model.MsmeCategory.MICRO)
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), sample(), msme)
+        assertEquals(1, pdf.pageCount)
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_a4_msme")
+        val text = ThermalReceipt(sample(), msme).text()
+        text.lines().forEach { assertTrue("Line too long: '$it'", it.length <= 32) }
+        assertTrue(text.contains("UDYAM-TN-02-0012345"))
+        assertTrue(text.contains("MSMED Act")) // balance due on the sample bill
+        // Medium enterprises are outside Section 15, and the note can be turned off
+        assertTrue(!ThermalReceipt(sample(), msme.copy(msmeCategory = online.draran.billing.core.model.MsmeCategory.MEDIUM)).text().contains("MSMED Act"))
+        assertTrue(!ThermalReceipt(sample(), msme.copy(printMsmeNote = false)).text().contains("MSMED Act"))
+    }
+
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
         assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)

@@ -36,6 +36,21 @@ class BusinessTypeTest {
         assertEquals(BusinessType.RETAIL, BusinessType.of("UNKNOWN"))
     }
 
+    @Test fun udyamNumbersAndMsmeNote() {
+        assertTrue(Udyam.isValid("UDYAM-TN-02-0012345"))
+        assertTrue(Udyam.isValid(" udyam-tn-02-0012345 "))
+        assertTrue(!Udyam.isValid("UDYAM-TN-2-0012345"))
+        assertTrue(!Udyam.isValid("UDYAM-TN-02-001234"))
+        assertTrue(!Udyam.isValid("UAM-TN-02-0012345"))
+        val b = Business(udyamNumber = "UDYAM-TN-02-0012345", msmeCategory = MsmeCategory.SMALL)
+        assertEquals("Udyam: UDYAM-TN-02-0012345 (Small)", b.udyamLine())
+        assertTrue(b.msmeNote()!!.contains("Section 15 of the MSMED Act, 2006"))
+        assertEquals(null, b.copy(msmeCategory = MsmeCategory.MEDIUM).msmeNote())
+        assertEquals(null, b.copy(msmeCategory = null).msmeNote())
+        assertEquals(null, b.copy(printMsmeNote = false).msmeNote())
+        assertEquals(null, Business().udyamLine())
+    }
+
     @Test fun customFieldsRoundTrip() {
         val values = listOf("Stylist" to "Kumar", "Appointment time" to "4:30 pm", "Empty" to "")
         assertEquals(values.take(2), CustomFields.decode(CustomFields.encode(values)))

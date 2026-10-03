@@ -37,6 +37,12 @@ class InvoicePdf(
     private val margin = 36f
     private val contentW = pageW - 2 * margin
     private val gst = invoice.gstEnabled
+    /** Notes, the MSME payment note (sale bills only) and terms, in that order. */
+    private val termsText: String = listOfNotNull(
+        invoice.notes.takeIf { it.isNotBlank() },
+        business.msmeNote()?.takeIf { invoice.type == DocType.SALE },
+        business.terms.takeIf { it.isNotBlank() },
+    ).joinToString("\n")
     private val showQr = business.showUpiQr && business.upiId.isNotBlank() && invoice.type == DocType.SALE
 
     private val body = fonts.paint(9f)
@@ -87,7 +93,9 @@ class InvoicePdf(
             business.email.takeIf { it.isNotBlank() },
         ).filterNotNull().joinToString("  ·  ").takeIf { it.isNotBlank() }?.let { add(it) }
         if (business.gstEnabled && business.gstin.isNotBlank()) add("GSTIN: ${business.gstin}")
+        business.udyamLine()?.let { add(it) }
     }
+
 
     /** Bottom of the business block (name, address, title, logo). */
     private fun headerBottom(): Float {
@@ -111,8 +119,12 @@ class InvoicePdf(
     private fun computeTotalsHeight(): Float {
         val left = 16f + 26f + (if (gst) 18f + 14f * (invoice.totals.slabs.size + 1) else 0f) +
             (if (showQr) 110f else 0f) + (if (business.bankDetails.isNotBlank()) 48f else 0f) +
-            (if (business.terms.isNotBlank() || invoice.notes.isNotBlank()) 48f else 0f)
-        val right = 18f * 10 + 70f + 40f // signature block
+            (if (termsText.isNotBlank()) 18f + 11f * TERMS_LINES else 0f)
+        // Right column, as drawn by drawTotals: rows, the total band, payment rows, then the signature block
+        val t = invoice.totals
+        val rows = 1 + (if (!t.discount.isZero) 1 else 0) + (if (gst) (if (invoice.interState) 2 else 3) else 0) +
+            (if (!t.roundOff.isZero) 1 else 0) + (if (invoice.type.tracksPayment) 2 else 0)
+        val right = 6f + 18f * rows + 34f + 24f + SIGNATURE_H
         return maxOf(left, right) + 20f
     }
 
@@ -168,7 +180,7 @@ class InvoicePdf(
         val nameP = fonts.paint(17f, fonts.bold, PdfFonts.INK)
         wrap(business.name, nameP, textWidth).forEach { canvas.drawText(it, textLeft, y + 8f, nameP); y += 21f }
         headerInfo().forEach { line ->
-            wrap(line, bodyMuted, textWidth).forEach { canvas.drawText(it, textLeft, y + 4f, if (line.startsWith("GSTIN")) bold else bodyMuted); y += 12f }
+            wrap(line, bodyMuted, textWidth).forEach { canvas.drawText(it, textLeft, y + 4f, if (line.startsWith("GSTIN") || line.startsWith("Udyam")) bold else bodyMuted); y += 12f }
         }
 
         // Title block on the right
@@ -364,14 +376,13 @@ class InvoicePdf(
             wrap(business.bankDetails, bodyMuted, leftW).take(3).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
             ly += 6f
         }
-        val terms = listOf(invoice.notes, business.terms).filter { it.isNotBlank() }.joinToString("\n")
-        if (terms.isNotBlank()) {
+        if (termsText.isNotBlank()) {
             canvas.drawText("Notes & terms", margin, ly + 10f, fonts.paint(7.5f, fonts.medium, PdfFonts.MUTED)); ly += 14f
-            wrap(terms, bodyMuted, leftW).take(3).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
+            wrap(termsText, bodyMuted, leftW).take(TERMS_LINES).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
         }
 
-        // Signature block
-        val sigY = maxOf(y, ly) + 24f
+        // Signature block: right column, under the totals, so a long left column never pushes it into the footer
+        val sigY = y + 24f
         val sp = fonts.paint(9f, fonts.bold, align = Paint.Align.RIGHT)
         canvas.drawText("For ${business.name}", pageW - margin, sigY, sp)
         signature?.let { drawFitted(canvas, it, RectF(pageW - margin - 160f, sigY + 6f, pageW - margin, sigY + 48f), alignRight = true) }
@@ -414,3 +425,9 @@ class InvoicePdf(
         }
     }
 }
+
+/** Lines kept for notes and terms; the MSME note needs about two. */
+private const val TERMS_LINES = 4
+
+/** "For <business>" down to the signatory's name. */
+private const val SIGNATURE_H = 82f

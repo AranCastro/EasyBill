@@ -1,4 +1,4 @@
-# Modern Kallaa Petti — User Guide (v1.1)
+# Modern Kallaa Petti — User Guide (v1.2)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -19,6 +19,14 @@ Android 8.0 or newer is required. The app needs no internet connection.
 - **Business name**, mobile number, address and **state** (decides CGST + SGST or IGST).
 - Turn on **GST registered** and enter your GSTIN if you charge GST. Leave it off
   for simple bills without tax (non-GST or composition shops).
+- **MSME / Udyam (optional)**: if your business has an Udyam registration,
+  enter the number (e.g. UDYAM-TN-02-0012345) and choose **Micro**, **Small** or
+  **Medium** as on the certificate. It prints under the GSTIN on every bill.
+  For micro and small enterprises, sale bills also carry a note that business
+  buyers must pay within the agreed period, not later than 45 days, under
+  Section 15 of the MSMED Act, 2006. Turn the note off in **Settings › Invoice
+  settings › MSME payment note**. Leave the field blank if you are not
+  registered.
 - Add your **UPI ID** to print a payment QR code on every bill.
 
 - **Authorised signatory**: tap **Upload** to use a photo of your signature on

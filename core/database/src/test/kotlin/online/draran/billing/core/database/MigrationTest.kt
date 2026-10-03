@@ -49,4 +49,24 @@ class MigrationTest {
             assertEquals("", c.getString(2))
         }
     }
+
+    /** A 1.0.0 database opened by 1.2: runs 1 -> 2 -> 3 and keeps the data. */
+    @Test fun migrate1To3KeepsData() {
+        helper.createDatabase("migration-test-3", 1).apply {
+            execSQL(
+                "INSERT INTO business (id, name, ownerName, phone, email, address, stateCode, gstEnabled, gstin, upiId, bankDetails, terms, roundOff, showUpiQr, pricesIncludeTax, thermalWidthMm, printerAddress, printerName, prefixes, onboarded) " +
+                    "VALUES (1, 'Sharma Store', '', '9840012345', '', 'Chennai', '33', 0, '', '', '', 'Thanks', 1, 1, 0, 58, '', '', 'SALE=INV-', 1)",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migration-test-3", 3, true)
+        db.query("SELECT name, businessType, udyamNumber, msmeCategory, printMsmeNote FROM business").use { c ->
+            c.moveToFirst()
+            assertEquals("Sharma Store", c.getString(0))
+            assertEquals("RETAIL", c.getString(1))
+            assertEquals("", c.getString(2))
+            assertEquals("", c.getString(3))
+            assertEquals(1, c.getInt(4))
+        }
+    }
 }

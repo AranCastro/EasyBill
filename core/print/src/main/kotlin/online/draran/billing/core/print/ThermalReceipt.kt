@@ -50,6 +50,7 @@ class ThermalReceipt(
         business.address.split("\n").filter { it.isNotBlank() }.forEach { addr -> wrapText(ascii(addr), width).forEach { line(it, center = true) } }
         if (business.phone.isNotBlank()) line("Ph: ${business.phone}", center = true)
         if (business.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${business.gstin}", center = true)
+        business.udyamLine()?.let { u -> wrapText(u, width).forEach { line(it, center = true) } }
         line(rule)
         val title = when {
             invoice.type == DocType.SALE && invoice.gstEnabled -> "TAX INVOICE"
@@ -91,6 +92,10 @@ class ThermalReceipt(
         if (business.showUpiQr && business.upiId.isNotBlank() && invoice.type == DocType.SALE && invoice.balance.paise > 0) {
             line("Scan to pay Rs. ${amt(invoice.balance)}", center = true)
             out += Part.Qr(Upi.link(business.upiId, business.name, invoice.balance, invoice.number))
+        }
+        // Short MSME note only when credit is given; the A4 bill carries the full wording
+        if (business.msmeNote() != null && invoice.type == DocType.SALE && invoice.balance.paise > 0) {
+            wrapText("MSME supplier: payment due within 45 days (MSMED Act 2006, s.15)", width).forEach { line(it, center = true) }
         }
         if (business.terms.isNotBlank()) wrapText(ascii(business.terms), width).forEach { line(it, center = true) }
         return out

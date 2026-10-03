@@ -146,6 +146,14 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
             }
             SectionCard(title = "Printed on the bill") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    if (b.udyamNumber.isNotBlank()) {
+                        ToggleRow(
+                            "MSME payment note",
+                            if (b.msmeCategory?.hasPaymentProtection == true) "45-day payment term under the MSMED Act, 2006, printed on sale bills"
+                            else "Applies to micro and small enterprises only",
+                            b.printMsmeNote && b.msmeCategory?.hasPaymentProtection == true,
+                        ) { v -> viewModel.update { it.copy(printMsmeNote = v) } }
+                    }
                     ToggleRow("UPI payment QR", if (b.upiId.isBlank()) "Add your UPI ID in Business profile first" else "QR for ${b.upiId} with the amount due", b.showUpiQr && b.upiId.isNotBlank()) { v -> viewModel.update { it.copy(showUpiQr = v) } }
                     FormField(b.bankDetails, { v -> viewModel.update { it.copy(bankDetails = v) } }, "Bank details (optional)", singleLine = false, minLines = 2, placeholder = "Bank name · A/c no. · IFSC")
                     FormField(b.terms, { v -> viewModel.update { it.copy(terms = v) } }, "Terms / thank-you note", singleLine = false, minLines = 2)

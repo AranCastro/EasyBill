@@ -172,10 +172,17 @@ class AppJourneyTest {
         compose.onNode(hasSetTextAction() and hasText("Business name *")).performTextInput("Sharma General Store")
         compose.onNode(hasSetTextAction() and hasText("Mobile number")).performTextInput("9840012345")
         compose.onNode(hasSetTextAction() and hasText("UPI ID (optional)")).performTextInput("sharmastore@okaxis")
+        // Optional MSME registration
+        compose.onNode(hasSetTextAction() and hasText("Udyam registration no.")).performScrollTo().performTextInput("udyam-tn-02-0012345")
+        compose.onNodeWithText("Micro").performScrollTo().performClick()
+        compose.onNodeWithText("MSME / Udyam (optional)").performScrollTo()
+        capture("onboarding_msme")
         clickText("Start billing")
         waitForText("Today's sales")
         runBlocking {
             assertTrue(business.get().onboarded)
+            assertEquals("UDYAM-TN-02-0012345", business.get().udyamNumber)
+            assertEquals(online.draran.billing.core.model.MsmeCategory.MICRO, business.get().msmeCategory)
             business.save(business.get().copy(gstEnabled = true, gstin = "33AAPFU0939F1Z2", address = "12, Gandhi Road, T. Nagar\nChennai 600017"))
         }
         capture("dashboard_empty")

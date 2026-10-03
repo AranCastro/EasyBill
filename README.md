@@ -6,7 +6,7 @@ Free, offline-first billing, stock and accounts app for Android, for GST and
 non-GST shops in India. Kotlin + Jetpack Compose + Material 3. All data stays
 on the phone; there is no server and no running cost.
 
-**Status: v1.1.0** — feature-complete for daily shop use (Phases 1–3 of the
+**Status: v1.2.0** — feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -46,6 +46,16 @@ authorised signature and industry modes for service businesses
 - Authorised signature: upload a photo on white paper (background removed
   automatically) or sign on the screen; signatory name and designation
   printed under it. Logo and signature are included in backups.
+
+**MSME / Udyam** (v1.2, optional)
+- Udyam registration number (checked against the UDYAM-XX-00-0000000 format)
+  and enterprise type (Micro, Small, Medium), printed under the GSTIN on bills
+  and receipts.
+- For micro and small enterprises, sale bills can carry a payment-term note
+  citing Section 15 of the MSMED Act, 2006 (payment within the agreed period,
+  not later than 45 days from acceptance). Medium enterprises are outside
+  Section 15, so no note is printed for them. Switch the note off in Invoice
+  settings.
 
 **Billing**
 - Sale invoices, purchase bills, estimates/quotations, sale returns (credit
@@ -133,6 +143,11 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 
 ## Changelog
 
+- **1.2.0** — Optional MSME (Udyam) registration with enterprise type, printed
+  on bills and receipts; MSMED Act payment-term note for micro and small
+  enterprises; database v3 with automatic migration. Fixed the A4 signature
+  block running into the page footer when the left column (QR, bank details,
+  terms) was tall.
 - **1.1.0** — Business logo; authorised signature (photo or drawn) with name
   and designation; seven industry modes with their own words, bill titles,
   bill fields, due dates and starter services; logo on thermal receipts;

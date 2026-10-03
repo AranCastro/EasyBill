@@ -17,11 +17,13 @@ import androidx.room.RoomDatabase
         ExpenseEntity::class,
         StockAdjustmentEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         // v1.1: business type, logo, signature, custom bill fields
         AutoMigration(from = 1, to = 2),
+        // v1.2: optional MSME (Udyam) registration
+        AutoMigration(from = 2, to = 3),
     ],
 )
 abstract class BillingDatabase : RoomDatabase() {

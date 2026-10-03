@@ -22,6 +22,9 @@ import online.draran.billing.core.designsystem.component.LogoBox
 import online.draran.billing.core.designsystem.component.SignatureBox
 import online.draran.billing.core.designsystem.component.SignaturePadDialog
 import online.draran.billing.core.model.BusinessType
+import online.draran.billing.core.model.MsmeCategory
+import online.draran.billing.core.model.Udyam
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -238,6 +241,7 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
             )
         }
     }
+    MsmeSection(viewModel)
     SectionCard(title = "Get paid faster") {
         FormField(
             form.upiId, { v -> viewModel.update { it.copy(upiId = v.trim()) } }, "UPI ID (optional)",
@@ -248,6 +252,39 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
         )
     }
     SignatorySection(viewModel)
+}
+
+/** Optional Udyam registration; printed on bills with the MSME payment-term note for micro and small units. */
+@Composable
+private fun MsmeSection(viewModel: BusinessFormViewModel) {
+    val form = viewModel.form
+    SectionCard(title = "MSME / Udyam (optional)") {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text(
+                "If your business has an Udyam registration, add it here. It is printed on your bills. Business buyers must pay micro and small enterprises within 45 days (MSMED Act, 2006). Leave blank if not registered.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FormField(
+                form.udyamNumber, { v -> viewModel.update { it.copy(udyamNumber = v.uppercase().take(24)) } }, "Udyam registration no.",
+                capitalization = KeyboardCapitalization.Characters,
+                error = viewModel.udyamError.takeIf { viewModel.showErrors || Udyam.isValid(form.udyamNumber) },
+                supporting = "e.g. UDYAM-TN-02-0012345",
+            )
+            if (form.udyamNumber.isNotBlank()) {
+                Text("Enterprise type", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    MsmeCategory.entries.forEach { c ->
+                        FilterChip(
+                            selected = form.msmeCategory == c,
+                            onClick = { viewModel.update { it.copy(msmeCategory = c) } },
+                            label = { Text(c.label) },
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

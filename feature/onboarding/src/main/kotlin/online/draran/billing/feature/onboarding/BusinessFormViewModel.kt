@@ -21,6 +21,8 @@ import online.draran.billing.core.model.Business
 import online.draran.billing.core.model.BusinessType
 import online.draran.billing.core.model.Gstin
 import online.draran.billing.core.model.IndianStates
+import online.draran.billing.core.model.MsmeCategory
+import online.draran.billing.core.model.Udyam
 import javax.inject.Inject
 
 data class BusinessForm(
@@ -32,6 +34,9 @@ data class BusinessForm(
     val gstEnabled: Boolean = false,
     val gstin: String = "",
     val upiId: String = "",
+    /** Optional MSME (Udyam) registration. */
+    val udyamNumber: String = "",
+    val msmeCategory: MsmeCategory? = null,
     val ownerName: String = "",
     val type: BusinessType = BusinessType.RETAIL,
     val signatoryName: String = "",
@@ -69,6 +74,7 @@ class BusinessFormViewModel @Inject constructor(
                 name = original.name, phone = original.phone, email = original.email, address = original.address,
                 stateCode = original.stateCode, gstEnabled = original.gstEnabled, gstin = original.gstin,
                 upiId = original.upiId, ownerName = original.ownerName, type = original.type,
+                udyamNumber = original.udyamNumber, msmeCategory = original.msmeCategory,
                 signatoryName = original.signatoryName, signatoryDesignation = original.signatoryDesignation,
                 addStarter = !original.onboarded,
             )
@@ -133,9 +139,16 @@ class BusinessFormViewModel @Inject constructor(
     }
     val upiError: String? get() = if (form.upiId.isNotBlank() && !form.upiId.trim().matches(Regex("^[A-Za-z0-9.\\-_]{2,}@[A-Za-z][A-Za-z0-9.\\-]+$"))) "UPI ID looks like name@bank" else null
 
+    val udyamError: String? get() = when {
+        form.udyamNumber.isBlank() -> null
+        !Udyam.isValid(form.udyamNumber) -> "Udyam number looks like UDYAM-TN-02-0012345"
+        form.msmeCategory == null -> "Choose Micro, Small or Medium (as on your Udyam certificate)"
+        else -> null
+    }
+
     fun save(onDone: () -> Unit) {
         showErrors = true
-        if (nameError != null || phoneError != null || gstinError != null || upiError != null) return
+        if (nameError != null || phoneError != null || gstinError != null || upiError != null || udyamError != null) return
         viewModelScope.launch {
             val applyType = typeChanged
             // Starter services first: saving onboarded = true swaps the screen and ends this scope
@@ -149,6 +162,8 @@ class BusinessFormViewModel @Inject constructor(
                     name = form.name.trim(), phone = form.phone, email = form.email, address = form.address,
                     stateCode = form.stateCode, gstEnabled = form.gstEnabled, gstin = if (form.gstEnabled) form.gstin else "",
                     upiId = form.upiId, ownerName = form.ownerName, onboarded = true,
+                    udyamNumber = Udyam.normalise(form.udyamNumber),
+                    msmeCategory = form.msmeCategory.takeIf { form.udyamNumber.isNotBlank() },
                     type = form.type,
                     signatoryName = form.signatoryName.trim(), signatoryDesignation = form.signatoryDesignation.trim(),
                     customFieldLabels = if (applyType) form.type.customFields else current.customFieldLabels,

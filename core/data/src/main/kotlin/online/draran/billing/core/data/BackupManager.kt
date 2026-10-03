@@ -1,6 +1,7 @@
 package online.draran.billing.core.data
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +82,7 @@ class BackupManager @Inject constructor(
         val dbFile = context.getDatabasePath(BillingDatabase.NAME)
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry(MANIFEST))
-            zip.write("app=Modern Kallaa Petti\nschema=1\ncreated=${System.currentTimeMillis()}\n".toByteArray())
+            zip.write("app=Modern Kallaa Petti\nschema=${BillingDatabase.VERSION}\ncreated=${System.currentTimeMillis()}\n".toByteArray())
             zip.closeEntry()
             zip.putNextEntry(ZipEntry(DB_ENTRY))
             dbFile.inputStream().use { it.copyTo(zip) }
@@ -95,40 +96,89 @@ class BackupManager @Inject constructor(
         }
     }
 
+    /**
+     * Replaces the database and images with the ones in a backup. Nothing is touched
+     * until the backup's database passes an integrity and version check; the old
+     * database is kept as files/backups/before-restore.db and put back if the swap fails.
+     */
     internal fun restore(input: InputStream) {
         val temp = File(context.cacheDir, "restore.db")
         var manifestOk = false
         var dbOk = false
         val branding = mutableMapOf<String, ByteArray>()
-        ZipInputStream(input.buffered()).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                when (entry.name) {
-                    MANIFEST -> manifestOk = zip.readBytes().decodeToString().contains("Kallaa Petti")
-                    DB_ENTRY -> {
-                        temp.outputStream().use { zip.copyTo(it) }
-                        dbOk = temp.inputStream().use { input -> ByteArray(15).let { b -> String(b, 0, input.read(b).coerceAtLeast(0)) } } == "SQLite format 3"
-                    }
-                    else -> if (entry.name.startsWith(BRANDING_PREFIX)) {
-                        val name = File(entry.name).name // never trust paths inside a zip
-                        if (name == BrandingManager.LOGO || name == BrandingManager.SIGNATURE) branding[name] = zip.readBytes()
+        try {
+            ZipInputStream(input.buffered()).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    when (entry.name) {
+                        MANIFEST -> manifestOk = zip.readBytes().decodeToString().contains("Kallaa Petti")
+                        DB_ENTRY -> {
+                            temp.outputStream().use { zip.copyTo(it) }
+                            dbOk = true
+                        }
+                        else -> if (entry.name.startsWith(BRANDING_PREFIX)) {
+                            val name = File(entry.name).name // never trust paths inside a zip
+                            if (name == BrandingManager.LOGO || name == BrandingManager.SIGNATURE) branding[name] = zip.readBytes()
+                        }
                     }
                 }
             }
-        }
-        if (!manifestOk || !dbOk) {
+            if (!manifestOk || !dbOk) error("This is not a Modern Kallaa Petti backup file")
+            checkDatabase(temp)
+
+            val dbFile = context.getDatabasePath(BillingDatabase.NAME)
+            val staged = File(dbFile.parentFile, "restore-staging.db")
+            val safety = File(File(context.filesDir, "backups").apply { mkdirs() }, "before-restore.db")
+            try {
+                temp.copyTo(staged, overwrite = true)
+                db.close()
+                if (dbFile.exists()) dbFile.copyTo(safety, overwrite = true)
+                File(dbFile.path + "-wal").delete()
+                File(dbFile.path + "-shm").delete()
+                // Same folder, so the swap is a single rename: the database is either the old one or the new one
+                check(staged.renameTo(dbFile)) { "Could not replace the database" }
+            } catch (e: Exception) {
+                if (safety.exists()) runCatching { safety.copyTo(dbFile, overwrite = true) }
+                throw e
+            } finally {
+                staged.delete()
+            }
+
+            // Images: build the new folder first so a failure cannot leave half of them
+            val brandingDir = File(context.filesDir, BrandingManager.DIR)
+            val fresh = File(context.filesDir, BrandingManager.DIR + ".new").apply { deleteRecursively(); mkdirs() }
+            branding.forEach { (name, bytes) -> File(fresh, name).writeBytes(bytes) }
+            brandingDir.deleteRecursively()
+            if (!fresh.renameTo(brandingDir)) {
+                brandingDir.mkdirs()
+                fresh.listFiles()?.forEach { it.copyTo(File(brandingDir, it.name), overwrite = true) }
+                fresh.deleteRecursively()
+            }
+        } finally {
             temp.delete()
+            File(temp.path + "-wal").delete()
+            File(temp.path + "-shm").delete()
+            File(temp.path + "-journal").delete()
+        }
+    }
+
+    /** Opens the backup's database (a temporary copy): it must be intact, from this or an older app version, and have our tables. */
+    private fun checkDatabase(file: File) {
+        val sqlite = try {
+            // Read-write on this throwaway copy: the integrity check of the search index (FTS) needs to write
+            SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE)
+        } catch (e: Exception) {
             error("This is not a Modern Kallaa Petti backup file")
         }
-        db.close()
-        val dbFile = context.getDatabasePath(BillingDatabase.NAME)
-        File(dbFile.path + "-wal").delete()
-        File(dbFile.path + "-shm").delete()
-        temp.copyTo(dbFile, overwrite = true)
-        temp.delete()
-        val brandingDir = File(context.filesDir, BrandingManager.DIR).apply { mkdirs() }
-        brandingDir.listFiles()?.forEach { it.delete() }
-        branding.forEach { (name, bytes) -> File(brandingDir, name).writeBytes(bytes) }
+        try {
+            val integrity = sqlite.rawQuery("PRAGMA integrity_check", null).use { if (it.moveToFirst()) it.getString(0) else "" }
+            check(integrity == "ok") { "The backup file is damaged" }
+            check(sqlite.version <= BillingDatabase.VERSION) { "This backup was made by a newer version of the app. Update the app, then restore it." }
+            val hasBusiness = sqlite.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'business'", null).use { it.moveToFirst() }
+            check(sqlite.version >= 1 && hasBusiness) { "This is not a Modern Kallaa Petti backup file" }
+        } finally {
+            sqlite.close()
+        }
     }
 
     companion object {

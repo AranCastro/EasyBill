@@ -95,7 +95,8 @@ class ItemRepository @Inject constructor(private val dao: ItemDao) {
         /** "rice bas" -> "rice* bas*" so typing a prefix finds matches. */
         fun ftsQuery(query: String): String? {
             val tokens = query.trim().split(Regex("\\s+"))
-                .map { token -> token.filter { it.isLetterOrDigit() } }
+                // Vowel signs and viramas (Tamil, Hindi...) are combining marks, not letters; dropping them breaks the word
+                .map { token -> token.filter { it.isLetterOrDigit() || Character.getType(it).let { t -> t == Character.NON_SPACING_MARK.toInt() || t == Character.COMBINING_SPACING_MARK.toInt() } } }
                 .filter { it.isNotEmpty() }
             return if (tokens.isEmpty()) null else tokens.joinToString(" ") { "$it*" }
         }
@@ -135,8 +136,10 @@ class PartyRepository @Inject constructor(private val dao: PartyDao) {
     fun ledger(id: Long): Flow<List<LedgerEntry>> = dao.observeLedger(id).map { rows ->
         val party = dao.get(id)
         var running = party?.openingBalance ?: 0L
-        val opening = if (running != 0L) {
-            listOf(LedgerEntry(LocalDate.ofEpochDay(party!!.createdAt / 86_400_000), "OPENING", "Opening balance", Money(running), Money(running), 0, false))
+        val opening = if (running != 0L && party != null) {
+            // The day the party was added, in the phone's time zone (not UTC, which is a day behind in India until 5:30 am)
+            val day = java.time.Instant.ofEpochMilli(party.createdAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            listOf(LedgerEntry(day, "OPENING", "Opening balance", Money(running), Money(running), 0, false))
         } else {
             emptyList()
         }

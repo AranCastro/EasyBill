@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.stateIn
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import online.draran.billing.core.data.BackupManager
@@ -25,6 +30,7 @@ import java.time.LocalTime
 import javax.inject.Inject
 
 /** Live dashboard built from bills, payments, parties, items and backup status. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     reports: ReportsRepository,
@@ -41,8 +47,16 @@ class DashboardViewModel @Inject constructor(
         .map { file -> withContext(Dispatchers.IO) { branding.logo(file)?.asImageBitmap() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val state: StateFlow<DashboardUiState> = combine(reports.dashboard(), backup.lastBackup) { data, last ->
-        data.toUi(last)
+    // "Today" is re-read every minute so the numbers roll over at midnight if the app stays open
+    private val today: Flow<LocalDate> = flow {
+        while (true) {
+            emit(LocalDate.now())
+            delay(60_000)
+        }
+    }.distinctUntilChanged()
+
+    val state: StateFlow<DashboardUiState> = today.flatMapLatest { day ->
+        combine(reports.dashboard(day), backup.lastBackup) { data, last -> data.toUi(last) }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),

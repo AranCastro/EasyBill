@@ -78,7 +78,7 @@ fun OnboardingRoute(onDone: () -> Unit, viewModel: BusinessFormViewModel = hiltV
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onDone) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Button(onClick = { viewModel.save(onDone) }, enabled = !viewModel.saving && !viewModel.working, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text("Start billing", style = MaterialTheme.typography.titleMedium)
                 }
             }
@@ -144,7 +144,7 @@ fun BusinessProfileRoute(onBack: () -> Unit, viewModel: BusinessFormViewModel = 
         topBar = { AppTopBar("Business profile", onBack = onBack) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onBack) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
+                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.saving && !viewModel.working, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
             }
         },
     ) { padding ->

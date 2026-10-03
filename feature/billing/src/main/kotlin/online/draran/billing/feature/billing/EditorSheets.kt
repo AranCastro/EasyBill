@@ -299,6 +299,8 @@ internal fun LineEditSheet(
                     FormField(unit, { unit = it }, "Unit", modifier = Modifier.weight(1f))
                 }
             }
+            // With GST on, the rate takes the second slot above; the unit still needs a place
+            if (gstEnabled) FormField(unit, { unit = it }, "Unit (kg, pcs, hour...)")
             if (gstEnabled && tax > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Price includes GST", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

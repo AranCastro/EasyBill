@@ -178,7 +178,8 @@ fun InvoiceDetailRoute(
             }
             if (inv.type == DocType.ESTIMATE) {
                 item {
-                    val converted = viewModel.convertedSaleId
+                    val convertedState by viewModel.convertedSaleId.collectAsStateWithLifecycle()
+                    val converted = convertedState
                     FilledTonalButton(
                         onClick = { if (converted != null) onOpenInvoice(converted) else onCreateFrom(DocType.SALE, inv.id) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),

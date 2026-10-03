@@ -111,6 +111,7 @@ internal fun InvoiceEntity.toModel(lines: List<InvoiceLineEntity>, paid: Long): 
         partyAddress = partyAddress, placeOfSupply = placeOfSupply, interState = interState, gstEnabled = gstEnabled,
         lines = modelLines, totals = computed, notes = notes, paid = Money(paid), convertedFromId = convertedFromId,
         createdAt = createdAt, customFields = online.draran.billing.core.model.CustomFields.decode(customFields),
+        roundOff = roundOffEnabled,
     )
 }
 

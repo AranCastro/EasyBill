@@ -46,21 +46,26 @@ class InvoicePdf(
         business.msmeNote()?.takeIf { invoice.type == DocType.SALE },
         business.terms.takeIf { it.isNotBlank() },
     ).joinToString("\n")
-    private val showQr = business.showUpiQr && business.upiId.isNotBlank() && invoice.type == DocType.SALE
+    // The QR asks for the amount still due, so a fully paid bill has none
+    private val showQr = business.showUpiQr && business.upiId.isNotBlank() && invoice.type == DocType.SALE && invoice.balance.paise > 0
 
     private val body = fonts.paint(9f)
     private val bodyMuted = fonts.paint(8f, color = PdfFonts.MUTED)
     private val bold = fonts.paint(9f, fonts.bold)
 
-    // Table columns: (title, width, right-aligned)
+    /** Width a column needs for its longest value (plus padding), between [min] and [max]. */
+    private fun numberColumn(texts: List<String>, min: Float, max: Float): Float =
+        ((texts.maxOfOrNull { body.measureText(it) } ?: 0f) + 14f).coerceIn(min, max)
+
+    // Table columns: (title, width, right-aligned). Number columns grow for long quantities and large amounts.
     private val columns: List<Triple<String, Float, Boolean>> = buildList {
         add(Triple("#", 22f, false))
         add(Triple(if (invoice.type == DocType.SALE || invoice.type == DocType.ESTIMATE) business.type.item else "Item", 0f, false)) // flexible
-        add(Triple("Qty", 58f, true))
-        add(Triple("Rate", 66f, true))
+        add(Triple("Qty", numberColumn(invoice.lines.map { "${Qty.format(it.qtyMilli)} ${it.unit}" }, 58f, 100f), true))
+        add(Triple("Rate", numberColumn(invoice.lines.map { plain(it.rate) }, 66f, 96f), true))
         add(Triple("Disc", 38f, true))
         if (gst) add(Triple("GST", 38f, true))
-        add(Triple("Amount", 76f, true))
+        add(Triple("Amount", numberColumn(invoice.totals.lines.map { plain(it.total) }, 76f, 104f), true))
     }
     private val itemColW = contentW - columns.sumOf { it.second.toDouble() }.toFloat()
 
@@ -80,6 +85,25 @@ class InvoicePdf(
     private val logoBox = 58f
     private val textLeft: Float get() = if (logo != null) margin + logoBox + 12f else margin
     private val textWidth: Float get() = contentW * 0.6f - (textLeft - margin)
+
+    // Widths of the bill-to box and of the totals column
+    private val half = contentW / 2 - 6f
+    private val totalsLeft = pageW - margin - 220f
+    private val leftW = totalsLeft - margin - 18f
+
+    // Wrapped text blocks are measured once, so the page layout and the drawing agree on their height
+    private val partyNamePaint = fonts.paint(10.5f, fonts.bold)
+    private val partyNameLines: List<String> = wrapLimited(invoice.partyName, partyNamePaint, half - 20f, 2)
+    /** Address (at most three lines), then phone and GSTIN, which are never cut. */
+    private val partyDetailLines: List<String> =
+        wrapLimited(invoice.partyAddress, bodyMuted, half - 20f, 3) +
+            listOfNotNull(
+                invoice.partyPhone.takeIf { it.isNotBlank() }?.let { "Ph: $it" },
+                invoice.partyGstin.takeIf { it.isNotBlank() }?.let { "GSTIN: $it" },
+            ).flatMap { wrap(it, bodyMuted, half - 20f) }
+    private val bankLines: List<String> = wrapLimited(business.bankDetails, bodyMuted, leftW, 6)
+    private val termsLines: List<String> = wrapLimited(termsText, bodyMuted, leftW, 14)
+    private val wordsLines: List<String> = wrap(AmountInWords.format(invoice.totals.total), fonts.paint(9f, fonts.medium), leftW)
     private val firstTableTop: Float = computeFirstTableTop()
     private val nextTableTop = margin + 40f
     private val totalsH: Float = computeTotalsHeight()
@@ -114,15 +138,18 @@ class InvoicePdf(
 
     private fun computeFirstTableTop(): Float {
         val boxTop = headerBottom()
-        val partyRows = 1 + listOf(invoice.partyAddress, invoice.partyPhone, invoice.partyGstin).count { it.isNotBlank() }
-        val boxH = maxOf(86f, 36f + 13f * maxOf(detailRows(), partyRows))
+        val partyH = 30f + 13f * partyNameLines.size + 11f * partyDetailLines.size + 8f
+        val boxH = maxOf(86f, 36f + 13f * detailRows(), partyH)
         return boxTop + boxH + 14f
     }
 
     private fun computeTotalsHeight(): Float {
-        val left = 16f + 26f + (if (gst) 18f + 14f * (invoice.totals.slabs.size + 1) else 0f) +
-            (if (showQr) 110f else 0f) + (if (business.bankDetails.isNotBlank()) 48f else 0f) +
-            (if (termsText.isNotBlank()) 18f + 11f * TERMS_LINES else 0f)
+        // Left column, as drawn by drawTotals: words, tax summary, QR, bank details, notes and terms
+        val left = 6f + 14f + 12f * wordsLines.size + 8f +
+            (if (gst && invoice.totals.slabs.isNotEmpty()) 14f + 13f * invoice.totals.slabs.size + 8f else 0f) +
+            (if (showQr) 104f else 0f) +
+            (if (bankLines.isNotEmpty()) 14f + 11f * bankLines.size + 6f else 0f) +
+            (if (termsLines.isNotEmpty()) 14f + 11f * termsLines.size else 0f)
         // Right column, as drawn by drawTotals: rows, the total band, payment rows, then the signature block
         val t = invoice.totals
         val rows = 1 + (if (!t.discount.isZero) 1 else 0) + (if (gst) (if (invoice.interState) 2 else 3) else 0) +
@@ -205,7 +232,6 @@ class InvoicePdf(
         // Bill-to box
         val boxTop = headerBottom()
         val boxH = firstTableTop - 14f - boxTop
-        val half = contentW / 2 - 6f
         val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PdfFonts.ROW_TINT }
         canvas.drawRoundRect(RectF(margin, boxTop, margin + half, boxTop + boxH), 6f, 6f, boxPaint)
         canvas.drawRoundRect(RectF(margin + half + 12f, boxTop, pageW - margin, boxTop + boxH), 6f, 6f, boxPaint)
@@ -217,20 +243,15 @@ class InvoicePdf(
         }
         canvas.drawText(partyLabel, margin + 10f, boxTop + 15f, label)
         var by = boxTop + 30f
-        canvas.drawText(invoice.partyName, margin + 10f, by, fonts.paint(10.5f, fonts.bold)); by += 13f
-        listOf(invoice.partyAddress, invoice.partyPhone.takeIf { it.isNotBlank() }?.let { "Ph: $it" }.orEmpty(),
-            invoice.partyGstin.takeIf { it.isNotBlank() }?.let { "GSTIN: $it" }.orEmpty())
-            .filter { it.isNotBlank() }
-            .flatMap { wrap(it, bodyMuted, half - 20f) }
-            .take(4)
-            .forEach { canvas.drawText(it, margin + 10f, by, bodyMuted); by += 11f }
+        partyNameLines.forEach { canvas.drawText(it, margin + 10f, by, partyNamePaint); by += 13f }
+        partyDetailLines.forEach { canvas.drawText(it, margin + 10f, by, if (it.startsWith("GSTIN")) bold else bodyMuted); by += 11f }
 
         val rx = margin + half + 22f
         canvas.drawText("DETAILS", rx, boxTop + 15f, label)
         var dy = boxTop + 30f
         fun detail(k: String, v: String) {
-            canvas.drawText(wrap(k, bodyMuted, 76f).first(), rx, dy, bodyMuted)
-            canvas.drawText(wrap(v, body, pageW - margin - rx - 90f).first(), rx + 80f, dy, body)
+            canvas.drawText(wrapLimited(k, bodyMuted, 76f, 1).firstOrNull().orEmpty(), rx, dy, bodyMuted)
+            canvas.drawText(wrapLimited(v, body, pageW - margin - rx - 90f, 1).firstOrNull().orEmpty(), rx + 80f, dy, body)
             dy += 13f
         }
         invoice.customFields.forEach { (k, v) -> detail(k, v) }
@@ -248,7 +269,7 @@ class InvoicePdf(
 
     private fun drawContinuationHeader(canvas: Canvas): Float {
         val p = fonts.paint(10f, fonts.bold)
-        canvas.drawText("${business.name}  ·  ${title()} ${invoice.number} (continued)", margin, margin + 14f, p)
+        canvas.drawText(ellipsized("${business.name}  ·  ${title()} ${invoice.number} (continued)", p, contentW), margin, margin + 14f, p)
         return nextTableTop
     }
 
@@ -291,14 +312,17 @@ class InvoicePdf(
             var c = 2
             fun cell(text: String) {
                 val w = columns[c].second
-                canvas.drawText(text, xs[c] + w - 6f, y + 15f, rightP)
+                // The column was sized for its longest value; shrink as a last resort rather than overlap the next column
+                val paint = Paint(rightP)
+                while (paint.measureText(text) > w - 10f && paint.textSize > 6.5f) paint.textSize -= 0.25f
+                canvas.drawText(text, xs[c] + w - 6f, y + 15f, paint)
                 c++
             }
             cell("${Qty.format(l.qtyMilli)} ${l.unit}")
-            cell(rs(l.rate).removePrefix("₹"))
+            cell(plain(l.rate))
             cell(if (l.discountBp > 0) "${Percent.format(l.discountBp)}%" else "-")
             if (gst) cell("${Percent.format(l.taxRateBp)}%")
-            cell(rs(amounts.total).removePrefix("₹"))
+            cell(plain(amounts.total))
             y += row.height
             canvas.drawLine(margin, y, pageW - margin, y, line)
         }
@@ -307,7 +331,7 @@ class InvoicePdf(
 
     private fun drawTotals(canvas: Canvas, top: Float) {
         val t = invoice.totals
-        val boxL = pageW - margin - 220f
+        val boxL = totalsLeft
         val right = pageW - margin - 8f
         var y = top + 6f
         val lp = fonts.paint(9f, color = PdfFonts.MUTED)
@@ -340,31 +364,38 @@ class InvoicePdf(
         }
 
         // Left column: words, tax summary, QR, bank, terms
-        val leftW = boxL - margin - 18f
         var ly = top + 6f
         canvas.drawText("Amount in words", margin, ly + 10f, fonts.paint(7.5f, fonts.medium, PdfFonts.MUTED))
         ly += 14f
-        wrap(AmountInWords.format(t.total), fonts.paint(9f, fonts.medium), leftW).forEach {
+        wordsLines.forEach {
             canvas.drawText(it, margin, ly + 10f, fonts.paint(9f, fonts.medium)); ly += 12f
         }
         ly += 8f
         if (gst && t.slabs.isNotEmpty()) {
             val sp = fonts.paint(7.5f, fonts.bold, PdfFonts.MUTED)
             val cols = if (invoice.interState) listOf("Rate", "Taxable", "IGST") else listOf("Rate", "Taxable", "CGST", "SGST")
-            val cw = leftW / cols.size
-            cols.forEachIndexed { i, c -> canvas.drawText(c, margin + i * cw, ly + 10f, sp) }
+            // Rate on the left, amounts right-aligned in equal columns so large figures never run together
+            val rateW = 40f
+            val amtW = (leftW - rateW) / (cols.size - 1)
+            val spRight = fonts.paint(7.5f, fonts.bold, PdfFonts.MUTED, Paint.Align.RIGHT)
+            cols.forEachIndexed { i, c ->
+                if (i == 0) canvas.drawText(c, margin, ly + 10f, sp) else canvas.drawText(c, margin + rateW + amtW * i - 4f, ly + 10f, spRight)
+            }
             ly += 14f
-            val cp = fonts.paint(8f)
             t.slabs.forEach { s ->
                 val values = if (invoice.interState) listOf("${Percent.format(s.rateBp)}%", rs(s.taxable), rs(s.igst))
                 else listOf("${Percent.format(s.rateBp)}%", rs(s.taxable), rs(s.cgst), rs(s.sgst))
-                values.forEachIndexed { i, v -> canvas.drawText(v, margin + i * cw, ly + 10f, cp) }
+                values.forEachIndexed { i, v ->
+                    val cp = fonts.paint(8f, align = if (i == 0) Paint.Align.LEFT else Paint.Align.RIGHT)
+                    while (i > 0 && cp.measureText(v) > amtW - 6f && cp.textSize > 6f) cp.textSize -= 0.25f
+                    canvas.drawText(v, if (i == 0) margin else margin + rateW + amtW * i - 4f, ly + 10f, cp)
+                }
                 ly += 13f
             }
             ly += 8f
         }
         if (showQr) {
-            val amount = invoice.balance.takeIf { it.paise > 0 } ?: t.total
+            val amount = invoice.balance
             val qr = QrCode.bitmap(Upi.link(business.upiId, business.name, amount, invoice.number), 300)
             canvas.drawBitmap(qr, null, RectF(margin, ly, margin + 92f, ly + 92f), Paint(Paint.FILTER_BITMAP_FLAG))
             val qx = margin + 102f
@@ -374,25 +405,46 @@ class InvoicePdf(
             canvas.drawText("GPay · PhonePe · Paytm · BHIM", qx, ly + 70f, bodyMuted)
             ly += 104f
         }
-        if (business.bankDetails.isNotBlank()) {
+        if (bankLines.isNotEmpty()) {
             canvas.drawText("Bank details", margin, ly + 10f, fonts.paint(7.5f, fonts.medium, PdfFonts.MUTED)); ly += 14f
-            wrap(business.bankDetails, bodyMuted, leftW).take(3).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
+            bankLines.forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
             ly += 6f
         }
-        if (termsText.isNotBlank()) {
+        if (termsLines.isNotEmpty()) {
             canvas.drawText("Notes & terms", margin, ly + 10f, fonts.paint(7.5f, fonts.medium, PdfFonts.MUTED)); ly += 14f
-            wrap(termsText, bodyMuted, leftW).take(TERMS_LINES).forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
+            termsLines.forEach { canvas.drawText(it, margin, ly + 9f, bodyMuted); ly += 11f }
         }
 
         // Signature block: right column, under the totals, so a long left column never pushes it into the footer
         val sigY = y + 24f
         val sp = fonts.paint(9f, fonts.bold, align = Paint.Align.RIGHT)
-        canvas.drawText("For ${business.name}", pageW - margin, sigY, sp)
+        // Kept inside the totals column so a long name cannot run over the left column
+        canvas.drawText(ellipsized("For ${business.name}", sp, pageW - margin - totalsLeft), pageW - margin, sigY, sp)
         signature?.let { drawFitted(canvas, it, RectF(pageW - margin - 160f, sigY + 6f, pageW - margin, sigY + 48f), alignRight = true) }
         canvas.drawLine(pageW - margin - 160f, sigY + 52f, pageW - margin, sigY + 52f, Paint().apply { color = PdfFonts.LINE })
         canvas.drawText("Authorised signatory", pageW - margin, sigY + 64f, fonts.paint(8f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
         val who = listOf(business.signatoryName, business.signatoryDesignation).filter { it.isNotBlank() }.joinToString(", ")
         if (who.isNotBlank()) canvas.drawText(who, pageW - margin, sigY + 76f, fonts.paint(8.5f, fonts.medium, align = Paint.Align.RIGHT))
+    }
+
+    /** Money without the rupee sign (the column title says what it is); keeps a minus sign. */
+    private fun plain(m: Money): String = rs(m).replace("₹", "")
+
+    private fun ellipsized(text: String, paint: Paint, width: Float): String {
+        if (paint.measureText(text) <= width) return text
+        var end = text.length
+        while (end > 1 && paint.measureText(text.substring(0, end) + "…") > width) end--
+        return text.substring(0, end).trimEnd() + "…"
+    }
+
+    /** Wraps [text] and, when it needs more than [maxLines], ends the last kept line with "…". */
+    private fun wrapLimited(text: String, paint: Paint, width: Float, maxLines: Int): List<String> {
+        if (text.isBlank()) return emptyList()
+        val lines = wrap(text, paint, width)
+        if (lines.size <= maxLines) return lines
+        val kept = lines.take(maxLines).toMutableList()
+        kept[maxLines - 1] = ellipsized(kept[maxLines - 1] + "…", paint, width).let { if (it.endsWith("…")) it else "$it…" }
+        return kept
     }
 
     /** Draws a bitmap inside [box], keeping its aspect ratio. */
@@ -428,9 +480,6 @@ class InvoicePdf(
         }
     }
 }
-
-/** Lines kept for notes and terms; the MSME note needs about two. */
-private const val TERMS_LINES = 4
 
 /** "For <business>" down to the signatory's name. */
 private const val SIGNATURE_H = 82f

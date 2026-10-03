@@ -115,6 +115,9 @@ class ReportViewModel @Inject constructor(
     var loading by mutableStateOf(true)
         private set
 
+    /** Shown once as a snackbar when an export fails. */
+    var message by mutableStateOf<String?>(null)
+
     fun load(k: ReportKind, r: DateRange = range) {
         kind = k
         range = r
@@ -130,46 +133,33 @@ class ReportViewModel @Inject constructor(
     fun exportPdf(context: Context) {
         val c = content ?: return
         viewModelScope.launch {
-            val b = businessRepository.get()
-            val file = withContext(Dispatchers.IO) {
-                val width = c.sections.maxOfOrNull { it.columns.size } ?: 2
-                val columns = (0 until width).map { i -> PdfColumn(c.sections.firstOrNull { it.columns.size == width }?.columns?.getOrNull(i) ?: "", if (i == 0) 2f else 1.2f, alignRight = i > 0 && i == width - 1 || i >= 3) }
-                val rows = mutableListOf<List<String>>()
-                c.kpis.forEach { rows += listOf(it.label, "") + List(width - 3) { "" } + listOf(online.draran.billing.core.common.IndianFormat.rupees(it.value)) }
-                c.sections.forEach { s ->
-                    rows += listOf("")
-                    if (s.title != null) rows += listOf("■ ${s.title}")
-                    if (s.columns.size != width) rows += s.columns
-                    rows += s.rows
-                    s.totals.forEach { (k, v) -> rows += listOf("  $k") + List(width - 2) { "" } + listOf(v) }
+            runCatching {
+                val b = businessRepository.get()
+                val file = withContext(Dispatchers.IO) {
+                    val table = ReportExport.pdfTable(c)
+                    File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".pdf").also {
+                        TablePdf(
+                            context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "),
+                            kind.title, subtitle(), table.columns, table.rows,
+                            logo = branding.logo(b.logoFile), brand = b.accent(), autoAlign = true,
+                        ).writeTo(it)
+                    }
                 }
-                File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".pdf").also {
-                    TablePdf(context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "), kind.title, subtitle(), columns, rows.map { r -> r + List((width - r.size).coerceAtLeast(0)) { "" } }, logo = branding.logo(b.logoFile), brand = b.accent()).writeTo(it)
-                }
-            }
-            Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")
+                Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")
+            }.onFailure { message = "Could not create the PDF: ${it.message ?: "unknown error"}" }
         }
     }
 
     fun exportCsv(context: Context) {
         val c = content ?: return
         viewModelScope.launch {
-            val file = withContext(Dispatchers.IO) {
-                fun esc(s: String) = "\"" + s.replace("\"", "\"\"").replace("₹", "") + "\""
-                val text = buildString {
-                    appendLine(esc(kind.title)); appendLine(esc(subtitle())); appendLine()
-                    c.kpis.forEach { appendLine(esc(it.label) + "," + esc(online.draran.billing.core.common.IndianFormat.rupees(it.value).replace(",", ""))) }
-                    c.sections.forEach { s ->
-                        appendLine()
-                        s.title?.let { appendLine(esc(it)) }
-                        appendLine(s.columns.joinToString(",") { esc(it) })
-                        s.rows.forEach { r -> appendLine(r.joinToString(",") { cell -> esc(cell.replace(Regex("(?<=\\d),(?=\\d)"), "")) }) }
-                        s.totals.forEach { (k, v) -> appendLine(esc(k) + "," + esc(v.replace(",", ""))) }
-                    }
+            runCatching {
+                val file = withContext(Dispatchers.IO) {
+                    val text = ReportExport.csv(kind.title, subtitle(), c)
+                    File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads text correctly */ }
                 }
-                File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads ₹ correctly */ }
-            }
-            Sharing.shareFile(context, file, "text/csv", kind.title)
+                Sharing.shareFile(context, file, "text/csv", kind.title)
+            }.onFailure { message = "Could not create the file: ${it.message ?: "unknown error"}" }
         }
     }
 }
@@ -182,7 +172,12 @@ fun ReportRoute(kind: ReportKind, onBack: () -> Unit, viewModel: ReportViewModel
     var menu by remember { mutableStateOf(false) }
     var customRange by remember { mutableStateOf(false) }
     val today = LocalDate.now()
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    LaunchedEffect(viewModel.message) {
+        viewModel.message?.let { snackbar.showSnackbar(it); viewModel.message = null }
+    }
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         topBar = {
             AppTopBar(kind.title, onBack = onBack, subtitle = if (kind.usesRange) viewModel.range.label else null, actions = {
                 Box {

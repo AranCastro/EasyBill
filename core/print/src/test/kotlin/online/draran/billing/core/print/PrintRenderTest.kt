@@ -197,6 +197,95 @@ class PrintRenderTest {
         assertEquals(maroon.accent(), bitmap.getPixel(300, 2)) // top bar
     }
 
+    @Test fun wideReportPrintsLandscapeWithFullAmounts() {
+        val cols = listOf("", "", "", "", "", "", "", "").mapIndexed { i, t -> PdfColumn(t, if (i == 0) 2.4f else 1.2f) }
+        val h = TablePdf.HEADING; val sh = TablePdf.SUBHEAD; val r = TablePdf.RIGHT
+        val rows = listOf(
+            listOf(h + "Sales to registered buyers (B2B)", "", "", "", "", "", "", ""),
+            listOf(sh + "Supply", r + "Rate", r + "Bills", r + "Taxable", r + "CGST", r + "SGST", r + "IGST", r + "Tax"),
+            listOf("Intra-state", "18%", "142", "₹1,23,45,678.00", "₹11,11,111.02", "₹11,11,111.02", "₹0.00", "₹22,22,222.04"),
+            listOf("Inter-state", "5%", "9", "₹9,87,654.00", "₹0.00", "₹0.00", "₹49,382.70", "₹49,382.70"),
+            listOf(""),
+            listOf(h + "HSN summary"),
+            listOf(sh + "HSN", r + "Rate", r + "Qty", r + "Taxable", r + "Tax", r + "Total", "", ""),
+            listOf("1006", "5%", "12,500", "₹9,87,654.00", "₹49,382.70", "₹10,37,036.70", "", ""),
+        ).map { it + List(8 - it.size) { "" } }
+        val pdf = TablePdf(ApplicationProvider.getApplicationContext(), "Sri Lakshmi Narayana Traders and Wholesale Merchants Private Limited", "Chennai · 98400 12345", "GST summary", "Sri Lakshmi Narayana Traders Chennai · 1 Apr 2026 to 3 Oct 2026", cols, rows, autoAlign = true)
+        assertEquals(1, pdf.pageCount)
+        val bmp = Bitmap.createBitmap(842, 595, Bitmap.Config.ARGB_8888)
+        pdf.drawPage(Canvas(bmp), 0)
+        File("build/outputs/roborazzi/report_gst_landscape.png").apply { parentFile?.mkdirs() }.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test fun worstCaseBillKeepsEverythingVisible() {
+        val shop = business.copy(
+            name = "Sri Lakshmi Narayana Traders and Wholesale Merchants Private Limited",
+            bankDetails = "Account holder: Sri Lakshmi Narayana Traders\nState Bank of India, T. Nagar branch, Chennai\nA/c no. 123456789012 · IFSC SBIN0001234 · MICR 600002003",
+            udyamNumber = "UDYAM-TN-02-0012345", msmeCategory = online.draran.billing.core.model.MsmeCategory.MICRO,
+            signatoryName = "R. Sharma", signatoryDesignation = "Proprietor",
+        )
+        val lines = listOf(
+            InvoiceLine(itemId = 1, name = "Copper wire 2.5 sq mm, ISI marked, 90 m coil, flame retardant", hsn = "8544", unit = "Meters", qtyMilli = 1_250_750, rate = Money.rupees(1_250_000), taxRateBp = 1800),
+            InvoiceLine(itemId = 2, name = "Switch board", hsn = "8536", unit = "pcs", qtyMilli = Qty.of(3), rate = Money.rupees(12_00_000), taxRateBp = 1800),
+        )
+        val invoice = sample().copy(
+            lines = lines, totals = TaxEngine.bill(lines.map { it.toInput() }, interState = false),
+            partyName = "Sri Venkateswara Electricals and Hardware Merchants Private Limited",
+            partyAddress = "No. 45/2, Second Floor, Anna Salai Main Road, Near Government Higher Secondary School, Teynampet, Chennai, Tamil Nadu 600018",
+            partyPhone = "98765 43210", partyGstin = "33AAPFU0939F1ZW",
+            notes = "Goods once sold will not be taken back. Please quote the invoice number in all payments and correspondence.",
+            paid = Money.ZERO,
+        )
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), invoice, shop.copy(terms = "Thank you for your business! Interest at 18% p.a. is charged on overdue invoices."), sampleLogo(), sampleSignature())
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_a4_worst_case")
+        renderPage({ pdf.drawPage(it, pdf.pageCount - 1) }, "invoice_a4_worst_case_last")
+        // A fully paid bill carries no payment QR
+        val paid = invoice.copy(paid = invoice.totals.total)
+        renderPage({ InvoicePdf(ApplicationProvider.getApplicationContext(), paid, shop).drawPage(it, 0) }, "invoice_a4_paid_no_qr")
+    }
+
+    @Test fun receiptTextSurvivesAccentsTamilAndLongNames() {
+        // Accents are transliterated and a real question mark is kept
+        assertEquals("Cafe Rs.50 ok?", ThermalReceipt.ascii("Café ₹50 ok?"))
+        assertTrue(ThermalReceipt.needsImage("குமார் ஸ்டோர்ஸ்"))
+        assertTrue(!ThermalReceipt.needsImage("Café ₹50"))
+
+        val tamilShop = business.copy(name = "ஸ்ரீ லட்சுமி ஸ்டோர்ஸ்", address = "12, காந்தி சாலை, சென்னை")
+        val lines = listOf(
+            InvoiceLine(itemId = 1, name = "பாசுமதி அரிசி 5 கிலோ", unit = "bag", qtyMilli = Qty.of(2), rate = Money.rupees(645), taxRateBp = 500),
+            InvoiceLine(itemId = 2, name = "Dettol Soap", unit = "pcs", qtyMilli = Qty.of(1), rate = Money(22000), taxRateBp = 1800),
+        )
+        val invoice = sample().copy(lines = lines, totals = TaxEngine.bill(lines.map { it.toInput() }, interState = false), partyName = "குமார்")
+        val receipt = ThermalReceipt(invoice, tamilShop)
+        val parts = receipt.parts()
+        // Tamil lines become pictures instead of blank lines; Latin lines stay text
+        assertTrue(parts.any { it is ThermalReceipt.Part.TextImage && it.text.contains("பாசுமதி") })
+        assertTrue(parts.any { it is ThermalReceipt.Part.TextImage && it.text.startsWith("To: ") })
+        assertTrue(parts.any { it is ThermalReceipt.Part.Text && it.text == "Dettol Soap" })
+        assertTrue(parts.none { it is ThermalReceipt.Part.Text && it.text.isBlank() })
+        assertTrue(receipt.escPos().isNotEmpty())
+
+        // A long business name is wrapped at normal size, never cut
+        val longName = business.copy(name = "Sri Lakshmi Narayana Traders and Wholesale Merchants")
+        val shop58 = ThermalReceipt(sample(), longName).parts().filterIsInstance<ThermalReceipt.Part.Text>().filter { it.bold && it.center }
+        assertTrue(shop58.joinToString(" ") { it.text }.contains("Wholesale Merchants"))
+        shop58.forEach { assertTrue(it.text.length <= 32) }
+        // A short name keeps the big heading
+        assertTrue(ThermalReceipt(sample(), business.copy(name = "Style Studio")).parts().any { it is ThermalReceipt.Part.Text && it.big })
+    }
+
+    @Test fun purchaseReturnReceiptSaysReceived() {
+        val inv = sample().copy(type = DocType.PURCHASE_RETURN, paid = Money.rupees(500))
+        assertTrue(ThermalReceipt(inv, business).text().contains("Received"))
+    }
+
+    @Test fun tallLogoIsCappedInHeight() {
+        val tall = Bitmap.createBitmap(100, 400, Bitmap.Config.ARGB_8888)
+        val bytes = ThermalReceipt.raster(tall, 240, maxHeight = 200)
+        val height = (bytes[6].toInt() and 0xFF) + (bytes[7].toInt() and 0xFF) * 256
+        assertTrue("height $height", height <= 200)
+    }
+
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
         assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)

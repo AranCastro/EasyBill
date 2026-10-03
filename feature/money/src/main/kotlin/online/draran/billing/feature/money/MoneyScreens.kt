@@ -139,8 +139,9 @@ fun PaymentEditorRoute(
             })
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.linkedToBill, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save payment") }
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
+                viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
+                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.linkedToBill && !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save payment") }
             }
         },
     ) { padding ->
@@ -226,8 +227,9 @@ fun ExpenseEditorRoute(expenseId: Long, onBack: () -> Unit, viewModel: ExpenseEd
             })
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onBack) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save expense") }
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
+                viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
+                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save expense") }
             }
         },
     ) { padding ->

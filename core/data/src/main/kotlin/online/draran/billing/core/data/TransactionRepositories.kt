@@ -46,6 +46,13 @@ data class InvoiceDraft(
     val convertedFromId: Long? = null,
     /** Industry fields (label to value), e.g. Roll no. or Stylist. */
     val customFields: List<Pair<String, String>> = emptyList(),
+    /**
+     * GST and round-off settings the bill was made under. Null means "the business's current
+     * settings" for a new bill; an edited bill keeps its own, so changing the shop's GST
+     * setting later does not rewrite old bills.
+     */
+    val gstEnabled: Boolean? = null,
+    val roundOff: Boolean? = null,
 )
 
 const val CASH_CUSTOMER = "Cash Customer"
@@ -106,9 +113,16 @@ class InvoiceRepository @Inject constructor(
         return entity.toModel(dao.lines(id), dao.paid(id))
     }
 
+    /** The next free number: after the highest sequence, skipping any number typed by hand that is already used. */
     suspend fun nextNumber(type: DocType): String {
         val prefix = businessRepository.get().prefix(type)
-        return prefix + (dao.maxSeq(type) + 1).toString().padStart(4, '0')
+        var seq = dao.maxSeq(type) + 1
+        var candidate = prefix + seq.toString().padStart(4, '0')
+        while (dao.countNumber(type, candidate, 0) > 0) {
+            seq++
+            candidate = prefix + seq.toString().padStart(4, '0')
+        }
+        return candidate
     }
 
     suspend fun numberTaken(type: DocType, number: String, exceptId: Long) = dao.countNumber(type, number.trim(), exceptId) > 0
@@ -116,23 +130,42 @@ class InvoiceRepository @Inject constructor(
     /** Computes totals exactly as [save] will, for live display in the editor. */
     suspend fun preview(draft: InvoiceDraft) = totalsFor(draft, businessRepository.get())
 
-    private fun totalsFor(draft: InvoiceDraft, business: online.draran.billing.core.model.Business) =
-        TaxEngine.bill(draft.lines.map { it.toInput() }, isInterState(draft, business), business.gstEnabled, business.roundOff)
+    private fun totalsFor(draft: InvoiceDraft, business: online.draran.billing.core.model.Business): online.draran.billing.core.model.BillTotals {
+        val gstOn = draft.gstEnabled ?: business.gstEnabled
+        return TaxEngine.bill(draft.lines.map { it.toInput() }, isInterState(draft, business, gstOn), gstOn, draft.roundOff ?: business.roundOff)
+    }
 
-    fun isInterState(draft: InvoiceDraft, business: online.draran.billing.core.model.Business): Boolean =
-        business.gstEnabled && draft.partyStateCode.isNotBlank() && draft.partyStateCode != business.stateCode
+    fun isInterState(draft: InvoiceDraft, business: online.draran.billing.core.model.Business, gstOn: Boolean = draft.gstEnabled ?: business.gstEnabled): Boolean =
+        gstOn && draft.partyStateCode.isNotBlank() && draft.partyStateCode != business.stateCode
 
     /** Saves the bill, its lines and any payment taken now; returns the bill id. */
     suspend fun save(draft: InvoiceDraft): Long {
         require(draft.lines.isNotEmpty()) { "Add at least one item" }
+        draft.lines.firstNotNullOfOrNull { lineProblem(it) }?.let { throw IllegalArgumentException(it) }
         val business = businessRepository.get()
-        val interState = isInterState(draft, business)
-        val totals = TaxEngine.bill(draft.lines.map { it.toInput() }, interState, business.gstEnabled, business.roundOff)
         val now = System.currentTimeMillis()
         return db.withTransaction {
             val existing = if (draft.id != 0L) dao.get(draft.id) else null
+            // An edited bill keeps the GST and round-off settings it was made under
+            val gstOn = draft.gstEnabled ?: existing?.gstEnabled ?: business.gstEnabled
+            val roundOn = draft.roundOff ?: existing?.roundOffEnabled ?: business.roundOff
+            val interState = isInterState(draft, business, gstOn)
+            val totals = TaxEngine.bill(draft.lines.map { it.toInput() }, interState, gstOn, roundOn)
             val seq = existing?.seq ?: (dao.maxSeq(draft.type) + 1)
-            val number = draft.number.trim().ifEmpty { business.prefix(draft.type) + seq.toString().padStart(4, '0') }
+            val typed = draft.number.trim()
+            val number = if (typed.isNotEmpty()) {
+                // Supplier bill numbers may repeat across suppliers; our own documents must be unique
+                if (draft.type != DocType.PURCHASE && dao.countNumber(draft.type, typed, draft.id) > 0) error("Number $typed is already used")
+                typed
+            } else {
+                var s = seq
+                var candidate = business.prefix(draft.type) + s.toString().padStart(4, '0')
+                while (dao.countNumber(draft.type, candidate, draft.id) > 0) {
+                    s++
+                    candidate = business.prefix(draft.type) + s.toString().padStart(4, '0')
+                }
+                candidate
+            }
             val entity = InvoiceEntity(
                 id = draft.id,
                 type = draft.type,
@@ -147,8 +180,8 @@ class InvoiceRepository @Inject constructor(
                 partyAddress = draft.partyAddress,
                 placeOfSupply = draft.partyStateCode.ifBlank { business.stateCode },
                 interState = interState,
-                gstEnabled = business.gstEnabled,
-                roundOffEnabled = business.roundOff,
+                gstEnabled = gstOn,
+                roundOffEnabled = roundOn,
                 subtotal = totals.subtotal.paise,
                 discount = totals.discount.paise,
                 taxable = totals.taxable.paise,
@@ -183,25 +216,41 @@ class InvoiceRepository @Inject constructor(
                     val item = db.itemDao().get(itemId) ?: return@forEach
                     if (line.qtyMilli > 0) {
                         val unitCost = TaxEngine.divRound(amounts.taxable.paise * 1000, line.qtyMilli)
-                        db.itemDao().update(item.copy(purchasePrice = unitCost))
+                        // Only the newest purchase sets the cost, and a free line (cost 0) never does
+                        if (unitCost > 0 && draft.date.toDay() >= dao.latestPurchaseDay(itemId, id)) {
+                            db.itemDao().update(item.copy(purchasePrice = unitCost))
+                        }
                     }
                 }
             }
-            // Payment taken with the bill: replace any earlier one
+            // Payment taken with the bill. An edit updates the same receipt (same number) instead of making a new one.
             val payments = db.paymentDao()
-            payments.deleteForInvoice(id)
+            val earlier = payments.forInvoice(id).firstOrNull()
             val paid = minOf(draft.paidNow.paise, totals.total.paise)
             if (draft.type.tracksPayment && paid > 0) {
-                val direction = draft.type.paymentDirection
-                val pSeq = payments.maxSeq(direction) + 1
-                val paymentId = payments.insert(
-                    PaymentEntity(
-                        direction = direction, number = direction.prefix + pSeq.toString().padStart(4, '0'), seq = pSeq,
-                        partyId = draft.partyId, partyName = entity.partyName, date = draft.date.toDay(), amount = paid,
-                        mode = draft.paymentMode, reference = "", note = "Against $number", invoiceId = id, createdAt = now,
-                    ),
-                )
+                val paymentId = if (earlier != null) {
+                    payments.deleteAllocations(listOf(earlier.id))
+                    payments.update(
+                        earlier.copy(
+                            partyId = draft.partyId, partyName = entity.partyName, date = draft.date.toDay(), amount = paid,
+                            mode = draft.paymentMode, note = "Against $number",
+                        ),
+                    )
+                    earlier.id
+                } else {
+                    val direction = draft.type.paymentDirection
+                    val pSeq = payments.maxSeq(direction) + 1
+                    payments.insert(
+                        PaymentEntity(
+                            direction = direction, number = direction.prefix + pSeq.toString().padStart(4, '0'), seq = pSeq,
+                            partyId = draft.partyId, partyName = entity.partyName, date = draft.date.toDay(), amount = paid,
+                            mode = draft.paymentMode, reference = "", note = "Against $number", invoiceId = id, createdAt = now,
+                        ),
+                    )
+                }
                 payments.insertAllocations(listOf(AllocationEntity(paymentId = paymentId, invoiceId = id, amount = paid)))
+            } else if (earlier != null) {
+                payments.deleteForInvoice(id)
             }
             allocator.reallocate(draft.partyId)
             if (existing?.partyId != null && existing.partyId != draft.partyId) allocator.reallocate(existing.partyId)
@@ -214,6 +263,22 @@ class InvoiceRepository @Inject constructor(
             val existing = dao.get(id) ?: return@withTransaction
             dao.delete(id) // lines, linked payments and allocations cascade
             allocator.reallocate(existing.partyId)
+        }
+    }
+
+    companion object {
+        /** Largest amount for one line (₹1,000 crore): keeps quantity x rate far from overflowing a Long. */
+        private const val MAX_LINE_PAISE = 1_000_000_000_000L
+
+        /** A message when the line cannot be saved, else null. */
+        fun lineProblem(line: online.draran.billing.core.model.InvoiceLine): String? {
+            if (line.qtyMilli <= 0) return "Quantities must be more than zero"
+            val gross = try {
+                Math.multiplyExact(line.qtyMilli, Math.abs(line.rate.paise))
+            } catch (e: ArithmeticException) {
+                return "\"${line.name}\": the amount is too large"
+            }
+            return if (gross / 1000 > MAX_LINE_PAISE) "\"${line.name}\": the amount is too large (up to ₹1,000 crore per line)" else null
         }
     }
 
@@ -233,8 +298,10 @@ class InvoiceRepository @Inject constructor(
             partyStateCode = party?.stateCode.orEmpty(),
             lines = source.lines.map { it.copy(id = 0) },
             notes = source.notes,
-            convertedFromId = if (source.type == DocType.ESTIMATE) source.id else null,
-            dueDate = source.dueDate,
+            // Only turning an estimate into a sale links them; a copy of an estimate is a new estimate
+            convertedFromId = if (source.type == DocType.ESTIMATE && newType == DocType.SALE) source.id else null,
+            // Keep the payment period, not the old calendar date
+            dueDate = source.dueDate?.let { LocalDate.now().plusDays(java.time.temporal.ChronoUnit.DAYS.between(source.date, it)) },
             customFields = source.customFields,
         )
     }
@@ -250,10 +317,14 @@ class InvoiceRepository @Inject constructor(
             lines = inv.lines, notes = inv.notes, paidNow = Money(linked?.amount ?: 0),
             paymentMode = linked?.mode ?: PaymentMode.CASH, convertedFromId = inv.convertedFromId,
             customFields = inv.customFields,
+            gstEnabled = inv.gstEnabled, roundOff = inv.roundOff,
         )
     }
 
     suspend fun convertedSale(estimateId: Long): Long? = dao.convertedFrom(estimateId)?.id
+
+    /** The sale made from an estimate, updating as soon as it is created or deleted. */
+    fun observeConvertedSale(estimateId: Long): Flow<Long?> = dao.observeConvertedSaleId(estimateId)
 }
 
 @Singleton

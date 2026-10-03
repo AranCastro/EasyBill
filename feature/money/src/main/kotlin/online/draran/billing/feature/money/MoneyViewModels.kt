@@ -89,18 +89,30 @@ class PaymentEditorViewModel @Inject constructor(
     val amountError: String? get() = if ((MoneyParse.parse(amount)?.paise ?: 0) <= 0) "Enter the amount" else null
     val partyError: String? get() = if (partyId == null) "Choose a ${partyType.label.lowercase()}" else null
 
+    var saving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
+
     fun save(onDone: () -> Unit) {
         showErrors = true
         if (amountError != null || partyError != null) return
+        if (saving) return // a double tap must not record the payment twice
+        saving = true
         viewModelScope.launch {
-            val party = allParties.value.firstOrNull { it.party.id == partyId }?.party
-            repository.save(
-                Payment(
-                    id = paymentId, direction = direction, number = number, partyId = partyId, partyName = party?.name.orEmpty(),
-                    date = date, amount = MoneyParse.parse(amount) ?: Money.ZERO, mode = mode, reference = reference, note = note,
-                ),
-            )
-            onDone()
+            try {
+                val party = allParties.value.firstOrNull { it.party.id == partyId }?.party
+                repository.save(
+                    Payment(
+                        id = paymentId, direction = direction, number = number, partyId = partyId, partyName = party?.name.orEmpty(),
+                        date = date, amount = MoneyParse.parse(amount) ?: Money.ZERO, mode = mode, reference = reference, note = note,
+                    ),
+                )
+                onDone() // stays "saving": the screen is closing
+            } catch (e: Exception) {
+                saveError = e.message ?: "Could not save"
+                saving = false
+            }
         }
     }
 
@@ -139,12 +151,24 @@ class ExpenseEditorViewModel @Inject constructor(private val repository: Expense
 
     val amountError: String? get() = if ((MoneyParse.parse(amount)?.paise ?: 0) <= 0) "Enter the amount" else null
 
+    var saving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
+
     fun save(onDone: () -> Unit) {
         showErrors = true
         if (amountError != null) return
+        if (saving) return
+        saving = true
         viewModelScope.launch {
-            repository.save(Expense(expenseId, category, date, MoneyParse.parse(amount) ?: Money.ZERO, mode, note))
-            onDone()
+            try {
+                repository.save(Expense(expenseId, category, date, MoneyParse.parse(amount) ?: Money.ZERO, mode, note))
+                onDone()
+            } catch (e: Exception) {
+                saveError = e.message ?: "Could not save"
+                saving = false
+            }
         }
     }
 

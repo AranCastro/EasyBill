@@ -17,7 +17,7 @@ import androidx.room.RoomDatabase
         ExpenseEntity::class,
         StockAdjustmentEntity::class,
     ],
-    version = 4,
+    version = BillingDatabase.VERSION,
     exportSchema = true,
     autoMigrations = [
         // v1.1: business type, logo, signature, custom bill fields
@@ -39,5 +39,8 @@ abstract class BillingDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "kallaa_petti.db"
+
+        /** Schema version; the newest file in schemas/. Backups from a higher version are refused. */
+        const val VERSION = 4
     }
 }

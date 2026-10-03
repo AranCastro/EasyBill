@@ -291,4 +291,158 @@ class RepositoryTest {
         assertEquals(first, branding.logoColours(BrandingManager.LOGO).let { business.get().billColor })
         assertTrue(online.draran.billing.core.model.BillColors.blue(branding.logoColours(BrandingManager.LOGO).first()) > 100)
     }
+
+    // ---- Audit fixes ----
+
+    @Test fun editingAnOldBillKeepsItsOwnGstSetting() = runTest {
+        // A bill made while GST was off...
+        business.save(business.get().copy(gstEnabled = false))
+        val id = invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 1000, tax = 1800)), paidNow = Money.rupees(1000)))
+        assertEquals(Money.rupees(1000), invoices.get(id)!!.totals.total)
+        // ...then the shop registers for GST; fixing a note on the old bill must not add tax to it
+        business.save(business.get().copy(gstEnabled = true, roundOff = true))
+        val draft = invoices.draftForEdit(id)!!
+        assertEquals(false, draft.gstEnabled)
+        invoices.save(draft.copy(notes = "Delivered"))
+        val after = invoices.get(id)!!
+        assertEquals(Money.rupees(1000), after.totals.total)
+        assertFalse(after.gstEnabled)
+        assertEquals(Money.rupees(1000), after.paid)
+        // A new bill uses the shop's current setting
+        val fresh = invoices.get(invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 1000, tax = 1800)))))!!
+        assertTrue(fresh.gstEnabled)
+        assertEquals(Money.rupees(1180), fresh.totals.total)
+    }
+
+    @Test fun editingABillKeepsItsReceiptNumber() = runTest {
+        val id = sale(null, 500, paid = 200)
+        val first = db.paymentDao().forInvoice(id).single()
+        invoices.save(invoices.draftForEdit(id)!!.copy(paidNow = Money.rupees(300)))
+        invoices.save(invoices.draftForEdit(id)!!.copy(paidNow = Money.rupees(500)))
+        val after = db.paymentDao().forInvoice(id).single()
+        assertEquals(first.id, after.id)
+        assertEquals(first.number, after.number)
+        assertEquals(Money.rupees(500), invoices.get(id)!!.paid)
+        // Clearing the payment removes the receipt
+        invoices.save(invoices.draftForEdit(id)!!.copy(paidNow = Money.ZERO))
+        assertTrue(db.paymentDao().forInvoice(id).isEmpty())
+        assertEquals(Money.ZERO, invoices.get(id)!!.paid)
+    }
+
+    @Test fun billNumbersStayUnique() = runTest {
+        // A number typed by hand that the sequence would reach later
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "INV-0002", date = today, lines = listOf(line(null, 1, 10))))
+        val a = sale(null, 10)
+        val b = sale(null, 10)
+        val numbers = listOf(invoices.get(a)!!.number, invoices.get(b)!!.number, "INV-0002")
+        assertEquals(numbers.size, numbers.toSet().size)
+        // Typing a number that is taken is refused; supplier bill numbers may repeat
+        val taken = runCatching { invoices.save(InvoiceDraft(type = DocType.SALE, number = "INV-0002", date = today, lines = listOf(line(null, 1, 10)))) }
+        assertTrue(taken.exceptionOrNull()?.message?.contains("already used") == true)
+        invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "S-1", date = today, lines = listOf(line(null, 1, 10))))
+        invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "S-1", date = today, lines = listOf(line(null, 1, 10))))
+        // The suggestion skips used numbers
+        val next = invoices.nextNumber(DocType.SALE)
+        assertFalse(invoices.numberTaken(DocType.SALE, next, 0))
+    }
+
+    @Test fun hugeLinesAreRefusedInsteadOfOverflowing() = runTest {
+        val huge = InvoiceLine(itemId = null, name = "Gold", qtyMilli = Qty.of(900_000), rate = Money.rupees(9_999_999_999), taxRateBp = 0)
+        val result = runCatching { invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(huge))) }
+        assertTrue(result.exceptionOrNull()?.message?.contains("too large") == true)
+        assertEquals(null, InvoiceRepository.lineProblem(line(null, 10, 1_000_000)))
+    }
+
+    @Test fun duplicatingAnEstimateDoesNotMarkItConverted() = runTest {
+        val est = sale(null, 999, type = DocType.ESTIMATE)
+        val copy = invoices.save(invoices.draftFrom(est, DocType.ESTIMATE)!!)
+        assertEquals(null, invoices.get(copy)!!.convertedFromId)
+        assertEquals(null, invoices.convertedSale(est))
+        assertEquals(null, invoices.observeConvertedSale(est).first())
+        // The real conversion is still found, and the copy of the estimate is not mistaken for it
+        val saleId = invoices.save(invoices.draftFrom(est, DocType.SALE)!!)
+        assertEquals(saleId, invoices.observeConvertedSale(est).first())
+    }
+
+    @Test fun duplicateKeepsThePaymentPeriodNotTheOldDueDate() = runTest {
+        val id = invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today.minusDays(40), dueDate = today.minusDays(25), lines = listOf(line(null, 1, 10))))
+        val copy = invoices.draftFrom(id, DocType.SALE)!!
+        assertEquals(LocalDate.now().plusDays(15), copy.dueDate)
+    }
+
+    @Test fun purchasePriceFollowsTheNewestPurchaseOnly() = runTest {
+        val item = items.save(Item(name = "Rice", purchasePrice = Money.rupees(50)))
+        fun purchase(date: LocalDate, rate: Long) = InvoiceDraft(type = DocType.PURCHASE, number = "", date = date, lines = listOf(line(item, 1, rate)))
+        invoices.save(purchase(today, 60))
+        assertEquals(Money.rupees(60), items.get(item)!!.purchasePrice)
+        invoices.save(purchase(today.minusDays(30), 40)) // an older bill entered late
+        assertEquals(Money.rupees(60), items.get(item)!!.purchasePrice)
+        invoices.save(purchase(today.plusDays(1), 0)) // a free line never sets the cost
+        assertEquals(Money.rupees(60), items.get(item)!!.purchasePrice)
+    }
+
+    @Test fun ledgerShowsABillBeforeThePaymentTakenWithIt() = runTest {
+        val pid = parties.save(Party(name = "Ravi", type = PartyType.CUSTOMER))
+        sale(pid, 1000, paid = 1000)
+        val rows = parties.ledger(pid).first()
+        assertEquals(listOf(false, true), rows.map { it.isPayment })
+        assertEquals(listOf(Money.rupees(1000), Money.ZERO), rows.map { it.balance })
+    }
+
+    @Test fun searchKeepsTamilVowelSigns() {
+        assertEquals("கடை* வீதி*", ItemRepository.ftsQuery("கடை வீதி"))
+        assertEquals("rice* bas*", ItemRepository.ftsQuery("rice, bas"))
+        assertEquals(null, ItemRepository.ftsQuery("   "))
+    }
+
+    @Test fun gstReportLeavesOutPurchasesFromUnregisteredSuppliers() = runTest {
+        fun purchase(gstin: String) = InvoiceDraft(
+            type = DocType.PURCHASE, number = "P", date = today, partyGstin = gstin, partyStateCode = "33",
+            lines = listOf(line(null, 1, 1000, tax = 1800)),
+        )
+        invoices.save(purchase("33AAPFU0939F1ZW"))
+        invoices.save(purchase("")) // unregistered supplier: no input credit
+        val report = reports.gst(DateRange.today(today))
+        assertEquals(Money.rupees(180), report.itc)
+    }
+
+    @Test fun restoreRefusesABackupFromANewerApp() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        ItemRepository(fileDb.itemDao()).save(Item(name = "Keep Me"))
+
+        // A well-formed SQLite file stamped with a future schema version
+        val fake = java.io.File(context.cacheDir, "future.db").also { it.delete() }
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(fake, null).use { d ->
+            d.execSQL("CREATE TABLE business (id INTEGER PRIMARY KEY)")
+            d.version = BillingDatabase.VERSION + 5
+        }
+        val zip = ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(zip).use { z ->
+            z.putNextEntry(java.util.zip.ZipEntry("manifest.txt")); z.write("app=Modern Kallaa Petti\n".toByteArray()); z.closeEntry()
+            z.putNextEntry(java.util.zip.ZipEntry("database.db")); z.write(fake.readBytes()); z.closeEntry()
+        }
+        val failure = runCatching { BackupManager(context, fileDb).restore(zip.toByteArray().inputStream()) }.exceptionOrNull()
+        assertTrue(failure?.message, failure?.message?.contains("newer version") == true)
+        // Nothing was replaced: the current data is still there and the database is still open
+        assertEquals(listOf("Keep Me"), ItemRepository(fileDb.itemDao()).items().first().map { it.item.name })
+        assertTrue(fileDb.isOpen)
+        fileDb.close()
+    }
+
+    @Test fun restoreRefusesADamagedFile() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        ItemRepository(fileDb.itemDao()).save(Item(name = "Keep Me"))
+        val zip = ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(zip).use { z ->
+            z.putNextEntry(java.util.zip.ZipEntry("manifest.txt")); z.write("app=Modern Kallaa Petti\n".toByteArray()); z.closeEntry()
+            z.putNextEntry(java.util.zip.ZipEntry("database.db")); z.write("SQLite format 3\u0000 but nothing useful follows".toByteArray()); z.closeEntry()
+        }
+        assertTrue(runCatching { BackupManager(context, fileDb).restore(zip.toByteArray().inputStream()) }.isFailure)
+        assertEquals(listOf("Keep Me"), ItemRepository(fileDb.itemDao()).items().first().map { it.item.name })
+        fileDb.close()
+    }
 }

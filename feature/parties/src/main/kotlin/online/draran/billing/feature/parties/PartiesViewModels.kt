@@ -127,19 +127,31 @@ class PartyEditorViewModel @Inject constructor(
     val gstinError get() = if (form.gstin.isNotBlank() && !Gstin.isValid(form.gstin)) "This GSTIN is not valid" else null
     val phoneError get() = form.phone.filter { it.isDigit() }.let { if (form.phone.isNotBlank() && it.length !in 10..12) "Enter a 10-digit number" else null }
 
+    var saving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
+
     fun save(onSaved: (Long) -> Unit) {
         showErrors = true
         if (nameError != null || gstinError != null || phoneError != null) return
+        if (saving) return // a double tap must not create the party twice
+        saving = true
         viewModelScope.launch {
-            val amount = MoneyParse.parse(form.opening) ?: Money.ZERO
-            val id = repository.save(
-                Party(
-                    id = partyId.coerceAtLeast(0), name = form.name, type = form.type, phone = form.phone, gstin = form.gstin,
-                    stateCode = form.stateCode, address = form.address,
-                    openingBalance = if (form.openingReceivable) amount else -amount,
-                ),
-            )
-            onSaved(id)
+            try {
+                val amount = MoneyParse.parse(form.opening) ?: Money.ZERO
+                val id = repository.save(
+                    Party(
+                        id = partyId.coerceAtLeast(0), name = form.name, type = form.type, phone = form.phone, gstin = form.gstin,
+                        stateCode = form.stateCode, address = form.address,
+                        openingBalance = if (form.openingReceivable) amount else -amount,
+                    ),
+                )
+                onSaved(id)
+            } catch (e: Exception) {
+                saveError = e.message ?: "Could not save"
+                saving = false
+            }
         }
     }
 
@@ -180,7 +192,8 @@ class PartyDetailViewModel @Inject constructor(
         val b = business.value
         viewModelScope.launch {
             val file = withContext(Dispatchers.IO) {
-                val f = File(Sharing.sharedDir(context), "Statement_${Sharing.safeName(p.party.name)}.pdf")
+                // The id keeps two parties with the same (or non-Latin) name from sharing one file name
+                val f = File(Sharing.sharedDir(context), "Statement_${Sharing.safeName(p.party.name)}_${p.party.id}.pdf")
                 TablePdf(
                     context = context,
                     businessName = b.name,

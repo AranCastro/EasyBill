@@ -83,9 +83,23 @@ class BusinessSettingsViewModel @Inject constructor(
         business = business?.let(transform)
     }
 
-    fun save(onDone: () -> Unit = {}) {
+    private var leaving = false
+
+    /** [onDone] runs once: a double tap on Save must not pop two screens. */
+    fun save(onDone: (() -> Unit)? = null) {
         val b = business ?: return
-        viewModelScope.launch { repository.save(b); onDone() }
+        if (onDone != null) {
+            if (leaving) return
+            leaving = true
+        }
+        viewModelScope.launch {
+            try {
+                repository.save(b)
+                onDone?.invoke()
+            } catch (e: Exception) {
+                leaving = false
+            }
+        }
     }
 }
 

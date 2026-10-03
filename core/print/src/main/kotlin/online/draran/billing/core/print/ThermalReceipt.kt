@@ -30,6 +30,9 @@ class ThermalReceipt(
         data class Text(val text: String, val center: Boolean = false, val bold: Boolean = false, val big: Boolean = false) : Part
         data class Qr(val data: String) : Part
         data class Image(val bitmap: android.graphics.Bitmap) : Part
+
+        /** Text the printer's built-in font cannot print (Tamil, Hindi...), sent as a picture of the text. */
+        data class TextImage(val text: String, val center: Boolean = false, val bold: Boolean = false) : Part
     }
 
     fun parts(): List<Part> {
@@ -45,9 +48,24 @@ class ThermalReceipt(
             }
         }
 
+        /** Plain text is wrapped to the paper width; text with other scripts becomes a picture. */
+        fun emit(text: String, center: Boolean = false, bold: Boolean = false) {
+            text.split("\n").filter { it.isNotBlank() }.forEach { piece ->
+                if (needsImage(piece)) out += Part.TextImage(piece.trim(), center, bold)
+                else wrapText(ascii(piece), width).filter { it.isNotEmpty() }.forEach { line(it, center, bold) }
+            }
+        }
+
         if (logo != null && business.printLogoOnReceipt) out += Part.Image(logo)
-        out += Part.Text(ascii(business.name).take(width), center = true, bold = true, big = width >= 48 || business.name.length <= 16)
-        business.address.split("\n").filter { it.isNotBlank() }.forEach { addr -> wrapText(ascii(addr), width).forEach { line(it, center = true) } }
+        // Double size only when the whole name fits at double width; otherwise it is wrapped at normal size
+        val shopName = business.name.trim()
+        if (needsImage(shopName)) out += Part.TextImage(shopName, center = true, bold = true)
+        else {
+            val plainName = ascii(shopName).ifBlank { "Receipt" }
+            if (plainName.length <= width / 2) out += Part.Text(plainName, center = true, bold = true, big = true)
+            else wrapText(plainName, width).forEach { line(it, center = true, bold = true) }
+        }
+        emit(business.address, center = true)
         if (business.phone.isNotBlank()) line("Ph: ${business.phone}", center = true)
         if (business.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${business.gstin}", center = true)
         business.udyamLine()?.let { u -> wrapText(u, width).forEach { line(it, center = true) } }
@@ -59,13 +77,13 @@ class ThermalReceipt(
         }
         line(title, center = true, bold = true)
         lr("No: ${invoice.number}", invoice.date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH)))
-        line("${if (business.type.party == "Customer") "To" else business.type.party}: ${ascii(invoice.partyName)}".take(width))
-        invoice.customFields.forEach { (k, v) -> wrapText(ascii("$k: $v"), width).forEach { line(it) } }
+        if (invoice.partyName.isNotBlank()) emit("${if (business.type.party == "Customer") "To" else business.type.party}: ${invoice.partyName}")
+        invoice.customFields.forEach { (k, v) -> emit("$k: $v") }
         line(rule)
         lr("Item", "Amount", bold = true)
         line(rule)
         invoice.lines.forEachIndexed { i, l ->
-            wrapText(ascii(l.name), width).forEach { line(it) }
+            emit(l.name.ifBlank { "Item ${i + 1}" })
             val detail = "  ${Qty.format(l.qtyMilli)} x ${amt(l.rate)}" +
                 (if (l.discountBp > 0) " -${Percent.format(l.discountBp)}%" else "") +
                 (if (invoice.gstEnabled && l.taxRateBp > 0) " @${Percent.format(l.taxRateBp)}%" else "")
@@ -85,7 +103,7 @@ class ThermalReceipt(
         if (!t.roundOff.isZero) lr("Round off", amt(t.roundOff))
         out += Part.Text(padLR("TOTAL", "Rs. " + amt(t.total)), bold = true)
         if (invoice.type.tracksPayment) {
-            lr(if (invoice.type == DocType.SALE) "Received" else "Paid", amt(invoice.paid))
+            lr(if (invoice.type.paymentDirection == online.draran.billing.core.model.PaymentDirection.IN) "Received" else "Paid", amt(invoice.paid))
             if (!invoice.balance.isZero) lr("Balance", amt(invoice.balance), bold = true)
         }
         line(rule)
@@ -97,7 +115,7 @@ class ThermalReceipt(
         if (business.msmeNote() != null && invoice.type == DocType.SALE && invoice.balance.paise > 0) {
             wrapText("MSME supplier: payment due within 45 days (MSMED Act 2006, s.15)", width).forEach { line(it, center = true) }
         }
-        if (business.terms.isNotBlank()) wrapText(ascii(business.terms), width).forEach { line(it, center = true) }
+        emit(business.terms, center = true)
         return out
     }
 
@@ -109,6 +127,7 @@ class ThermalReceipt(
             is Part.Text -> if (p.center) p.text.padStart((width + p.text.length) / 2).padEnd(width) else p.text
             is Part.Qr -> "[UPI QR]".padStart((width + 8) / 2)
             is Part.Image -> "[LOGO]".padStart((width + 6) / 2)
+            is Part.TextImage -> if (p.center) p.text.padStart((width + p.text.length) / 2) else p.text
         }
     }
 
@@ -129,8 +148,14 @@ class ThermalReceipt(
                 }
                 is Part.Image -> {
                     cmd(0x1B, 0x61, 1)
-                    out.write(raster(p.bitmap, if (width >= 48) 320 else 240))
+                    out.write(raster(p.bitmap, if (width >= 48) 320 else 240, maxHeight = 200))
                     out.write(0x0A)
+                }
+                is Part.TextImage -> {
+                    // Printable width: 48 mm (384 dots) or 72 mm (576 dots)
+                    val dots = if (width >= 48) 576 else 384
+                    cmd(0x1B, 0x61, 0)
+                    out.write(raster(textBitmap(p.text, dots, p.center, p.bold), dots, maxHeight = Int.MAX_VALUE))
                 }
                 is Part.Qr -> {
                     val data = p.data.toByteArray(Charsets.US_ASCII)
@@ -157,8 +182,9 @@ class ThermalReceipt(
          * ESC/POS "GS v 0" raster image: the bitmap scaled to [maxDots] wide,
          * flattened onto white and turned into black/white dots.
          */
-        fun raster(source: android.graphics.Bitmap, maxDots: Int): ByteArray {
-            val scale = minOf(1f, maxDots.toFloat() / source.width)
+        fun raster(source: android.graphics.Bitmap, maxDots: Int, maxHeight: Int = 200): ByteArray {
+            // A tall logo would otherwise print as a very long strip
+            val scale = minOf(1f, maxDots.toFloat() / source.width, maxHeight.toFloat() / source.height)
             val w = (source.width * scale).toInt().coerceAtLeast(8)
             val h = (source.height * scale).toInt().coerceAtLeast(1)
             val bmp = android.graphics.Bitmap.createScaledBitmap(source, w, h, true)
@@ -192,15 +218,44 @@ class ThermalReceipt(
             val width = if (business.thermalWidthMm >= 80) 48 else 32
             val out = ByteArrayOutputStream()
             out.write(byteArrayOf(0x1B, 0x40, 0x1B, 0x61, 1, 0x1B, 0x45, 1))
-            out.write((ascii(business.name.ifBlank { "Modern Kallaa Petti" }).take(width) + "\n").toByteArray(Charsets.US_ASCII))
+            out.write((ascii(business.name).ifBlank { "Printer test" }.take(width) + "\n").toByteArray(Charsets.US_ASCII))
             out.write(byteArrayOf(0x1B, 0x45, 0))
             out.write(("Printer test OK\n" + "-".repeat(width) + "\n" + "1234567890".repeat(5).take(width) + "\n" + "${business.thermalWidthMm} mm paper\n").toByteArray(Charsets.US_ASCII))
             out.write(byteArrayOf(0x1B, 0x64, 4, 0x1D, 0x56, 0x42, 0))
             return out.toByteArray()
         }
 
-        fun ascii(s: String): String = s.replace("₹", "Rs.").map { if (it.code in 32..126) it else '?' }.joinToString("")
-            .replace("?", "").trim()
+        /**
+         * What a basic printer font can show: accents are removed ("Café" -> "Cafe"),
+         * ₹ becomes "Rs.", and characters it has no glyph for are dropped. Real "?" are kept.
+         */
+        fun ascii(s: String): String {
+            val decomposed = java.text.Normalizer.normalize(s.replace("₹", "Rs."), java.text.Normalizer.Form.NFD)
+            return decomposed.filter { it.code in 32..126 }.replace(Regex(" {2,}"), " ").trim()
+        }
+
+        /** True when [s] has letters outside the Latin script (Tamil, Hindi...), which [ascii] would delete. */
+        fun needsImage(s: String): Boolean = s.any {
+            it.isLetter() && Character.UnicodeScript.of(it.code) != Character.UnicodeScript.LATIN
+        }
+
+        /** Draws [text] in black on white, wrapped to [dots] wide, using the phone's own fonts. */
+        fun textBitmap(text: String, dots: Int, center: Boolean, bold: Boolean): android.graphics.Bitmap {
+            val paint = android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.BLACK
+                textSize = 26f
+                typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            }
+            val layout = android.text.StaticLayout.Builder.obtain(text, 0, text.length, paint, dots)
+                .setAlignment(if (center) android.text.Layout.Alignment.ALIGN_CENTER else android.text.Layout.Alignment.ALIGN_NORMAL)
+                .build()
+            val bitmap = android.graphics.Bitmap.createBitmap(dots, layout.height.coerceAtLeast(1) + 4, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.drawColor(android.graphics.Color.WHITE)
+            canvas.translate(0f, 2f)
+            layout.draw(canvas)
+            return bitmap
+        }
 
         fun wrapText(text: String, width: Int): List<String> {
             if (text.length <= width) return listOf(text)

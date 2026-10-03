@@ -155,10 +155,16 @@ class BusinessFormViewModel @Inject constructor(
         else -> null
     }
 
+    var saving by mutableStateOf(false)
+        private set
+
     fun save(onDone: () -> Unit) {
         showErrors = true
         if (nameError != null || phoneError != null || gstinError != null || upiError != null || udyamError != null) return
+        if (saving || working) return // a double tap would start the app twice; wait for an image still being processed
+        saving = true
         viewModelScope.launch {
+            try {
             val applyType = typeChanged
             // Starter services first: saving onboarded = true swaps the screen and ends this scope
             if (applyType && form.addStarter && form.type.presets.isNotEmpty()) {
@@ -180,6 +186,10 @@ class BusinessFormViewModel @Inject constructor(
                 ),
             )
             onDone()
+            } catch (e: Exception) {
+                message = e.message ?: "Could not save"
+                saving = false
+            }
         }
     }
 }

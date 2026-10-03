@@ -143,6 +143,8 @@ data class Invoice(
     val createdAt: Long = System.currentTimeMillis(),
     /** Industry fields such as Roll no., Stylist or Job card no. */
     val customFields: List<Pair<String, String>> = emptyList(),
+    /** Whether the total was rounded to the rupee when the bill was made. */
+    val roundOff: Boolean = true,
 ) {
     val balance: Money get() = if (type.tracksPayment) totals.total - paid else Money.ZERO
     val isPaid: Boolean get() = type.tracksPayment && !balance.isNegative && balance.isZero

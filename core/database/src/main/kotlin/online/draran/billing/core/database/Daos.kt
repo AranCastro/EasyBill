@@ -109,7 +109,8 @@ interface PartyDao {
             "i.id AS refId, 0 AS isPayment, i.createdAt AS createdAt FROM invoice i WHERE i.partyId = :id AND i.type != 'ESTIMATE' " +
             "UNION ALL SELECT date, CASE direction WHEN 'IN' THEN 'PAYMENT_IN' ELSE 'PAYMENT_OUT' END, number, " +
             "CASE direction WHEN 'IN' THEN -amount ELSE amount END, id, 1, createdAt FROM payment WHERE partyId = :id " +
-            "ORDER BY date, createdAt",
+            // A bill and the payment taken with it share a time: the bill comes first so the balance never dips
+            "ORDER BY date, createdAt, isPayment, refId",
     )
     fun observeLedger(id: Long): Flow<List<LedgerRow>>
 }
@@ -176,6 +177,13 @@ interface InvoiceDao {
     )
     suspend fun docsForAllocation(partyId: Long, types: List<DocType>): List<OpenDocRow>
 
+    /** Date of the newest other purchase bill that includes this item (0 if none). */
+    @Query(
+        "SELECT COALESCE(MAX(i.date), 0) FROM invoice i JOIN invoice_line l ON l.invoiceId = i.id " +
+            "WHERE i.type = 'PURCHASE' AND l.itemId = :itemId AND i.id != :exceptId",
+    )
+    suspend fun latestPurchaseDay(itemId: Long, exceptId: Long): Long
+
     @Query("SELECT COUNT(*) FROM invoice WHERE type = :type AND date = :day")
     fun observeCount(type: DocType, day: Long): Flow<Int>
 
@@ -193,6 +201,8 @@ interface InvoiceDao {
             "COUNT(DISTINCT i.id) AS docs, SUM(l.taxable) AS taxable, SUM(l.cgst) AS cgst, SUM(l.sgst) AS sgst, SUM(l.igst) AS igst " +
             "FROM invoice_line l JOIN invoice i ON i.id = l.invoiceId " +
             "WHERE i.gstEnabled = 1 AND i.type != 'ESTIMATE' AND i.date BETWEEN :from AND :to " +
+            // Input tax credit needs the supplier's GSTIN: purchases from unregistered suppliers are left out
+            "AND (i.type NOT IN ('PURCHASE', 'PURCHASE_RETURN') OR i.partyGstin != '') " +
             "GROUP BY i.type, b2b, i.interState, l.taxRateBp ORDER BY i.type, l.taxRateBp",
     )
     suspend fun gstRates(from: Long, to: Long): List<GstRateRow>
@@ -219,8 +229,11 @@ interface InvoiceDao {
     suspend fun costOfGoodsSold(from: Long, to: Long): Long
 
     @Query(
-        "SELECT l.name AS name, SUM(l.qty) AS qty, l.unit AS unit, SUM(l.total) AS total, SUM(l.qty * l.costRate) / 1000 AS cost " +
-            "FROM invoice_line l JOIN invoice i ON i.id = l.invoiceId WHERE i.type = 'SALE' AND i.date BETWEEN :from AND :to " +
+        // Before tax and net of returns, so it agrees with the profit and loss report
+        "SELECT l.name AS name, SUM(CASE i.type WHEN 'SALE' THEN l.qty ELSE -l.qty END) AS qty, l.unit AS unit, " +
+            "SUM(CASE i.type WHEN 'SALE' THEN l.taxable ELSE -l.taxable END) AS total, " +
+            "SUM(CASE i.type WHEN 'SALE' THEN l.qty * l.costRate ELSE -l.qty * l.costRate END) / 1000 AS cost " +
+            "FROM invoice_line l JOIN invoice i ON i.id = l.invoiceId WHERE i.type IN ('SALE', 'SALE_RETURN') AND i.date BETWEEN :from AND :to " +
             "GROUP BY COALESCE(l.itemId, l.name), l.unit ORDER BY total DESC",
     )
     suspend fun itemSales(from: Long, to: Long): List<ItemSalesRow>
@@ -231,8 +244,12 @@ interface InvoiceDao {
     )
     suspend fun register(type: DocType, from: Long, to: Long): List<InvoiceSummaryRow>
 
-    @Query("SELECT * FROM invoice WHERE convertedFromId = :id LIMIT 1")
+    // Only a sale counts as the conversion of an estimate
+    @Query("SELECT * FROM invoice WHERE convertedFromId = :id AND type = 'SALE' LIMIT 1")
     suspend fun convertedFrom(id: Long): InvoiceEntity?
+
+    @Query("SELECT id FROM invoice WHERE convertedFromId = :id AND type = 'SALE' LIMIT 1")
+    fun observeConvertedSaleId(id: Long): Flow<Long?>
 }
 
 @Dao

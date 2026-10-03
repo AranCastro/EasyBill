@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -237,7 +238,7 @@ private fun ChargeSheet(
     var print by remember { mutableStateOf(canPrint) }
     val ext = BillingTheme.extendedColors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = Spacing.lg).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        Column(Modifier.padding(horizontal = Spacing.lg).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Amount to collect", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 AmountText(total, style = MaterialTheme.typography.displaySmall)
@@ -270,10 +271,15 @@ private fun ChargeSheet(
                     Switch(checked = print, onCheckedChange = { print = it })
                 }
             }
+            // A failed save (for example a number already used) is shown here, where the cashier is looking
+            viewModel.error?.let { message ->
+                Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
             Button(
                 onClick = { viewModel.fullyPaid = true; viewModel.save { id -> onSaved(id, print && canPrint) } },
+                enabled = !viewModel.saving,
                 modifier = Modifier.fillMaxWidth().height(54.dp),
-            ) { Text("Paid · Save bill", style = MaterialTheme.typography.titleMedium) }
+            ) { Text(if (viewModel.saving) "Saving…" else "Paid · Save bill", style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.height(Spacing.md))
         }
     }

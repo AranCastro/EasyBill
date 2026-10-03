@@ -112,17 +112,19 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
     }
 
     private suspend fun dayBook(range: DateRange): ReportContent {
-        val entries = repo.dayBook(range).first()
+        val entries = repo.dayBook(range, limit = Int.MAX_VALUE).first()
         fun label(kind: String) = when (kind) {
             "PAYMENT_IN" -> "Payment in"
             "PAYMENT_OUT" -> "Payment out"
             "EXPENSE" -> "Expense"
             else -> DocType.entries.firstOrNull { it.name == kind }?.shortTitle ?: kind
         }
-        val moneyIn = entries.filter { it.flow > 0 }.map { it.amount }.sum()
-        val moneyOut = entries.filter { it.flow < 0 }.map { it.amount }.sum()
+        // Separate kinds only: a credit sale and the receipt that later settles it must not both count as money in
+        val sales = entries.filter { it.kind == "SALE" }.map { it.amount }.sum()
+        val paymentsIn = entries.filter { it.kind == "PAYMENT_IN" }.map { it.amount }.sum()
+        val paymentsOut = entries.filter { it.kind == "PAYMENT_OUT" || it.kind == "EXPENSE" }.map { it.amount }.sum()
         return ReportContent(
-            kpis = listOf(Kpi("Value in", moneyIn, Tone.GOOD), Kpi("Value out", moneyOut, Tone.BAD)),
+            kpis = listOf(Kpi("Sales billed", sales, Tone.BRAND), Kpi("Payments in", paymentsIn, Tone.GOOD), Kpi("Payments out & expenses", paymentsOut, Tone.BAD)),
             sections = listOf(
                 ReportSection(
                     null,
@@ -146,7 +148,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                     rows.map { listOf(it.name, "${Qty.format(it.qtyMilli)} ${it.unit}", rs(it.total), rs(it.cost), rs(it.total - it.cost)) },
                 ),
             ),
-            note = "Sales include GST; cost is the purchase price. Margin is indicative.",
+            note = "Sales are before GST and net of returns, like the profit and loss report. Cost is the purchase price. Margin is indicative.",
         )
     }
 
@@ -208,7 +210,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                     ),
                 ),
             ),
-            note = "A summary to help you or your accountant file returns. Verify with the GST portal before filing.",
+            note = "A summary to help you or your accountant file returns. Verify with the GST portal before filing. Purchases from suppliers without a GSTIN are left out of input tax credit.",
         )
     }
 

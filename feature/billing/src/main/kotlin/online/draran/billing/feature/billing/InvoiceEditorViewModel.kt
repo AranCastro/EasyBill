@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import online.draran.billing.core.data.BrandingManager
@@ -51,7 +52,7 @@ class InvoiceEditorViewModel @Inject constructor(
     private val invoices: InvoiceRepository,
     private val items: ItemRepository,
     private val parties: PartyRepository,
-    businessRepository: BusinessRepository,
+    private val businessRepository: BusinessRepository,
     private val branding: BrandingManager,
 ) : ViewModel() {
 
@@ -84,6 +85,13 @@ class InvoiceEditorViewModel @Inject constructor(
     var loaded by mutableStateOf(false)
         private set
     private var convertedFromId: Long? = null
+
+    /** GST and round-off a bill was made under, kept when it is edited (null = the shop's current settings). */
+    private var editGst: Boolean? = null
+    private var editRound: Boolean? = null
+
+    /** Whether tax applies to this bill: its own setting when editing an old bill, else the shop's. */
+    val gstOn: Boolean get() = editGst ?: business.value.gstEnabled
     private var originalNumber = ""
 
     fun init(docType: DocType, id: Long, sourceId: Long, partyId: Long) {
@@ -91,6 +99,8 @@ class InvoiceEditorViewModel @Inject constructor(
         loaded = true
         type = docType
         viewModelScope.launch {
+            // The shop settings load asynchronously; totals below must not run on the empty defaults
+            business.first { it.onboarded }
             val draft: InvoiceDraft? = when {
                 id != 0L -> invoices.draftForEdit(id)
                 sourceId != 0L -> invoices.draftFrom(sourceId, docType)
@@ -111,6 +121,8 @@ class InvoiceEditorViewModel @Inject constructor(
                 customValues = draft.customFields.toMap()
                 draftLabels = draft.customFields.map { it.first }
                 convertedFromId = draft.convertedFromId
+                editGst = draft.gstEnabled
+                editRound = draft.roundOff
                 val total = totals().total
                 fullyPaid = draft.paidNow.paise >= total.paise && total.paise > 0 || (draft.id == 0L && draft.partyId == null)
                 received = if (fullyPaid || draft.paidNow.isZero) "" else MoneyParse.toInput(draft.paidNow)
@@ -138,10 +150,10 @@ class InvoiceEditorViewModel @Inject constructor(
 
     fun interState(): Boolean {
         val b = business.value
-        return b.gstEnabled && party.stateCode.isNotBlank() && party.stateCode != b.stateCode
+        return gstOn && party.stateCode.isNotBlank() && party.stateCode != b.stateCode
     }
 
-    fun totals(): BillTotals = TaxEngine.bill(lines.map { it.toInput() }, interState(), business.value.gstEnabled, business.value.roundOff)
+    fun totals(): BillTotals = TaxEngine.bill(lines.map { it.toInput() }, interState(), gstOn, editRound ?: business.value.roundOff)
 
     fun selectParty(p: Party, balance: Money = Money.ZERO) {
         party = PartyChoice(p.id, p.name, p.phone, p.gstin, p.address, p.stateCode, balance)
@@ -240,7 +252,7 @@ class InvoiceEditorViewModel @Inject constructor(
         val total = totals().total
         error = when {
             lines.isEmpty() -> "Add at least one item"
-            lines.any { it.qtyMilli <= 0 } -> "Quantities must be more than zero"
+            lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) } != null -> lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) }
             type.tracksPayment && party.isCash && paidAmount().paise < total.paise ->
                 "Select a ${type.partyType.label.lowercase()} to keep a balance, or mark it fully paid"
             type == DocType.PURCHASE && number.isBlank() -> null
@@ -252,6 +264,7 @@ class InvoiceEditorViewModel @Inject constructor(
             try {
                 if (number.isNotBlank() && number != originalNumber && type != DocType.PURCHASE && invoices.numberTaken(type, number, invoiceId)) {
                     error = "Number $number is already used"
+                    saving = false
                     return@launch
                 }
                 val id = invoices.save(
@@ -262,12 +275,13 @@ class InvoiceEditorViewModel @Inject constructor(
                         lines = lines, notes = notes, paidNow = paidAmount(), paymentMode = mode, convertedFromId = convertedFromId,
                         dueDate = dueDate?.takeIf { type == DocType.SALE },
                         customFields = customLabels.map { it to customValues[it].orEmpty().trim() }.filter { it.second.isNotEmpty() },
+                        gstEnabled = editGst, roundOff = editRound,
                     ),
                 )
+                // Stays "saving" after success, so a second tap cannot save a copy; reset() or a new editor clears it
                 onSaved(id)
             } catch (e: Exception) {
                 error = e.message ?: "Could not save"
-            } finally {
                 saving = false
             }
         }
@@ -275,6 +289,10 @@ class InvoiceEditorViewModel @Inject constructor(
 
     /** Resets for the next bill after "Save & new". */
     fun reset() {
+        saving = false
+        date = LocalDate.now()
+        editGst = null
+        editRound = null
         lines = emptyList()
         notes = ""
         dueDate = null
@@ -296,7 +314,11 @@ class InvoiceEditorViewModel @Inject constructor(
         if (b.printerAddress.isBlank()) return
         viewModelScope.launch {
             val inv = invoices.get(id) ?: return@launch
-            val result = online.draran.billing.core.print.BluetoothPrinter.print(context, b.printerAddress, online.draran.billing.core.print.ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos())
+            val result = runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    online.draran.billing.core.print.ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos()
+                }
+            }.fold({ bytes -> online.draran.billing.core.print.BluetoothPrinter.print(context, b.printerAddress, bytes) }, { Result.failure(it) })
             onResult(result.fold({ "Receipt printed" }, { "Print failed: ${it.message}" }))
         }
     }

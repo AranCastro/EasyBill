@@ -25,11 +25,16 @@ class TablePdf(
     private val logo: android.graphics.Bitmap? = null,
     /** Accent colour; pass Business.accent(). */
     private val brand: Int = PdfFonts.BRAND,
+    /** Right-align cells that look like amounts, whatever the column setting (reports mix several tables). */
+    private val autoAlign: Boolean = false,
 ) {
     private val brandTint = online.draran.billing.core.model.BillColors.tint(brand)
     private val fonts = PdfFonts(context)
-    private val pageW = 595f
-    private val pageH = 842f
+    // Wide tables (GST reports have eight columns) are printed in landscape so amounts fit
+    private val landscape = columns.size >= 6
+    private val pageW = if (landscape) 842f else 595f
+    private val pageH = if (landscape) 595f else 842f
+    private val hasHeader = columns.any { it.title.isNotBlank() }
     private val margin = 36f
     private val contentW = pageW - 2 * margin
     private val rowH = 18f
@@ -43,7 +48,7 @@ class TablePdf(
         var start = 0
         var top = firstTop
         do {
-            val capacity = ((bottom - top - headerH) / rowH).toInt().coerceAtLeast(1)
+            val capacity = ((bottom - top - (if (hasHeader) headerH else 0f)) / rowH).toInt().coerceAtLeast(1)
             val end = minOf(rows.size, start + capacity)
             list += start until end
             start = end
@@ -52,7 +57,7 @@ class TablePdf(
         // Summary needs room after the last rows
         val lastRows = list.last().count()
         val lastTop = if (list.size == 1) firstTop else nextTop
-        if (summary.isNotEmpty() && lastTop + headerH + lastRows * rowH + 20f + summary.size * 18f > bottom) list += IntRange.EMPTY
+        if (summary.isNotEmpty() && lastTop + (if (hasHeader) headerH else 0f) + lastRows * rowH + 20f + summary.size * 18f > bottom) list += IntRange.EMPTY
         list
     }
     val pageCount get() = pages.size
@@ -66,13 +71,19 @@ class TablePdf(
                 val sc = minOf(46f / it.width, 46f / it.height)
                 canvas.drawBitmap(it, null, RectF(margin, margin, margin + it.width * sc, margin + it.height * sc), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
             }
-            canvas.drawText(businessName, left, margin + 18f, fonts.paint(16f, fonts.bold))
+            val titlePaint = fonts.paint(13f, fonts.bold, brand, Paint.Align.RIGHT)
+            val titleText = title.uppercase()
+            // Name on the left, title on the right; neither may reach the other
+            val nameRoom = contentW - (left - margin) - titlePaint.measureText(titleText) - 16f
+            canvas.drawText(ellipsize(businessName, fonts.paint(16f, fonts.bold), nameRoom), left, margin + 18f, fonts.paint(16f, fonts.bold))
             var y = margin + 34f
-            wrap(businessInfo, fonts.paint(8f, color = PdfFonts.MUTED), contentW * 0.6f - (left - margin)).take(3).forEach {
+            val infoWidth = contentW * 0.5f - (left - margin)
+            wrap(businessInfo, fonts.paint(8f, color = PdfFonts.MUTED), infoWidth).take(3).forEach {
                 canvas.drawText(it, left, y, fonts.paint(8f, color = PdfFonts.MUTED)); y += 11f
             }
-            canvas.drawText(title.uppercase(), pageW - margin, margin + 18f, fonts.paint(13f, fonts.bold, brand, Paint.Align.RIGHT))
-            canvas.drawText(subtitle, pageW - margin, margin + 34f, fonts.paint(9f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
+            canvas.drawText(titleText, pageW - margin, margin + 18f, titlePaint)
+            val subPaint = fonts.paint(9f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT)
+            canvas.drawText(ellipsize(subtitle, subPaint, contentW * 0.45f), pageW - margin, margin + 34f, subPaint)
             firstTop
         } else {
             canvas.drawText("$title (continued)", margin, margin + 14f, fonts.paint(10f, fonts.bold))
@@ -83,24 +94,46 @@ class TablePdf(
         val widths = columns.map { contentW * it.weight / totalWeight }
         var y = top
         if (!range.isEmpty() || index == 0) {
-            canvas.drawRoundRect(RectF(margin, y, pageW - margin, y + headerH), 4f, 4f, Paint().apply { color = brandTint })
             var x = margin
-            columns.forEachIndexed { i, c ->
-                val p = fonts.paint(8f, fonts.bold, brand, if (c.alignRight) Paint.Align.RIGHT else Paint.Align.LEFT)
-                canvas.drawText(c.title, if (c.alignRight) x + widths[i] - 6f else x + 6f, y + 13.5f, p)
-                x += widths[i]
+            if (hasHeader) {
+                canvas.drawRoundRect(RectF(margin, y, pageW - margin, y + headerH), 4f, 4f, Paint().apply { color = brandTint })
+                columns.forEachIndexed { i, c ->
+                    val p = fonts.paint(8f, fonts.bold, brand, if (c.alignRight) Paint.Align.RIGHT else Paint.Align.LEFT)
+                    canvas.drawText(c.title, if (c.alignRight) x + widths[i] - 6f else x + 6f, y + 13.5f, p)
+                    x += widths[i]
+                }
+                y += headerH
             }
-            y += headerH
             val line = Paint().apply { color = PdfFonts.LINE; strokeWidth = 0.6f }
             for (r in range) {
                 x = margin
-                rows[r].forEachIndexed { i, cell ->
-                    if (i >= columns.size) return@forEachIndexed
-                    val c = columns[i]
-                    val p = fonts.paint(8.5f, align = if (c.alignRight) Paint.Align.RIGHT else Paint.Align.LEFT)
-                    val text = ellipsize(cell, p, widths[i] - 12f)
-                    canvas.drawText(text, if (c.alignRight) x + widths[i] - 6f else x + 6f, y + 12.5f, p)
-                    x += widths[i]
+                val cells = rows[r]
+                val first = cells.firstOrNull().orEmpty()
+                when {
+                    first.startsWith(HEADING) -> {
+                        // Section title spanning the row
+                        canvas.drawRect(RectF(margin, y, pageW - margin, y + rowH), Paint().apply { color = brandTint })
+                        canvas.drawText(ellipsize(first.removePrefix(HEADING), fonts.paint(9f, fonts.bold, brand), contentW - 12f), margin + 6f, y + 12.5f, fonts.paint(9f, fonts.bold, brand))
+                    }
+                    first.startsWith(SUBHEAD) -> {
+                        cells.forEachIndexed { i, raw ->
+                            if (i >= columns.size) return@forEachIndexed
+                            val right = raw.removePrefix(SUBHEAD).startsWith(RIGHT)
+                            val text = raw.removePrefix(SUBHEAD).removePrefix(RIGHT)
+                            val p = fonts.paint(7.5f, fonts.bold, PdfFonts.MUTED, if (right) Paint.Align.RIGHT else Paint.Align.LEFT)
+                            canvas.drawText(ellipsize(text, p, widths[i] - 12f), if (right) x + widths[i] - 6f else x + 6f, y + 12.5f, p)
+                            x += widths[i]
+                        }
+                    }
+                    else -> cells.forEachIndexed { i, cell ->
+                        if (i >= columns.size) return@forEachIndexed
+                        // The first column holds labels and codes, so it stays left-aligned
+                        val right = columns[i].alignRight || (autoAlign && i > 0 && Companion.looksNumeric(cell))
+                        val p = fonts.paint(8.5f, align = if (right) Paint.Align.RIGHT else Paint.Align.LEFT)
+                        val text = fit(cell, p, widths[i] - 12f, shrinkFirst = right)
+                        canvas.drawText(text, if (right) x + widths[i] - 6f else x + 6f, y + 12.5f, p)
+                        x += widths[i]
+                    }
                 }
                 y += rowH
                 canvas.drawLine(margin, y, pageW - margin, y, line)
@@ -123,11 +156,44 @@ class TablePdf(
         canvas.drawText("Page ${index + 1} of $pageCount", pageW - margin, fy, fonts.paint(7.5f, color = PdfFonts.MUTED, align = Paint.Align.RIGHT))
     }
 
+    /**
+     * Fits [text] into [width]. Amounts are never cut ("₹1,23,45…" reads as a wrong
+     * number): the font is made smaller first, and only text is shortened.
+     */
+    private fun fit(text: String, paint: Paint, width: Float, shrinkFirst: Boolean): String {
+        if (shrinkFirst) {
+            var size = paint.textSize
+            while (paint.measureText(text) > width && size > 5.5f) {
+                size -= 0.25f
+                paint.textSize = size
+            }
+        }
+        return ellipsize(text, paint, width)
+    }
+
     private fun ellipsize(text: String, paint: Paint, width: Float): String {
         if (paint.measureText(text) <= width) return text
         var end = text.length
         while (end > 1 && paint.measureText(text.substring(0, end) + "…") > width) end--
         return text.substring(0, end) + "…"
+    }
+
+    companion object {
+        /** First-cell prefix: a section title spanning the row. */
+        const val HEADING = "\u0001"
+
+        /** First-cell prefix: column titles of a section; prefix a cell with [RIGHT] to right-align it. */
+        const val SUBHEAD = "\u0002"
+        const val RIGHT = "\u0004"
+
+        /** Amounts, short counts and percentages (a 10-digit phone number is not numeric). */
+        fun looksNumeric(cell: String): Boolean {
+            val t = cell.trim()
+            return t.startsWith("₹") || t.startsWith("-₹") || t.startsWith("(₹") || NUMBER.matches(t)
+        }
+
+        // Short integers, decimals and percentages (a 10-digit phone number stays left-aligned)
+        private val NUMBER = Regex("^-?[\\d,]{1,9}(\\.\\d+)?%?$")
     }
 
     fun writeTo(file: File) {

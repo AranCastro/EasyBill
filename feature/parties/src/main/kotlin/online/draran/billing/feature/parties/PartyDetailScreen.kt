@@ -24,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -65,6 +69,11 @@ fun PartyDetailRoute(
     val ledger by viewModel.ledger.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val ext = BillingTheme.extendedColors
+    // If the party is deleted while this screen is open, leave instead of showing a blank page
+    var wasShown by remember { mutableStateOf(false) }
+    LaunchedEffect(partyWithBalance) {
+        if (partyWithBalance != null) wasShown = true else if (wasShown) onBack()
+    }
     val p = partyWithBalance ?: return
     val party = p.party
     val isCustomer = party.type == PartyType.CUSTOMER
@@ -78,7 +87,8 @@ fun PartyDetailRoute(
         bottomBar = {
             Row(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.md).padding(bottom = 8.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 FilledTonalButton(onClick = { onPayment(party.type) }, modifier = Modifier.weight(1f).height(50.dp)) {
@@ -120,7 +130,8 @@ fun PartyDetailRoute(
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     QuickButton("Call", AppIcons.Phone, enabled = party.phone.isNotBlank(), modifier = Modifier.weight(1f)) { Sharing.dial(context, party.phone) }
-                    QuickButton("Remind", AppIcons.WhatsApp, enabled = party.phone.isNotBlank() && p.balance.paise != 0L, modifier = Modifier.weight(1f)) {
+                    // The reminder says money is pending with the shop, so only customers who owe something get one
+                    QuickButton("Remind", AppIcons.WhatsApp, enabled = isCustomer && party.phone.isNotBlank() && p.balance.paise > 0L, modifier = Modifier.weight(1f)) {
                         Sharing.whatsAppMessage(context, party.phone, viewModel.reminderText())
                     }
                     QuickButton("Statement", AppIcons.FilePdf, modifier = Modifier.weight(1f)) { viewModel.shareStatement(context) }

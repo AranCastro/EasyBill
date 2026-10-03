@@ -271,7 +271,12 @@ fun BillingApp(
                     partyId = r.partyId,
                     newItemId = newItem,
                     onBack = { nav.popBackStack() },
-                    onSaved = { id -> nav.navigate(NavInvoiceDetail(id)) { popUpTo<NavInvoiceEditor> { inclusive = true } } },
+                    onSaved = { id ->
+                        // Editing from a bill's page: go back to that page (it refreshes itself) instead of stacking a second copy
+                        val cameFromDetail = nav.previousBackStackEntry?.destination?.hierarchy?.any { it.hasRoute(NavInvoiceDetail::class) } == true
+                        if (r.id != 0L && cameFromDetail) nav.popBackStack()
+                        else nav.navigate(NavInvoiceDetail(id)) { popUpTo<NavInvoiceEditor> { inclusive = true } }
+                    },
                     onCreateItem = { code -> nav.navigate(createItemRoute(code)) },
                 )
             }

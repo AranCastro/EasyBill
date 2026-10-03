@@ -48,8 +48,9 @@ class InvoiceDetailViewModel @Inject constructor(
 
     var preview by mutableStateOf<Bitmap?>(null)
         private set
-    var convertedSaleId by mutableStateOf<Long?>(null)
-        private set
+    /** The sale made from this estimate; updates when the user comes back from converting it. */
+    val convertedSaleId: StateFlow<Long?> = id.flatMapLatest { if (it == 0L) flowOf(null) else invoices.observeConvertedSale(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     var busy by mutableStateOf(false)
         private set
     var message by mutableStateOf<String?>(null)
@@ -57,10 +58,13 @@ class InvoiceDetailViewModel @Inject constructor(
     fun load(invoiceId: Long, context: Context) {
         if (id.value == invoiceId) return
         id.value = invoiceId
-        viewModelScope.launch { convertedSaleId = invoices.convertedSale(invoiceId) }
+        // The application context: this collector outlives the Activity that first showed the screen
+        val app = context.applicationContext
         viewModelScope.launch {
             combine(invoice, business, branding.version) { inv, b, _ -> inv to b }.collect { (inv, b) ->
-                if (inv != null) preview = withContext(Dispatchers.Default) { render(context, inv, b) }
+                if (inv != null) {
+                    preview = runCatching { withContext(Dispatchers.Default) { render(app, inv, b) } }.getOrNull() ?: preview
+                }
             }
         }
     }
@@ -95,18 +99,29 @@ class InvoiceDetailViewModel @Inject constructor(
     }
 
     fun share(context: Context, whatsApp: Boolean) {
+        if (busy) return
         viewModelScope.launch {
             busy = true
-            val file = pdfFile(context)
-            busy = false
-            if (file != null) Sharing.shareFile(context, file, "application/pdf", shareText(), whatsApp)
+            try {
+                val file = pdfFile(context)
+                if (file != null) Sharing.shareFile(context, file, "application/pdf", shareText(), whatsApp)
+            } catch (e: Exception) {
+                message = "Could not create the PDF: ${e.message ?: "unknown error"}"
+            } finally {
+                busy = false
+            }
         }
     }
 
     fun printSystem(context: Context) {
+        if (busy) return
         viewModelScope.launch {
-            val file = pdfFile(context) ?: return@launch
-            Sharing.printPdf(context, file, invoice.value?.number ?: "Bill")
+            try {
+                val file = pdfFile(context) ?: return@launch
+                Sharing.printPdf(context, file, invoice.value?.number ?: "Bill")
+            } catch (e: Exception) {
+                message = "Could not start printing: ${e.message ?: "unknown error"}"
+            }
         }
     }
 
@@ -115,9 +130,12 @@ class InvoiceDetailViewModel @Inject constructor(
         val inv = invoice.value ?: return true
         val b = business.value
         if (b.printerAddress.isBlank()) return false
+        if (busy) return true
         viewModelScope.launch {
             busy = true
-            val result = BluetoothPrinter.print(context, b.printerAddress, ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos())
+            // Decoding the logo and building the picture lines is slow work: off the main thread, inside the error handling
+            val result = runCatching { withContext(Dispatchers.Default) { ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos() } }
+                .fold({ bytes -> BluetoothPrinter.print(context, b.printerAddress, bytes) }, { Result.failure(it) })
             busy = false
             message = result.fold({ "Sent to ${b.printerName.ifBlank { "printer" }}" }, { "Printing failed: ${it.message ?: "check the printer is on and paired"}" })
         }

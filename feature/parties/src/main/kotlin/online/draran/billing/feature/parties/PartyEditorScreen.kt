@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -68,8 +69,9 @@ fun PartyEditorRoute(
             })
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onSaved) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save $noun") }
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
+                viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
+                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save $noun") }
             }
         },
     ) { padding ->

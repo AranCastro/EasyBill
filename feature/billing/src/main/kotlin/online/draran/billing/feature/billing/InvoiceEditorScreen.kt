@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -133,7 +134,7 @@ fun InvoiceEditorRoute(
         },
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().imePadding(),
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = padding.calculateTopPadding() + Spacing.xs, bottom = padding.calculateBottomPadding() + Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
@@ -162,7 +163,7 @@ fun InvoiceEditorRoute(
                             val hint = listOfNotNull(
                                 p.phone.takeIf { it.isNotBlank() },
                                 if (!p.balance.isZero) (if (p.balance.paise > 0) "Owes " else "Advance ") + IndianFormat.rupees(p.balance.abs(), showPaise = false) else null,
-                                if (business.gstEnabled && interState) "IGST" else null,
+                                if (viewModel.gstOn && interState) "IGST" else null,
                             ).joinToString(" · ")
                             if (hint.isNotBlank()) Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -244,7 +245,7 @@ fun InvoiceEditorRoute(
                                         val detail = buildString {
                                             append("${Qty.format(line.qtyMilli)} ${line.unit} × ${IndianFormat.rupees(line.rate)}")
                                             if (line.discountBp > 0) append(" · -${Percent.format(line.discountBp)}%")
-                                            if (business.gstEnabled && line.taxRateBp > 0) append(" · GST ${Percent.format(line.taxRateBp)}%")
+                                            if (viewModel.gstOn && line.taxRateBp > 0) append(" · GST ${Percent.format(line.taxRateBp)}%")
                                         }
                                         Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (amounts != null) AmountText(amounts.total, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -262,7 +263,7 @@ fun InvoiceEditorRoute(
                         Column {
                             AmountRow("Sub total", totals.subtotal)
                             if (!totals.discount.isZero) AmountRow("Discount", -totals.discount, color = ext.received)
-                            if (business.gstEnabled) {
+                            if (viewModel.gstOn) {
                                 AmountRow("Taxable value", totals.taxable)
                                 if (interState) AmountRow("IGST", totals.igst) else {
                                     AmountRow("CGST", totals.cgst)
@@ -304,7 +305,8 @@ fun InvoiceEditorRoute(
             }
             // Notes
             item {
-                if (showNotes) {
+                // Notes of an edited bill arrive after the screen is first drawn
+                if (showNotes || viewModel.notes.isNotBlank()) {
                     FormField(viewModel.notes, { viewModel.notes = it }, "Notes (printed on the bill)", singleLine = false, minLines = 2)
                 } else {
                     OutlinedButton(onClick = { showNotes = true }) {
@@ -352,7 +354,7 @@ fun InvoiceEditorRoute(
         val line = viewModel.lines.getOrNull(editIndex)
         LineEditSheet(
             line = line,
-            gstEnabled = business.gstEnabled,
+            gstEnabled = viewModel.gstOn,
             interState = interState,
             onSave = { updated -> if (line == null) viewModel.addCustomLine(updated.name, updated.rate, updated.qtyMilli, updated.taxRateBp) else viewModel.updateLine(editIndex, updated) },
             onRemove = { if (editIndex >= 0) viewModel.removeLine(editIndex) },

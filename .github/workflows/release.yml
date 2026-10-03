@@ -24,6 +24,18 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Add the RELEASE_* repository secrets (see the comment at the top of this file) before tagging a release." >&2
+            exit 1
+          fi
+
+      - name: Tests
+        run: ./gradlew testDebugUnitTest :core:model:test
+
       - name: Build release APK
         run: ./gradlew :app:assembleRelease
 

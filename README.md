@@ -4,7 +4,9 @@
 
 Free, offline-first billing, stock and accounts app for Android, for GST and
 non-GST shops in India. Kotlin + Jetpack Compose + Material 3. All data stays
-on the phone; there is no server and no running cost.
+on the phone; there is no server and no running cost. (Android's own
+Google account backup may also keep an encrypted copy of the app data, which
+you can switch off in the phone's backup settings.)
 
 **Status: v1.3.0** — feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,

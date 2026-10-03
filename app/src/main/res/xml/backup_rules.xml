@@ -4,4 +4,6 @@
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
     <include domain="file" path="datastore/" />
+    <!-- Logo and signature, so a restored database does not point at missing images. -->
+    <include domain="file" path="branding/" />
 </full-backup-content>

@@ -26,10 +26,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Unit and screenshot tests
-        run: ./gradlew test testDebugUnitTest
+        run: ./gradlew testDebugUnitTest :core:model:test
 
+      # All modules: library modules are not linted by :app:lintDebug alone
       - name: Lint
-        run: ./gradlew :app:lintDebug
+        run: ./gradlew lintDebug
 
       - name: Build debug APK
         run: ./gradlew assembleDebug

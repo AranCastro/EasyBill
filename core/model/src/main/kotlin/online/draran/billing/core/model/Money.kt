@@ -24,3 +24,7 @@ value class Money(val paise: Long) : Comparable<Money> {
 }
 
 fun Iterable<Money>.sum(): Money = Money(sumOf { it.paise })
+
+operator fun Money.times(factor: Int) = Money(paise * factor)
+
+fun Money.abs() = if (paise < 0) Money(-paise) else this

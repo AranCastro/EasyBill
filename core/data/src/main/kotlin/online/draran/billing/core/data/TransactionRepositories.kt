@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import online.draran.billing.core.database.AgainstRow
 import online.draran.billing.core.database.AllocationEntity
 import online.draran.billing.core.database.NoteAllocationEntity
 import online.draran.billing.core.database.BillingDatabase
@@ -149,14 +150,17 @@ class InvoiceRepository @Inject constructor(
 
     fun forParty(partyId: Long): Flow<List<InvoiceSummary>> = dao.observeForParty(partyId).map { rows -> rows.map { it.toModel() } }
 
-    fun invoice(id: Long): Flow<Invoice?> = combine(dao.observe(id), dao.observeLines(id), dao.observePaid(id)) { entity, lines, paid ->
-        entity?.toModel(lines, paid)
+    fun invoice(id: Long): Flow<Invoice?> = combine(dao.observe(id), dao.observeLines(id), dao.observePaid(id), dao.observeAgainst(id)) { entity, lines, paid, against ->
+        entity?.toModel(lines, paid)?.copy(reference = referenceText(against))
     }
 
     suspend fun get(id: Long): Invoice? {
         val entity = dao.get(id) ?: return null
-        return entity.toModel(dao.lines(id), dao.paid(id))
+        return entity.toModel(dao.lines(id), dao.paid(id)).copy(reference = referenceText(dao.against(id)))
     }
+
+    private fun referenceText(rows: List<AgainstRow>): String =
+        rows.joinToString(", ") { "${it.number} dated ${it.date.toDate().format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))}" }
 
     /** The next free number: after the highest sequence, skipping any number typed by hand that is already used. */
     suspend fun nextNumber(type: DocType): String {

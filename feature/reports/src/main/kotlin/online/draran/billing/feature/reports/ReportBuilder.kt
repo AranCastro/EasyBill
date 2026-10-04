@@ -187,7 +187,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
             kpis = listOf(
                 Kpi("Output tax", g.outputTax, Tone.BAD),
                 Kpi("Input tax credit", g.itc, Tone.GOOD),
-                Kpi(if (g.netPayable.isNegative) "Carry forward" else "Net GST payable", g.netPayable.abs(), Tone.BRAND),
+                Kpi("GST to pay in cash", g.setOff.cash, Tone.BRAND),
             ),
             sections = listOf(
                 section("GSTR-1 · B2B (to GST-registered buyers)", g.b2b),
@@ -207,11 +207,12 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                         listOf("3.1(a) Outward taxable supplies", rs(g.outwardTaxable), rs(g.outputCgst), rs(g.outputSgst), rs(g.outputIgst)),
                         listOf("3.1(c) Nil rated and exempted", rs(g.outwardNilExempt), "", "", ""),
                         listOf("4(A) Input tax credit", rs(g.inwardTaxable), rs(g.itcCgst), rs(g.itcSgst), rs(g.itcIgst)),
-                        listOf("Net payable", "", rs(g.outputCgst - g.itcCgst), rs(g.outputSgst - g.itcSgst), rs(g.outputIgst - g.itcIgst)),
+                        listOf("Cash to pay after set-off", "", rs(g.setOff.cashCgst), rs(g.setOff.cashSgst), rs(g.setOff.cashIgst)),
+                        listOf("Credit carried forward", "", rs(g.setOff.carryCgst), rs(g.setOff.carrySgst), rs(g.setOff.carryIgst)),
                     ),
                 ),
             ),
-            note = "A summary to help you or your accountant file returns. Verify with the GST portal before filing. Purchases from suppliers without a GSTIN are left out of input tax credit.",
+            note = "A summary to help you or your accountant file returns. IGST credit is set against IGST, then CGST, then SGST; CGST and SGST credit are set against their own tax, then IGST. Verify with the GST portal before filing. Purchases from suppliers without a GSTIN are left out of input tax credit.",
         )
     }
 
@@ -238,7 +239,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
             sections = listOf(
                 ReportSection(
                     null, listOf("Category", "Amount", "Share"),
-                    rows.map { (c, m) -> listOf(c, rs(m), if (total.paise > 0) "${m.paise * 100 / total.paise}%" else "-") },
+                    rows.map { (c, m) -> listOf(c, rs(m), if (total.paise > 0) "${"%.1f".format(java.util.Locale.ENGLISH, m.paise * 100.0 / total.paise)}%" else "-") },
                     listOf("Total" to rs(total)),
                 ),
             ),

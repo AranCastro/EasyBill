@@ -71,6 +71,11 @@ class ReportExportTest {
         assertEquals("\"Cable 2,5mm\"", ReportExport.csvCell("Cable 2,5mm"))
         assertEquals("\"Room ₹1,2\"", ReportExport.csvCell("Room ₹1,2"))
         assertEquals("\"\"", ReportExport.csvCell(""))
+        // Codes keep their leading zeros and long digits in Excel
+        assertEquals("\"=\"\"0713\"\"\"", ReportExport.csvCell("0713"))
+        assertEquals("\"=\"\"919876543210\"\"\"", ReportExport.csvCell("919876543210"))
+        assertEquals("\"142\"", ReportExport.csvCell("142"))
+        assertEquals("\"0.50\"", ReportExport.csvCell("0.50"))
     }
 
     @Test fun csvHasAllSections() {

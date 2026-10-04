@@ -20,7 +20,7 @@ internal object ReportExport {
         val single = c.kpis.isEmpty() && c.sections.size == 1
         val first = c.sections.firstOrNull()
         val columns = (0 until width).map { i ->
-            PdfColumn(if (single) first?.columns?.getOrNull(i).orEmpty() else "", if (i == 0) 2.4f else 1.2f)
+            PdfColumn(if (single) first?.columns?.getOrNull(i).orEmpty() else "", columnWeight(c, i))
         }
         val rows = mutableListOf<List<String>>()
         fun row(vararg cells: String) = rows.add(cells.toList().let { it + List((width - it.size).coerceAtLeast(0)) { "" } })
@@ -52,6 +52,18 @@ internal object ReportExport {
         return PdfTable(columns, rows)
     }
 
+    /**
+     * Wide for text columns (names, notes) and narrow for dates and amounts, judged from the
+     * rows themselves, so a party name is not squeezed beside a short date.
+     */
+    private fun columnWeight(c: ReportContent, index: Int): Float {
+        val cells = c.sections.flatMap { sec -> sec.rows.take(200).mapNotNull { it.getOrNull(index) } }.filter { it.isNotBlank() }
+        if (cells.isEmpty()) return if (index == 0) 2.4f else 1.2f
+        val sample = cells.take(20)
+        if (sample.count { TablePdf.looksNumeric(it) } * 2 > sample.size) return 1.2f
+        return (cells.maxOf { it.length } / 9f).coerceIn(1.2f, 3.0f)
+    }
+
     /** Splits a note into lines that fit across the page, so none is cut off. */
     fun wrapNote(text: String, width: Int = 100): List<String> {
         val lines = mutableListOf<String>()
@@ -77,7 +89,12 @@ internal object ReportExport {
      */
     fun csvCell(raw: String): String {
         val t = raw.trim()
-        val value = if (MONEY.matches(t) && (t.any { it.isDigit() })) {
+        // Codes such as HSN 0713 or a 12-digit number must stay text: Excel would drop the zero or show 1.2E+11
+        val pureDigits = t.isNotEmpty() && t.all { it.isDigit() }
+        val code = pureDigits && ((t.length > 1 && t[0] == '0') || t.length >= 10)
+        val value = if (code) {
+            "=\"$t\""
+        } else if (MONEY.matches(t) && (t.any { it.isDigit() })) {
             t.replace("₹", "").replace(",", "").replace("(", "-").replace(")", "")
         } else if (t.isNotEmpty() && t[0] in FORMULA_START) {
             "'$t"

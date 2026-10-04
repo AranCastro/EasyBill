@@ -45,38 +45,69 @@ object BluetoothPrinter {
 
     @SuppressLint("MissingPermission")
     suspend fun print(context: Context, address: String, bytes: ByteArray): Result<Unit> = withContext(Dispatchers.IO) {
-        printLock.withLock { runCatching {
-            check(hasPermission(context)) { "Allow the Nearby devices permission to use the printer." }
-            val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
-                ?: error("This phone has no Bluetooth")
-            check(adapter.isEnabled) { "Turn on Bluetooth" }
-            val device = adapter.getRemoteDevice(address)
-            // No discovery is ever started here, so there is nothing to cancel
-            // (cancelDiscovery needs BLUETOOTH_SCAN on Android 12 and above).
-            connectWithRetry { device.createRfcommSocketToServiceRecord(SPP) }.use { socket ->
-                socket.outputStream.write(bytes)
-                socket.outputStream.flush()
-                // Let the printer's buffer drain before the socket closes; longer for pictures
-                delay((bytes.size / 8L).coerceIn(400L, 6_000L))
+        printLock.withLock {
+            try {
+                check(hasPermission(context)) { "Allow the Nearby devices permission to use the printer." }
+                val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+                    ?: error("This phone has no Bluetooth")
+                check(adapter.isEnabled) { "Turn on Bluetooth" }
+                val device = adapter.getRemoteDevice(address)
+                // No discovery is ever started here, so there is nothing to cancel
+                // (cancelDiscovery needs BLUETOOTH_SCAN on Android 12 and above).
+                val socket = connect(
+                    listOf(
+                        { device.createRfcommSocketToServiceRecord(SPP) },
+                        // Some low-cost printers accept only an unencrypted link
+                        { device.createInsecureRfcommSocketToServiceRecord(SPP) },
+                    ),
+                )
+                try {
+                    val out = socket.outputStream
+                    // Small pieces with a short pause: the buffer of a cheap printer is only a few kilobytes
+                    var offset = 0
+                    while (offset < bytes.size) {
+                        val n = minOf(CHUNK, bytes.size - offset)
+                        out.write(bytes, offset, n)
+                        offset += n
+                        if (offset < bytes.size) delay(15)
+                    }
+                    out.flush()
+                    // Let the printer's buffer drain before the socket closes; longer for pictures
+                    delay((bytes.size / 8L).coerceIn(400L, 6_000L))
+                } finally {
+                    runCatching { socket.close() }
+                }
+                Result.success(Unit)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } }
+        }
     }
+
+    private const val CHUNK = 1024
 
     /** One bill at a time: a double tap must not open two sockets to the same printer. */
     private val printLock = Mutex()
 
     @SuppressLint("MissingPermission")
-    private suspend fun connectWithRetry(open: () -> BluetoothSocket): BluetoothSocket {
+    private suspend fun connect(openers: List<() -> BluetoothSocket>): BluetoothSocket {
         var failure: Exception? = null
-        repeat(2) { attempt ->
-            val socket = open()
+        for ((attempt, open) in openers.withIndex()) {
+            val socket = try {
+                open()
+            } catch (e: Exception) {
+                failure = e
+                continue
+            }
             try {
                 socket.connect()
                 return socket
             } catch (e: java.io.IOException) {
                 runCatching { socket.close() }
                 failure = e
-                if (attempt == 0) delay(600)
+                if (attempt < openers.lastIndex) delay(500)
             }
         }
         throw java.io.IOException("Could not reach the printer. Check it is switched on and in range.", failure)

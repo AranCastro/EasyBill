@@ -77,8 +77,13 @@ fun PartyDetailRoute(
     val p = partyWithBalance ?: return
     val party = p.party
     val isCustomer = party.type == PartyType.CUSTOMER
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    LaunchedEffect(viewModel.message) {
+        viewModel.message?.let { snackbar.showSnackbar(it); viewModel.message = null }
+    }
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         topBar = {
             AppTopBar(party.name, onBack = onBack, subtitle = party.type.label, actions = {
                 IconButton(onClick = onEdit) { Icon(AppIcons.Edit, contentDescription = "Edit") }

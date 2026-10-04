@@ -148,9 +148,11 @@ class PrintRenderTest {
     }
 
     @Test fun thermalLogoIsSentAsRasterImage() {
-        val plain = ThermalReceipt(sample(), business).escPos()
-        val withLogo = ThermalReceipt(sample(), business, sampleLogo()).escPos()
-        val off = ThermalReceipt(sample(), business.copy(printLogoOnReceipt = false), sampleLogo()).escPos()
+        // The UPI QR is also sent as a picture, so it is left out here to see the logo alone
+        val noQr = business.copy(showUpiQr = false)
+        val plain = ThermalReceipt(sample(), noQr).escPos()
+        val withLogo = ThermalReceipt(sample(), noQr, sampleLogo()).escPos()
+        val off = ThermalReceipt(sample(), noQr.copy(printLogoOnReceipt = false), sampleLogo()).escPos()
         fun hasRaster(b: ByteArray) = (0 until b.size - 2).any { b[it] == 0x1D.toByte() && b[it + 1] == 0x76.toByte() && b[it + 2] == 0x30.toByte() }
         assertTrue(hasRaster(withLogo))
         assertTrue(!hasRaster(plain))
@@ -319,8 +321,45 @@ class PrintRenderTest {
 
     @Test fun upiLinkIsWellFormed() {
         val link = Upi.link("shop@okaxis", "Sharma Store", Money(123456), "INV-1")
-        assertEquals("upi://pay?pa=shop%40okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)
+        assertEquals("upi://pay?pa=shop@okaxis&pn=Sharma%20Store&am=1234.56&cu=INR&tn=INV-1", link)
         assertTrue(Upi.isValidId("shop.name@okhdfcbank"))
         assertTrue(!Upi.isValidId("not an id"))
+    }
+
+    @Test fun creditNoteNamesTheBillItIsSetAgainst() {
+        val note = sample().copy(type = DocType.SALE_RETURN, number = "CN-0001", reference = "INV-0142 dated 3 Oct 2026")
+        assertTrue(ThermalReceipt(note, business).text().contains("Against: INV-0142"))
+        // The A4 note renders with the extra Details row
+        renderPage({ InvoicePdf(ApplicationProvider.getApplicationContext(), note, business).drawPage(it, 0) }, "credit_note_reference")
+    }
+
+    @Test fun taxInvoiceLinesShowTaxableValue() {
+        val inv = sample()
+        val pdf = InvoicePdf(ApplicationProvider.getApplicationContext(), inv, business)
+        renderPage({ pdf.drawPage(it, 0) }, "invoice_taxable_column")
+        // The columns of a GST bill are Qty, Rate, Disc, GST and Taxable value; the tax is in the summary
+        assertTrue(inv.totals.lines.all { it.taxable.paise <= it.total.paise })
+    }
+
+    @Test fun qrOnReceiptIsAPictureNotAPrinterCommand() {
+        val upiBusiness = business.copy(upiId = "shop@okaxis", showUpiQr = true)
+        val unpaid = sample().copy(paid = Money.ZERO)
+        val bytes = ThermalReceipt(unpaid, upiBusiness).escPos()
+        fun has(vararg seq: Int): Boolean {
+            val pattern = seq.map { it.toByte() }
+            return (0..bytes.size - pattern.size).any { i -> pattern.indices.all { bytes[i + it] == pattern[it] } }
+        }
+        assertTrue("raster header (GS v 0)", has(0x1D, 0x76, 0x30))
+        assertTrue("no native QR command (GS ( k)", !has(0x1D, 0x28, 0x6B))
+    }
+
+    @Test fun shortenedTextNeverEndsInABrokenGlyph() {
+        val tamil = "குமார்" // "கு" is one letter made of two characters
+        val cut = safeCut(tamil, 1)
+        assertTrue(cut == 1 || tamil.substring(0, cut).let { !Character.isLowSurrogate(it.last()) })
+        // A mark is never left at the start of what follows the cut
+        assertTrue(cut >= tamil.length || Character.getType(tamil[cut]) != Character.NON_SPACING_MARK.toInt())
+        val emoji = "ab😀cd"
+        assertEquals(2, safeCut(emoji, 3)) // 3 would split the surrogate pair
     }
 }

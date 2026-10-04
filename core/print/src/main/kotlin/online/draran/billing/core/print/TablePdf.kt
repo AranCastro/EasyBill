@@ -197,6 +197,7 @@ class TablePdf(
         if (paint.measureText(text) <= width) return text
         var end = text.length
         while (end > 1 && paint.measureText(text.substring(0, end) + "…") > width) end--
+        end = safeCut(text, end)
         return text.substring(0, end) + "…"
     }
 

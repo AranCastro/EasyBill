@@ -75,7 +75,50 @@ data class GstReport(
     val itcIgst: Money get() = purchases.igst() - debitNotes.igst()
     val outputTax: Money get() = outputCgst + outputSgst + outputIgst
     val itc: Money get() = itcCgst + itcSgst + itcIgst
-    val netPayable: Money get() = outputTax - itc
+    /** Tax still to be paid in cash, and credit left over, after the set-off rules (see [GstSetOff]). */
+    val setOff: GstSetOff get() = GstSetOff.of(
+        outputIgst, outputCgst, outputSgst,
+        itcIgst, itcCgst, itcSgst,
+    )
+    /** Cash to be paid for the period. */
+    val netPayable: Money get() = setOff.cash
+}
+
+/**
+ * How input tax credit is set against output tax (Section 49 of the CGST Act, Rule 88A):
+ * IGST credit pays IGST first, then CGST, then SGST; CGST credit pays CGST, then IGST;
+ * SGST credit pays SGST, then IGST. CGST credit can never pay SGST, and the reverse.
+ * Whatever liability remains is paid in cash; whatever credit remains is carried forward.
+ */
+data class GstSetOff(
+    val cashIgst: Money, val cashCgst: Money, val cashSgst: Money,
+    val carryIgst: Money, val carryCgst: Money, val carrySgst: Money,
+) {
+    val cash: Money get() = cashIgst + cashCgst + cashSgst
+    val carry: Money get() = carryIgst + carryCgst + carrySgst
+
+    companion object {
+        fun of(outIgst: Money, outCgst: Money, outSgst: Money, itcIgst: Money, itcCgst: Money, itcSgst: Money): GstSetOff {
+            // A head with more returns than sales has nothing to pay and nothing to set credit against
+            var igst = outIgst.paise.coerceAtLeast(0)
+            var cgst = outCgst.paise.coerceAtLeast(0)
+            var sgst = outSgst.paise.coerceAtLeast(0)
+            var igstCredit = itcIgst.paise.coerceAtLeast(0)
+            var cgstCredit = itcCgst.paise.coerceAtLeast(0)
+            var sgstCredit = itcSgst.paise.coerceAtLeast(0)
+
+            fun pay(credit: Long, liability: Long): Pair<Long, Long> = minOf(credit, liability).let { (credit - it) to (liability - it) }
+
+            pay(igstCredit, igst).let { igstCredit = it.first; igst = it.second }
+            pay(igstCredit, cgst).let { igstCredit = it.first; cgst = it.second }
+            pay(igstCredit, sgst).let { igstCredit = it.first; sgst = it.second }
+            pay(cgstCredit, cgst).let { cgstCredit = it.first; cgst = it.second }
+            pay(cgstCredit, igst).let { cgstCredit = it.first; igst = it.second }
+            pay(sgstCredit, sgst).let { sgstCredit = it.first; sgst = it.second }
+            pay(sgstCredit, igst).let { sgstCredit = it.first; igst = it.second }
+            return GstSetOff(Money(igst), Money(cgst), Money(sgst), Money(igstCredit), Money(cgstCredit), Money(sgstCredit))
+        }
+    }
 }
 
 data class DayBookEntry(

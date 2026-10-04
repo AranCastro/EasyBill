@@ -150,6 +150,8 @@ data class Invoice(
     val roundOff: Boolean = true,
     /** Accent colour of this bill alone (ARGB); 0 = the business colour. */
     val billColor: Int = 0,
+    /** For a credit or debit note: the bills it is set against, e.g. "INV-0007 dated 3 Oct 2026". Empty otherwise. */
+    val reference: String = "",
 ) {
     val balance: Money get() = if (type.tracksPayment) totals.total - paid else Money.ZERO
     val isPaid: Boolean get() = type.tracksPayment && !balance.isNegative && balance.isZero

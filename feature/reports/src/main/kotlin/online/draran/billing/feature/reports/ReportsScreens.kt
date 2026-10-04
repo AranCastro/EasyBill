@@ -118,6 +118,14 @@ class ReportViewModel @Inject constructor(
     var loading by mutableStateOf(true)
         private set
 
+    /** The report and period that [content] belongs to. Exports use these, never the chip tapped a moment ago. */
+    private var loadedKind = ReportKind.SALES
+    private var loadedRange = range
+
+    /** True while a PDF or CSV is being made; stops a second tap from writing the same file twice. */
+    var exporting by mutableStateOf(false)
+        private set
+
     /** Shown once as a snackbar when an export fails. */
     var message by mutableStateOf<String?>(null)
 
@@ -130,43 +138,68 @@ class ReportViewModel @Inject constructor(
         // A slower earlier range must not finish last and show under the newer chip
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            content = builder.build(k, r)
+            try {
+                val built = withContext(Dispatchers.Default) { builder.build(k, r) }
+                content = built
+                loadedKind = k
+                loadedRange = r
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                message = "The report could not be loaded. Try again."
+            }
             loading = false
         }
     }
 
-    private fun subtitle() = if (kind.usesRange) "${range.start.pretty()} to ${range.end.pretty()}" else "As on ${LocalDate.now().pretty()}"
+    private fun subtitle() = if (loadedKind.usesRange) "${loadedRange.start.pretty()} to ${loadedRange.end.pretty()}" else "As on ${LocalDate.now().pretty()}"
+
+    /** File name: reports without a period carry today's date, so two exports on different days do not overwrite each other. */
+    private fun fileStem(): String =
+        Sharing.safeName("${loadedKind.title}_" + if (loadedKind.usesRange) "${loadedRange.start}_${loadedRange.end}" else LocalDate.now().toString())
 
     fun exportPdf(context: Context) {
         val c = content ?: return
+        if (loading || exporting) return
+        val title = loadedKind.title
+        val sub = subtitle()
+        val stem = fileStem()
+        exporting = true
         viewModelScope.launch {
             runCatching {
                 val b = businessRepository.get()
                 val file = withContext(Dispatchers.IO) {
                     val table = ReportExport.pdfTable(c)
-                    File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".pdf").also {
+                    File(Sharing.sharedDir(context), "$stem.pdf").also {
                         TablePdf(
                             context, b.name, listOf(b.address.replace("\n", ", "), b.phone).filter { s -> s.isNotBlank() }.joinToString(" · "),
-                            kind.title, subtitle(), table.columns, table.rows,
+                            title, sub, table.columns, table.rows,
                             logo = branding.logo(b.logoFile), brand = b.accent(), autoAlign = true,
                         ).writeTo(it)
                     }
                 }
-                Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")
+                Sharing.shareFile(context, file, "application/pdf", "$title · $sub")
             }.onFailure { message = "The PDF could not be created. Try again." }
+            exporting = false
         }
     }
 
     fun exportCsv(context: Context) {
         val c = content ?: return
+        if (loading || exporting) return
+        val title = loadedKind.title
+        val sub = subtitle()
+        val stem = fileStem()
+        exporting = true
         viewModelScope.launch {
             runCatching {
                 val file = withContext(Dispatchers.IO) {
-                    val text = ReportExport.csv(kind.title, subtitle(), c)
-                    File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads text correctly */ }
+                    val text = ReportExport.csv(title, sub, c)
+                    File(Sharing.sharedDir(context), "$stem.csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads text correctly */ }
                 }
-                Sharing.shareFile(context, file, "text/csv", kind.title)
+                Sharing.shareFile(context, file, "text/csv", title)
             }.onFailure { message = "The file could not be created. Try again." }
+            exporting = false
         }
     }
 }
@@ -188,7 +221,7 @@ fun ReportRoute(kind: ReportKind, onBack: () -> Unit, viewModel: ReportViewModel
         topBar = {
             AppTopBar(kind.title, onBack = onBack, subtitle = if (kind.usesRange) viewModel.range.label else null, actions = {
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(AppIcons.Share, contentDescription = "Export") }
+                    IconButton(onClick = { menu = true }, enabled = !viewModel.loading && !viewModel.exporting) { Icon(AppIcons.Share, contentDescription = "Export") }
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem(text = { Text("Share as PDF") }, leadingIcon = { Icon(AppIcons.FilePdf, null) }, onClick = { menu = false; viewModel.exportPdf(context) })
                         DropdownMenuItem(text = { Text("Share as Excel (CSV)") }, leadingIcon = { Icon(AppIcons.FileCsv, null) }, onClick = { menu = false; viewModel.exportCsv(context) })
@@ -223,7 +256,7 @@ fun ReportRoute(kind: ReportKind, onBack: () -> Unit, viewModel: ReportViewModel
                     }
                 }
             }
-            c.sections.forEach { s -> item { SectionTable(s) } }
+            c.sections.forEachIndexed { index, s -> sectionItems(s, index) }
         }
     }
     if (customRange) {
@@ -274,20 +307,38 @@ private fun KpiGrid(kpis: List<Kpi>) {
     }
 }
 
+/** Rows shown together in one card; a long report becomes many cards, and only the visible ones are drawn. */
+private const val ROWS_PER_CARD = 20
+
+private fun androidx.compose.foundation.lazy.LazyListScope.sectionItems(s: ReportSection, index: Int) {
+    val pages = s.rows.chunked(ROWS_PER_CARD).ifEmpty { listOf(emptyList()) }
+    pages.forEachIndexed { page, rows ->
+        item(key = "section-$index-$page") {
+            SectionCard(
+                section = s,
+                title = if (page == 0) s.title else null,
+                rows = rows,
+                showEmpty = s.rows.isEmpty(),
+                totals = if (page == pages.lastIndex) s.totals else emptyList(),
+            )
+        }
+    }
+}
+
 /** Compact mobile table: first column as title, middle columns as detail, last as value. */
 @Composable
-private fun SectionTable(s: ReportSection) {
+private fun SectionCard(section: ReportSection, title: String?, rows: List<List<String>>, showEmpty: Boolean, totals: List<Pair<String, String>>) {
     SurfaceCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = Spacing.sm)) {
-            s.title?.let { Text(it, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) }
-            if (s.rows.isEmpty()) {
+            title?.let { Text(it, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) }
+            if (showEmpty) {
                 Text("No entries", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm))
             }
-            s.rows.forEachIndexed { i, r ->
+            rows.forEachIndexed { i, r ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(r.firstOrNull().orEmpty(), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        val middle = r.drop(1).dropLast(1).mapIndexedNotNull { j, v -> v.takeIf { it.isNotBlank() && it != "₹0.00" }?.let { if (s.columns.size > 3) "${s.columns.getOrNull(j + 1)}: $it" else it } }
+                        val middle = r.drop(1).dropLast(1).mapIndexedNotNull { j, v -> v.takeIf { it.isNotBlank() && it != "₹0.00" }?.let { if (section.columns.size > 3) "${section.columns.getOrNull(j + 1)}: $it" else it } }
                         if (middle.isNotEmpty() && r.size > 2) Text(middle.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (r.size > 1) {
@@ -295,11 +346,11 @@ private fun SectionTable(s: ReportSection) {
                         Text(r.last(), style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
                     }
                 }
-                if (i < s.rows.lastIndex) HorizontalDivider(Modifier.padding(horizontal = Spacing.lg), color = MaterialTheme.colorScheme.outlineVariant)
+                if (i < rows.lastIndex) HorizontalDivider(Modifier.padding(horizontal = Spacing.lg), color = MaterialTheme.colorScheme.outlineVariant)
             }
-            if (s.totals.isNotEmpty()) {
+            if (totals.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                s.totals.forEach { (k, v) ->
+                totals.forEach { (k, v) ->
                     Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 6.dp)) {
                         Text(k, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                         Text(v, style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))

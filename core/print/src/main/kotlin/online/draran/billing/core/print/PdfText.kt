@@ -53,6 +53,7 @@ internal fun wrap(text: String, paint: Paint, width: Float): List<String> {
                 while (paint.measureText(rest) > width && rest.length > 1) {
                     var cut = rest.length
                     while (cut > 1 && paint.measureText(rest.substring(0, cut)) > width) cut--
+                    cut = safeCut(rest, cut).takeIf { it > 0 } ?: cut
                     out += rest.substring(0, cut)
                     rest = rest.substring(cut)
                 }
@@ -65,3 +66,18 @@ internal fun wrap(text: String, paint: Paint, width: Float): List<String> {
 }
 
 internal fun rs(money: Money) = IndianFormat.rupees(money)
+
+/**
+ * A cut position at or before [end] that does not split a surrogate pair (emoji) or a letter from
+ * its combining marks (Tamil vowel signs, accents), so a shortened name never ends in a broken glyph.
+ */
+internal fun safeCut(text: String, end: Int): Int {
+    var e = end.coerceIn(0, text.length)
+    fun joins(c: Char): Boolean {
+        val type = Character.getType(c)
+        return Character.isLowSurrogate(c) || c == '\u200D' || type == Character.NON_SPACING_MARK.toInt() ||
+            type == Character.COMBINING_SPACING_MARK.toInt() || type == Character.ENCLOSING_MARK.toInt()
+    }
+    while (e > 1 && e < text.length && joins(text[e])) e--
+    return e
+}

@@ -126,6 +126,12 @@ interface InvoiceDao {
     @Query("DELETE FROM invoice WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("SELECT i.number AS number, i.date AS date FROM note_allocation n JOIN invoice i ON i.id = n.invoiceId WHERE n.noteId = :noteId ORDER BY i.date, i.id")
+    fun observeAgainst(noteId: Long): Flow<List<AgainstRow>>
+
+    @Query("SELECT i.number AS number, i.date AS date FROM note_allocation n JOIN invoice i ON i.id = n.invoiceId WHERE n.noteId = :noteId ORDER BY i.date, i.id")
+    suspend fun against(noteId: Long): List<AgainstRow>
+
     @Query("SELECT DISTINCT partyId FROM invoice WHERE partyId IS NOT NULL AND type IN ('SALE_RETURN', 'PURCHASE_RETURN')")
     suspend fun partiesWithNotes(): List<Long>
 

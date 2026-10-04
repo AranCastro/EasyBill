@@ -661,4 +661,25 @@ class RepositoryTest {
         assertEquals(listOf("Keep Me"), ItemRepository(fileDb.itemDao()).items().first().map { it.item.name })
         fileDb.close()
     }
+
+    @Test fun gstSetOffFollowsTheCreditRules() {
+        fun r(v: Long) = Money.rupees(v)
+        // CGST credit cannot pay SGST: output CGST 100 and SGST 100, credit CGST 200
+        val a = GstSetOff.of(outIgst = r(0), outCgst = r(100), outSgst = r(100), itcIgst = r(0), itcCgst = r(200), itcSgst = r(0))
+        assertEquals(r(100), a.cash)
+        assertEquals(r(0), a.cashCgst)
+        assertEquals(r(100), a.cashSgst)
+        assertEquals(r(100), a.carryCgst)
+        // IGST credit pays IGST, then CGST, then SGST
+        val b = GstSetOff.of(outIgst = r(50), outCgst = r(100), outSgst = r(100), itcIgst = r(200), itcCgst = r(0), itcSgst = r(0))
+        assertEquals(r(50), b.cash)
+        assertEquals(r(50), b.cashSgst)
+        assertEquals(r(0), b.carry)
+        // Own-head credit first, then IGST
+        val c = GstSetOff.of(outIgst = r(80), outCgst = r(10), outSgst = r(10), itcIgst = r(0), itcCgst = r(60), itcSgst = r(30))
+        assertEquals(r(0), c.cashCgst)
+        assertEquals(r(0), c.cashSgst)
+        assertEquals(r(80 - 50 - 20), c.cashIgst)
+        assertEquals(r(0), c.carry)
+    }
 }

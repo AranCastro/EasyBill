@@ -67,7 +67,7 @@ class ThermalReceipt(
         }
         emit(business.address, center = true)
         if (business.phone.isNotBlank()) line("Ph: ${ascii(business.phone)}", center = true)
-        if (business.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${ascii(business.gstin)}", center = true)
+        if (invoice.gstEnabled && business.gstin.isNotBlank()) line("GSTIN: ${ascii(business.gstin)}", center = true)
         business.udyamLine()?.let { u -> wrapText(ascii(u), width).forEach { line(it, center = true) } }
         line(rule)
         val title = when {
@@ -76,7 +76,8 @@ class ThermalReceipt(
             else -> invoice.type.title.uppercase()
         }
         line(title, center = true, bold = true)
-        lr("No: ${ascii(invoice.number)}", invoice.date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH)))
+        lr("Bill no: ${ascii(invoice.number)}", invoice.date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)))
+        if (invoice.reference.isNotBlank()) emit("Against: ${invoice.reference}")
         if (invoice.partyName.isNotBlank()) emit("${if (business.type.party == "Customer") "To" else business.type.party}: ${invoice.partyName}")
         invoice.customFields.forEach { (k, v) -> emit("$k: $v") }
         line(rule)
@@ -158,15 +159,11 @@ class ThermalReceipt(
                     out.write(raster(textBitmap(p.text, dots, p.center, p.bold), dots, maxHeight = Int.MAX_VALUE))
                 }
                 is Part.Qr -> {
-                    val data = p.data.toByteArray(Charsets.US_ASCII)
+                    // Sent as a picture, not with the printer's own QR command: many low-cost 58 mm printers
+                    // do not have that command and print stray characters instead.
+                    val dots = if (width >= 48) 416 else 320
                     cmd(0x1B, 0x61, 1)
-                    cmd(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00) // model 2
-                    cmd(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, if (width >= 48) 6 else 5) // module size
-                    cmd(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30) // error correction L
-                    val len = data.size + 3
-                    cmd(0x1D, 0x28, 0x6B, len % 256, len / 256, 0x31, 0x50, 0x30)
-                    out.write(data)
-                    cmd(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30) // print
+                    out.write(raster(QrCode.bitmap(p.data, dots), dots, maxHeight = Int.MAX_VALUE))
                     out.write(0x0A)
                 }
             }

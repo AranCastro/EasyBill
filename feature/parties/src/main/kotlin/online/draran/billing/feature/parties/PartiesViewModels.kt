@@ -186,6 +186,9 @@ class PartyDetailViewModel @Inject constructor(
         id.value = partyId
     }
 
+    /** Shown once as a snackbar when sharing fails. */
+    var message by androidx.compose.runtime.mutableStateOf<String?>(null)
+
     fun reminderText(): String {
         val p = party.value ?: return ""
         val b = business.value
@@ -199,6 +202,7 @@ class PartyDetailViewModel @Inject constructor(
         val rows = ledger.value
         val b = business.value
         viewModelScope.launch {
+            try {
             val file = withContext(Dispatchers.IO) {
                 // The id keeps two parties with the same (or non-Latin) name from sharing one file name
                 val f = File(Sharing.sharedDir(context), "Statement_${Sharing.safeName(p.party.name)}_${p.party.id}.pdf")
@@ -207,9 +211,10 @@ class PartyDetailViewModel @Inject constructor(
                     businessName = b.name,
                     businessInfo = listOf(b.address.replace("\n", ", "), b.phone, if (b.gstEnabled) "GSTIN ${b.gstin}" else "").filter { it.isNotBlank() }.joinToString(" · "),
                     title = "Statement of Account",
-                    subtitle = "${p.party.name} · as on ${LocalDate.now().pretty()}",
+                    subtitle = "As on ${LocalDate.now().pretty()}",
                     columns = listOf(PdfColumn("Date", 1.1f), PdfColumn("Particulars", 2.4f), PdfColumn("Debit", 1.2f, true), PdfColumn("Credit", 1.2f, true), PdfColumn("Balance", 1.3f, true)),
-                    rows = rows.map { e ->
+                    // The party's name has a line of its own, so a long name cannot push the date out of the corner
+                    rows = listOf(listOf(TablePdf.HEADING + p.party.name)) + rows.map { e ->
                         listOf(
                             e.date.pretty(),
                             kindLabel(e.kind) + if (e.kind != "OPENING") " ${e.number}" else "",
@@ -225,6 +230,11 @@ class PartyDetailViewModel @Inject constructor(
                 f
             }
             Sharing.shareFile(context, file, "application/pdf", "Statement from ${b.name}")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                message = "The statement could not be created. Try again."
+            }
         }
     }
 

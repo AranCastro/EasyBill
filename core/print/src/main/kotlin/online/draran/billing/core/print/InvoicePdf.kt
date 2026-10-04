@@ -30,7 +30,7 @@ class InvoicePdf(
 ) {
 
     private val fonts = PdfFonts(context)
-    private val dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
+    private val dateFmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 
     private val pageW = 595f
     private val pageH = 842f
@@ -65,7 +65,8 @@ class InvoicePdf(
         add(Triple("Rate", numberColumn(invoice.lines.map { plain(it.rate) }, 66f, 96f), true))
         add(Triple("Disc", 38f, true))
         if (gst) add(Triple("GST", 38f, true))
-        add(Triple("Amount", numberColumn(invoice.totals.lines.map { plain(it.total) }, 76f, 104f), true))
+        // A tax invoice shows the taxable value of each line (Rule 46); the tax follows in the summary below
+        add(Triple(if (gst) "Taxable value" else "Amount", numberColumn(invoice.totals.lines.map { plain(if (gst) it.taxable else it.total) }, 76f, 104f), true))
     }
     private val itemColW = contentW - columns.sumOf { it.second.toDouble() }.toFloat()
 
@@ -76,7 +77,7 @@ class InvoicePdf(
         val sub = listOfNotNull(
             line.hsn.takeIf { it.isNotBlank() }?.let { "HSN/SAC $it" },
             if (gst && line.taxInclusive) "price incl. tax" else null,
-        ).joinToString(" · ").ifEmpty { null }
+        ).joinToString(" · ").ifEmpty { null }?.let { ellipsized(it, bodyMuted, itemColW - 12f) }
         Row(nameLines, sub, 8f + nameLines.size * 12f + (if (sub != null) 11f else 0f) + 4f)
     }
 
@@ -119,7 +120,8 @@ class InvoicePdf(
             business.phone.takeIf { it.isNotBlank() }?.let { "Ph: $it" },
             business.email.takeIf { it.isNotBlank() },
         ).filterNotNull().joinToString("  ·  ").takeIf { it.isNotBlank() }?.let { add(it) }
-        if (business.gstEnabled && business.gstin.isNotBlank()) add("GSTIN: ${business.gstin}")
+        // The bill's own GST setting decides, so a tax invoice reprinted later still shows the supplier GSTIN
+        if (invoice.gstEnabled && business.gstin.isNotBlank()) add("GSTIN: ${business.gstin}")
         business.udyamLine()?.let { add(it) }
     }
 
@@ -134,7 +136,7 @@ class InvoicePdf(
         return maxOf(y, ry, logoBottom) + 12f
     }
 
-    private fun detailRows(): Int = (if (gst) 2 else 0) + (if (invoice.type.tracksPayment) 1 else 0) + invoice.customFields.size
+    private fun detailRows(): Int = (if (gst) 2 else 0) + (if (invoice.type.tracksPayment) 1 else 0) + invoice.customFields.size + (if (invoice.reference.isNotBlank()) 1 else 0)
 
     private fun computeFirstTableTop(): Float {
         val boxTop = headerBottom()
@@ -254,6 +256,8 @@ class InvoicePdf(
             canvas.drawText(wrapLimited(v, body, pageW - margin - rx - 90f, 1).firstOrNull().orEmpty(), rx + 80f, dy, body)
             dy += 13f
         }
+        // A credit or debit note names the bill it is set against
+        if (invoice.reference.isNotBlank()) detail("Against", invoice.reference)
         invoice.customFields.forEach { (k, v) -> detail(k, v) }
         if (gst) detail("Place of supply", IndianStates.byCode(invoice.placeOfSupply)?.let { "${it.name} (${it.code})" } ?: invoice.placeOfSupply)
         if (gst) detail("Supply type", if (invoice.interState) "Inter-state (IGST)" else "Intra-state (CGST + SGST)")
@@ -322,7 +326,7 @@ class InvoicePdf(
             cell(plain(l.rate))
             cell(if (l.discountBp > 0) "${Percent.format(l.discountBp)}%" else "-")
             if (gst) cell("${Percent.format(l.taxRateBp)}%")
-            cell(plain(amounts.total))
+            cell(plain(if (gst) amounts.taxable else amounts.total))
             y += row.height
             canvas.drawLine(margin, y, pageW - margin, y, line)
         }
@@ -401,7 +405,7 @@ class InvoicePdf(
             val qx = margin + 102f
             canvas.drawText("Scan to pay with any UPI app", qx, ly + 22f, fonts.paint(9f, fonts.bold))
             canvas.drawText(rs(amount), qx, ly + 40f, fonts.paint(12f, fonts.bold, brand))
-            canvas.drawText("UPI ID: ${business.upiId}", qx, ly + 56f, bodyMuted)
+            canvas.drawText(ellipsized("UPI ID: ${business.upiId}", bodyMuted, leftW - 102f), qx, ly + 56f, bodyMuted)
             canvas.drawText("GPay · PhonePe · Paytm · BHIM", qx, ly + 70f, bodyMuted)
             ly += 104f
         }
@@ -434,6 +438,7 @@ class InvoicePdf(
         if (paint.measureText(text) <= width) return text
         var end = text.length
         while (end > 1 && paint.measureText(text.substring(0, end) + "…") > width) end--
+        end = safeCut(text, end)
         return text.substring(0, end).trimEnd() + "…"
     }
 

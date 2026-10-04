@@ -92,3 +92,6 @@ data class ItemSalesRow(val name: String, val qty: Long, val unit: String, val t
 data class CategoryTotalRow(val category: String, val total: Long)
 
 data class ModeTotalRow(val direction: String, val mode: String, val total: Long)
+
+/** A bill that a credit or debit note has been set against. */
+data class AgainstRow(val number: String, val date: Long)

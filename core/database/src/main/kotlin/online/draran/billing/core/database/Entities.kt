@@ -128,6 +128,8 @@ data class InvoiceEntity(
     val createdAt: Long,
     /** Industry fields (label/value pairs). Added in version 2. */
     @ColumnInfo(defaultValue = "''") val customFields: String = "",
+    /** Accent colour chosen for this bill alone (ARGB); 0 = use the business colour. Added in version 6. */
+    @ColumnInfo(defaultValue = "0") val billColor: Int = 0,
 )
 
 @Entity(

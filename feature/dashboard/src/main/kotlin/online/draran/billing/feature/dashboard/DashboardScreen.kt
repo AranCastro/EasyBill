@@ -26,7 +26,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import java.time.LocalTime
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import online.draran.billing.core.model.BusinessType
@@ -78,8 +84,16 @@ fun DashboardRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val logo by viewModel.logo.collectAsStateWithLifecycle()
     val businessType by viewModel.businessType.collectAsStateWithLifecycle()
+    // Read from the clock here, not from the saved state: the greeting must change while the app stays open
+    var greeting by remember { mutableStateOf(Greeting.at(LocalTime.now())) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            greeting = Greeting.at(LocalTime.now())
+        }
+    }
     DashboardScreen(
-        state = state,
+        state = state.copy(greeting = greeting),
         logo = logo,
         businessType = businessType,
         onNavigate = onNavigate,
@@ -275,6 +289,7 @@ private fun Header(
                         Greeting.MORNING -> R.string.dashboard_greeting_morning
                         Greeting.AFTERNOON -> R.string.dashboard_greeting_afternoon
                         Greeting.EVENING -> R.string.dashboard_greeting_evening
+                        Greeting.NIGHT -> R.string.dashboard_greeting_night
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,

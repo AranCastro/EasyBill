@@ -8,7 +8,11 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import online.draran.billing.core.data.BrandingManager
@@ -68,6 +72,13 @@ class InvoiceEditorViewModel @Inject constructor(
     var date by mutableStateOf(LocalDate.now())
     var party by mutableStateOf(PartyChoice())
         private set
+    /** Colour of this bill alone (ARGB); 0 = the business colour. */
+    var billColor by mutableStateOf(0)
+
+    /** Main colours of the logo, offered first in the colour choice. */
+    val logoColours: StateFlow<List<Int>> = combine(business, branding.version) { b, _ -> b.logoFile }
+        .map { file -> withContext(Dispatchers.Default) { branding.logoColours(file) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     var lines by mutableStateOf<List<InvoiceLine>>(emptyList())
         private set
     var notes by mutableStateOf("")
@@ -126,6 +137,7 @@ class InvoiceEditorViewModel @Inject constructor(
                 convertedFromId = draft.convertedFromId
                 editGst = draft.gstEnabled
                 editRound = draft.roundOff
+                billColor = draft.billColor
                 val total = totals().total
                 fullyPaid = draft.paidNow.paise >= total.paise && total.paise > 0 || (draft.id == 0L && draft.partyId == null)
                 received = if (fullyPaid || draft.paidNow.isZero) "" else MoneyParse.toInput(draft.paidNow)
@@ -285,7 +297,7 @@ class InvoiceEditorViewModel @Inject constructor(
                         lines = lines, notes = notes, paidNow = paidAmount(), paymentMode = mode, convertedFromId = convertedFromId,
                         dueDate = dueDate?.takeIf { type == DocType.SALE },
                         customFields = customLabels.map { it to customValues[it].orEmpty().trim() }.filter { it.second.isNotEmpty() },
-                        gstEnabled = editGst, roundOff = editRound,
+                        gstEnabled = editGst, roundOff = editRound, billColor = billColor,
                     ),
                 )
                 // Stays "saving" after success, so a second tap cannot save a copy; reset() or a new editor clears it
@@ -304,6 +316,7 @@ class InvoiceEditorViewModel @Inject constructor(
         date = LocalDate.now()
         editGst = null
         editRound = null
+        billColor = 0
         lines = emptyList()
         notes = ""
         dueDate = null

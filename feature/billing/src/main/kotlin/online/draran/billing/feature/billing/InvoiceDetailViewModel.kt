@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -45,6 +46,18 @@ class InvoiceDetailViewModel @Inject constructor(
     val invoice: StateFlow<Invoice?> = id.flatMapLatest { if (it == 0L) flowOf(null) else invoices.invoice(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val business: StateFlow<Business> = businessRepository.business.stateIn(viewModelScope, SharingStarted.Eagerly, Business())
+
+    /** Main colours of the logo, offered first in the bill colour choice. */
+    val logoColours: StateFlow<List<Int>> = combine(business, branding.version) { b, _ -> b.logoFile }
+        .map { file -> withContext(Dispatchers.Default) { branding.logoColours(file) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Colour of this bill alone; 0 goes back to the business colour. The bill preview and PDF follow at once. */
+    fun setBillColor(color: Int) {
+        val billId = id.value
+        if (billId == 0L) return
+        viewModelScope.launch { invoices.setBillColor(billId, color) }
+    }
 
     var preview by mutableStateOf<Bitmap?>(null)
         private set
@@ -79,7 +92,8 @@ class InvoiceDetailViewModel @Inject constructor(
     }
 
     private fun pdf(context: Context, inv: Invoice, b: Business) =
-        InvoicePdf(context, inv, b, branding.logo(b.logoFile), branding.signature(b.signatureFile))
+        // A colour chosen for this bill overrides the business colour
+        InvoicePdf(context, inv, b.withBillColor(inv.billColor), branding.logo(b.logoFile), branding.signature(b.signatureFile))
 
     private suspend fun pdfFile(context: Context): File? {
         val inv = invoice.value ?: return null

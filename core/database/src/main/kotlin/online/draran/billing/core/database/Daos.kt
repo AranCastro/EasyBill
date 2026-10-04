@@ -126,6 +126,9 @@ interface InvoiceDao {
     @Query("DELETE FROM invoice WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("UPDATE invoice SET billColor = :color WHERE id = :id")
+    suspend fun setBillColor(id: Long, color: Int)
+
     @Insert
     suspend fun insertLines(lines: List<InvoiceLineEntity>)
 

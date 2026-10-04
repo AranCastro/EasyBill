@@ -7,13 +7,15 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 enum class Greeting {
-    MORNING, AFTERNOON, EVENING;
+    MORNING, AFTERNOON, EVENING, NIGHT;
 
     companion object {
+        /** 5 am to 11:59 am morning, then afternoon, evening from 5 pm, night from 9 pm to 4:59 am. */
         fun at(time: LocalTime): Greeting = when (time.hour) {
-            in 0..11 -> MORNING
+            in 5..11 -> MORNING
             in 12..16 -> AFTERNOON
-            else -> EVENING
+            in 17..20 -> EVENING
+            else -> NIGHT
         }
     }
 }

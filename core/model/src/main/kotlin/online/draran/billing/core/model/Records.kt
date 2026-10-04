@@ -42,6 +42,9 @@ data class Business(
     /** Accent colour actually printed, darkened if needed so white text on it is readable. */
     fun accent(): Int = BillColors.accentOf(billColor)
 
+    /** The business with one bill's own colour applied (0 keeps the business colour); used to print that bill. */
+    fun withBillColor(invoiceColor: Int): Business = if (invoiceColor == 0) this else copy(billColor = invoiceColor)
+
     fun prefix(type: DocType) = prefixes[type] ?: type.defaultPrefix
 
     /** Sale bill title as printed: GST bills must say Tax Invoice. */
@@ -145,6 +148,8 @@ data class Invoice(
     val customFields: List<Pair<String, String>> = emptyList(),
     /** Whether the total was rounded to the rupee when the bill was made. */
     val roundOff: Boolean = true,
+    /** Accent colour of this bill alone (ARGB); 0 = the business colour. */
+    val billColor: Int = 0,
 ) {
     val balance: Money get() = if (type.tracksPayment) totals.total - paid else Money.ZERO
     val isPaid: Boolean get() = type.tracksPayment && !balance.isNegative && balance.isZero

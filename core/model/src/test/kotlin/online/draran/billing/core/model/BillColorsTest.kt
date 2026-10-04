@@ -48,4 +48,12 @@ class BillColorsTest {
         assertTrue(BillColors.contrastWithWhite(colours[0]) >= 4.5)
         assertEquals(emptyList<Int>(), BillColors.fromLogo(IntArray(100) { BillColors.rgb(255, 255, 255) }))
     }
+
+    @Test fun aBillColourOverridesTheBusinessColourOnlyWhenSet() {
+        val business = Business(name = "Shop", billColor = 0xFF1D4ED8.toInt())
+        assertEquals(business.accent(), business.withBillColor(0).accent())
+        assertEquals(BillColors.accentOf(0xFF9F1239.toInt()), business.withBillColor(0xFF9F1239.toInt()).accent())
+        // The app's own indigo can be chosen for one bill, even in a business with another colour
+        assertEquals(BillColors.accentOf(BillColors.DEFAULT), business.withBillColor(BillColors.DEFAULT).accent())
+    }
 }

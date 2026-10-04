@@ -29,6 +29,8 @@ import androidx.room.RoomDatabase
         AutoMigration(from = 3, to = 4),
         // v1.4: credit and debit notes set against bills
         AutoMigration(from = 4, to = 5),
+        // v1.5: colour chosen per bill
+        AutoMigration(from = 5, to = 6),
     ],
 )
 abstract class BillingDatabase : RoomDatabase() {
@@ -44,6 +46,6 @@ abstract class BillingDatabase : RoomDatabase() {
         const val NAME = "kallaa_petti.db"
 
         /** Schema version; the newest file in schemas/. Backups from a higher version are refused. */
-        const val VERSION = 5
+        const val VERSION = 6
     }
 }

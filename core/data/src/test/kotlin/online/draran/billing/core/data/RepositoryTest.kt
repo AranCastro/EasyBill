@@ -545,4 +545,25 @@ class RepositoryTest {
         assertEquals(200, turned.height)
         assertTrue(BrandingManager.upright(bmp, android.media.ExifInterface.ORIENTATION_NORMAL) === bmp)
     }
+
+    @Test fun billColourBelongsToTheBillAndSurvivesEdits() = runTest {
+        val maroon = 0xFF9F1239.toInt()
+        val id = invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 100)), paidNow = Money.rupees(100), billColor = maroon))
+        val other = sale(null, 200, paid = 200)
+        assertEquals(maroon, invoices.get(id)!!.billColor)
+        assertEquals(0, invoices.get(other)!!.billColor)
+        // Editing keeps the colour
+        invoices.save(invoices.draftForEdit(id)!!.copy(notes = "edited"))
+        assertEquals(maroon, invoices.get(id)!!.billColor)
+        // Changing it later does not touch the money
+        val before = invoices.get(id)!!.totals.total
+        invoices.setBillColor(id, 0xFF15803D.toInt())
+        assertEquals(0xFF15803D.toInt(), invoices.get(id)!!.billColor)
+        assertEquals(before, invoices.get(id)!!.totals.total)
+        // A copy of the bill starts with the same colour
+        assertEquals(0xFF15803D.toInt(), invoices.draftFrom(id, DocType.SALE)!!.billColor)
+        // Back to the business colour
+        invoices.setBillColor(id, 0)
+        assertEquals(0, invoices.get(id)!!.billColor)
+    }
 }

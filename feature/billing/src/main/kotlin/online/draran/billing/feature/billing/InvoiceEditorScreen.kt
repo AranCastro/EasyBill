@@ -1,5 +1,10 @@
 package online.draran.billing.feature.billing
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.animation.animateContentSize
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -94,6 +99,7 @@ fun InvoiceEditorRoute(
     var pickItems by remember { mutableStateOf(false) }
     var editIndex by remember { mutableIntStateOf(-2) } // -2 none, -1 new one-time line
     var editNumber by remember { mutableStateOf(false) }
+    var pickColour by rememberSaveable { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(viewModel.notes.isNotBlank()) }
     // An edited bill's notes arrive after the first frame: keep the field open once they do, even if cleared later
     LaunchedEffect(viewModel.notes.isNotBlank()) { if (viewModel.notes.isNotBlank()) showNotes = true }
@@ -318,6 +324,27 @@ fun InvoiceEditorRoute(
                     }
                 }
             }
+            // Colour of this bill
+            item {
+                val business by viewModel.business.collectAsStateWithLifecycle()
+                val shown = online.draran.billing.core.model.BillColors.accentOf(if (viewModel.billColor != 0) viewModel.billColor else business.billColor)
+                Row(
+                    Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable { pickColour = true }.padding(vertical = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color(shown)))
+                    Spacer(Modifier.width(Spacing.md))
+                    Column(Modifier.weight(1f)) {
+                        Text("Bill colour", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (viewModel.billColor == 0) "Same as your business colour" else "Chosen for this bill only",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text("Change", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
             viewModel.error?.let { message ->
                 item {
                     Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
@@ -328,6 +355,19 @@ fun InvoiceEditorRoute(
         }
     }
 
+    if (pickColour) {
+        val business by viewModel.business.collectAsStateWithLifecycle()
+        val logoColours by viewModel.logoColours.collectAsStateWithLifecycle()
+        online.draran.billing.core.designsystem.component.BillColourSheet(
+            selected = viewModel.billColor,
+            businessColor = business.billColor,
+            logoColours = logoColours,
+            businessName = business.name,
+            billTitle = business.docTitle(viewModel.type),
+            onSelect = { viewModel.billColor = it },
+            onDismiss = { pickColour = false },
+        )
+    }
     if (pickParty) {
         PartyPickerSheet(
             parties = parties,

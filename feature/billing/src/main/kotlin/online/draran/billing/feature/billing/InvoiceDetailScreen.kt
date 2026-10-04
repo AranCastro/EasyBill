@@ -90,6 +90,7 @@ fun InvoiceDetailRoute(
     val scope = rememberCoroutineScope()
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var pickColour by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val ext = BillingTheme.extendedColors
 
     fun thermal() {
@@ -117,6 +118,7 @@ fun InvoiceDetailRoute(
                 onBack = onBack,
                 actions = {
                     if (inv != null) {
+                        IconButton(onClick = { pickColour = true }) { Icon(AppIcons.Palette, contentDescription = "Bill colour") }
                         IconButton(onClick = { onEdit(inv.type, inv.id) }) { Icon(AppIcons.Edit, contentDescription = "Edit") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(AppIcons.MoreVertical, contentDescription = "More") }
@@ -223,6 +225,19 @@ fun InvoiceDetailRoute(
                 if (viewModel.busy) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
             }
         }
+    }
+    if (pickColour && inv != null) {
+        val business by viewModel.business.collectAsStateWithLifecycle()
+        val logoColours by viewModel.logoColours.collectAsStateWithLifecycle()
+        online.draran.billing.core.designsystem.component.BillColourSheet(
+            selected = inv.billColor,
+            businessColor = business.billColor,
+            logoColours = logoColours,
+            businessName = business.name,
+            billTitle = business.docTitle(inv.type),
+            onSelect = viewModel::setBillColor,
+            onDismiss = { pickColour = false },
+        )
     }
     if (confirmDelete && inv != null) {
         ConfirmDialog(

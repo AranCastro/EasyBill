@@ -265,7 +265,7 @@ fun BillColourPicker(
 }
 
 @Composable
-private fun ColourSwatch(argb: Int, name: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ColourSwatch(argb: Int, name: String, selected: Boolean, onClick: () -> Unit) {
     val ring = MaterialTheme.colorScheme.onSurface
     Box(
         Modifier

@@ -54,6 +54,8 @@ data class InvoiceDraft(
      */
     val gstEnabled: Boolean? = null,
     val roundOff: Boolean? = null,
+    /** Accent colour for this bill alone (ARGB); 0 = the business colour. */
+    val billColor: Int = 0,
 )
 
 const val CASH_CUSTOMER = "Cash Customer"
@@ -222,6 +224,7 @@ class InvoiceRepository @Inject constructor(
                 convertedFromId = draft.convertedFromId ?: existing?.convertedFromId,
                 createdAt = existing?.createdAt ?: now,
                 customFields = online.draran.billing.core.model.CustomFields.encode(draft.customFields),
+                billColor = draft.billColor,
             )
             val id = if (existing == null) dao.insert(entity) else entity.id.also { dao.update(entity) }
             dao.deleteLines(id)
@@ -331,6 +334,7 @@ class InvoiceRepository @Inject constructor(
             // Keep the payment period, not the old calendar date
             dueDate = source.dueDate?.let { LocalDate.now().plusDays(java.time.temporal.ChronoUnit.DAYS.between(source.date, it)) },
             customFields = source.customFields,
+            billColor = source.billColor,
         )
     }
 
@@ -345,9 +349,12 @@ class InvoiceRepository @Inject constructor(
             lines = inv.lines, notes = inv.notes, paidNow = Money(linked?.amount ?: 0),
             paymentMode = linked?.mode ?: PaymentMode.CASH, convertedFromId = inv.convertedFromId,
             customFields = inv.customFields,
-            gstEnabled = inv.gstEnabled, roundOff = inv.roundOff,
+            gstEnabled = inv.gstEnabled, roundOff = inv.roundOff, billColor = inv.billColor,
         )
     }
+
+    /** Changes the accent colour of one bill (0 = back to the business colour). Money is not touched. */
+    suspend fun setBillColor(id: Long, color: Int) = dao.setBillColor(id, color)
 
     suspend fun convertedSale(estimateId: Long): Long? = dao.convertedFrom(estimateId)?.id
 

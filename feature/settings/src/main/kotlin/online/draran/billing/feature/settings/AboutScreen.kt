@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -32,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import online.draran.billing.core.designsystem.component.AppTopBar
 import online.draran.billing.core.designsystem.component.ListRow
-import online.draran.billing.core.designsystem.component.NameAvatar
 import online.draran.billing.core.designsystem.component.SectionCard
 import online.draran.billing.core.designsystem.component.SurfaceCard
 import online.draran.billing.core.designsystem.icon.AppIcons
@@ -103,7 +103,12 @@ fun AboutRoute(versionName: String, onBack: () -> Unit) {
                 Column {
                     Column(Modifier.fillMaxWidth().padding(Spacing.lg)) {
                         androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
-                            NameAvatar(AboutInfo.AUTHOR, size = 56)
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(R.drawable.author_photo),
+                                contentDescription = "Photo of ${AboutInfo.AUTHOR}",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                            )
                             Spacer(Modifier.padding(start = Spacing.md))
                             Column {
                                 Text(AboutInfo.AUTHOR, style = MaterialTheme.typography.titleMedium)

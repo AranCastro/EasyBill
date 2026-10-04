@@ -151,6 +151,7 @@ copies in two safe places, and note the certificate fingerprint:
 
 ```bash
 bash tools/make-release-keystore.sh          # asks for a password, writes the key outside the repository
+# Windows PowerShell: powershell -ExecutionPolicy Bypass -File tools\make-release-keystore.ps1
 ./gradlew :app:assembleRelease
 bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 1.5.0
 ```
@@ -193,6 +194,7 @@ decisions needed before the first public release are in
 ## Changelog
 
 - **2.0.0**: Phone contacts, credits, licence and privacy policy.
+  - The About and credits screen shows the author's photo.
   - New: add a customer or supplier from the phone's contacts (party form and the
     bill's customer picker) without the contacts permission; About and credits
     screen with the author's details, the MIT licence, the privacy policy link and

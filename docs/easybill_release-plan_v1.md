@@ -3,8 +3,47 @@
 Status on 4 October 2026 (updated for 2.0.0). This plan covers the first production release signed
 with a real release key. It was prepared after a strict audit of the 1.4.0 code
 (money and data, printing and reports, screens, user-facing text, release
-settings). The audit findings that affect users are fixed in 1.5.0; this
+settings). The audit findings that affect users are fixed in 2.0.0; this
 document lists what the owner must still decide and do.
+
+## 0. Checklist for the first public release (do these in order)
+
+On Windows use PowerShell and Git for Windows. The code is already on the `main` branch.
+
+1. **Make `main` the default branch.** GitHub › your repository › Settings › Branches ›
+   change the default branch to `main`. Afterwards the old branch
+   `claude/vigilant-newton-5zeowg` can be deleted (Settings › Branches, or the branch list).
+2. **Create the release key on your own computer** (once). From the repository folder:
+   `powershell -ExecutionPolicy Bypass -File tools\make-release-keystore.ps1`
+   (needs `keytool`, which comes with Android Studio or any JDK; the script looks for it).
+   It asks for a password, writes the key to `C:\Users\<you>\kallaa-petti-signing\`, prints the
+   certificate fingerprint and copies the key (as text) to the clipboard.
+3. **Save the key safely.** Copy `kallaa-petti-release.jks` to two different places (for example a
+   pen drive and an encrypted cloud folder) and put the password in a password manager. Without
+   this key no update can ever be installed over the installed app.
+4. **Add the GitHub secrets and the variable** (repository › Settings › Secrets and variables › Actions):
+   - Secrets: `RELEASE_KEYSTORE_BASE64` (paste from the clipboard), `RELEASE_KEY_ALIAS` = `kallaapetti`,
+     `RELEASE_STORE_PASSWORD` and `RELEASE_KEY_PASSWORD` (both the same password).
+   - Variable (the Variables tab): `EXPECTED_CERT_SHA256` = the lower-case fingerprint the script printed.
+   Then delete the `.base64` file.
+5. **Dry run.** In PowerShell: `git checkout main`, `git pull`, `git tag v2.0.0-rc1`,
+   `git push origin v2.0.0-rc1`. Wait for the "Release APK" run (Actions tab). Download the APK from
+   the new pre-release, install it on a phone and test: make a bill, share the PDF, print on the
+   Bluetooth printer, scan a barcode, add a customer from contacts, switch on the app lock, take a
+   backup and restore it. Then delete the test release and its tag
+   (`git push origin --delete v2.0.0-rc1`).
+6. **Real release.** `git tag v2.0.0` then `git push origin v2.0.0`. The workflow tests, builds,
+   signs, verifies the certificate against `EXPECTED_CERT_SHA256`, and publishes the release with
+   the APK, a checksum file and the mapping file.
+7. **Check the download.** On the release page, download the APK and `.sha256`; in PowerShell
+   `Get-FileHash .\ModernKallaaPetti-v2.0.0.apk -Algorithm SHA256` must match the `.sha256` file.
+8. **Move existing test phones once** (section 1 below): back up, uninstall the test APK, install the
+   release APK, restore. After this, updates install over the app and keep the data.
+9. **Afterwards:** note the release in your records; keep the key copies and every release's mapping
+   file. For Google Play later, see section 4 (decision 7).
+
+If a step fails in the Actions tab, open the run and read the red step: it names what is missing
+(a secret, a tag not on `main`, a version that does not match `app/build.gradle.kts`).
 
 ## 1. What changes for people who already have a test APK
 
@@ -33,7 +72,7 @@ The debug build (package name ends with `.debug`) is a separate app and is not a
 | Where it lives | Your own computer, never in the repository. Two copies in two separate safe places (for example a pen drive and an encrypted cloud folder). The password goes in a password manager. |
 | If it is lost | No update can ever be installed over the installed app, on GitHub or on Play. Users would have to uninstall and restore from a backup file. |
 
-Create it with `bash tools/make-release-keystore.sh` (asks for a password twice,
+Create it with `tools\make-release-keystore.ps1` (Windows PowerShell) or `bash tools/make-release-keystore.sh` (Git Bash, Linux, macOS) (asks for a password twice,
 prints the certificate fingerprint, writes the key outside the repository). The same
 key must be used for GitHub releases and, later, for Google Play (upload the key to
 Play App Signing), so that users can move between the two without reinstalling.
@@ -63,16 +102,16 @@ Play App Signing), so that users can move between the two without reinstalling.
 | 2 | **Open-source notices.** Done: the About and credits screen and the README list every component and licence, including Google's own terms for the scanner. | None. |
 | 3 | **Internet permission.** Done: declared in the manifest. The app's own code makes no network calls; Google Play services needs it to download the scanner module on first use. | None. The privacy policy says this plainly. |
 | 4 | **Privacy policy.** Done: `docs/privacy-policy.md`, linked in the app (About and credits) and the README. | For Google Play later, use the page link `https://github.com/AranCastro/EasyBill/blob/main/docs/privacy-policy.md` or publish it on draran.online. |
-| 5 | **Cloud backup of app data (Android Auto Backup).** It copies the live database to the user's Google account. Since 1.5.0 this happens only when the phone can encrypt the copy end to end (a screen lock is set). | Keep. After the first release, test once on a real phone: `adb shell bmgr backupnow online.draran.billing`, uninstall, reinstall, check the data. If it ever restores a damaged database, switch off `allowBackup` and rely on the in-app backup file. |
+| 5 | **Cloud backup of app data (Android Auto Backup).** It copies the live database to the user's Google account. Since 2.0.0 this happens only when the phone can encrypt the copy end to end (a screen lock is set). | Keep. After the first release, test once on a real phone: `adb shell bmgr backupnow online.draran.billing`, uninstall, reinstall, check the data. If it ever restores a damaged database, switch off `allowBackup` and rely on the in-app backup file. |
 | 6 | **Android developer verification.** Google is introducing registration of developers and package names for apps installed outside Play on certified devices. | Check the current rules and register `online.draran.billing` with the release key fingerprint if required. |
 | 7 | **Google Play.** Needs a developer account, a closed test for new personal accounts, the Data safety form, content rating and the privacy policy link. The upload is an `.aab` (`./gradlew :app:bundleRelease`). | Decide after the GitHub release has been used for a few weeks. Use the same key. |
 
 ## 5. Version numbers
 
-- `versionName` is `MAJOR.MINOR.PATCH` (for example 1.5.0).
-- `versionCode` is `MAJOR × 10000 + MINOR × 100 + PATCH` (1.5.0 gives 10500). It must
+- `versionName` is `MAJOR.MINOR.PATCH` (for example 2.0.0).
+- `versionCode` is `MAJOR × 10000 + MINOR × 100 + PATCH` (2.0.0 gives 20000). It must
   never repeat or go down; Play does not allow reuse.
-- The tag is `v` plus the exact `versionName` (`v1.5.0`). The workflow checks this.
+- The tag is `v` plus the exact `versionName` (`v2.0.0`). The workflow checks this.
 - Tags with a hyphen (`v1.5.1-rc1`) are published as pre-releases.
 
 ## 6. What the release workflow now does
@@ -102,21 +141,21 @@ the end of the step.
 2. Choose the licence (decision 1) and add `LICENSE`. Add the privacy policy page.
 3. Create the key (section 2). Note the fingerprint.
 4. Do the one-time GitHub setup (section 3).
-5. **Dry run.** Push a tag `v0.0.1-rc1`, wait for the workflow, download the APK,
+5. **Dry run.** Push a tag `v2.0.0-rc1`, wait for the workflow, download the APK,
    install it on a real phone and test: create a bill, share the PDF, print on the
    Bluetooth printer, scan a barcode, turn on the app lock, take a backup and restore
    it. Delete the test release and tag afterwards.
 6. Update `versionName` and `versionCode` in `app/build.gradle.kts`, commit to
-   `main`, then `git tag v1.5.0` and `git push origin v1.5.0`.
+   `main`, then `git tag v2.0.0` and `git push origin v2.0.0`.
 7. When the workflow finishes, download the APK and the checksum from the release
    page, and check them on your computer:
-   `sha256sum -c ModernKallaaPetti-v1.5.0.apk.sha256`.
+   `sha256sum -c ModernKallaaPetti-v2.0.0.apk.sha256`.
 8. Tell existing test users to follow section 1 once.
 9. Keep every release's mapping file and the key backups.
 
 To sign on your own computer instead (same method as the workflow):
 `./gradlew :app:assembleRelease` then
-`bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 1.5.0`.
+`bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 2.0.0`.
 
 ## 8. Checked and found sound
 

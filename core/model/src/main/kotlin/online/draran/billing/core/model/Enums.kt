@@ -20,8 +20,8 @@ enum class DocType(
     SALE("Sale bill", "Sale", "INV-", -1, +1, PaymentDirection.IN, PartyType.CUSTOMER),
     PURCHASE("Purchase bill", "Purchase", "PUR-", +1, -1, PaymentDirection.OUT, PartyType.SUPPLIER),
     ESTIMATE("Estimate", "Estimate", "EST-", 0, 0, PaymentDirection.IN, PartyType.CUSTOMER),
-    SALE_RETURN("Credit note", "Sale Return", "CN-", +1, -1, PaymentDirection.OUT, PartyType.CUSTOMER),
-    PURCHASE_RETURN("Debit note", "Purchase Return", "DN-", -1, +1, PaymentDirection.IN, PartyType.SUPPLIER),
+    SALE_RETURN("Credit note", "Sale return", "CN-", +1, -1, PaymentDirection.OUT, PartyType.CUSTOMER),
+    PURCHASE_RETURN("Debit note", "Purchase return", "DN-", -1, +1, PaymentDirection.IN, PartyType.SUPPLIER),
     ;
 
     val tracksPayment: Boolean get() = this != ESTIMATE

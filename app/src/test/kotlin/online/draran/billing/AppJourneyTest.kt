@@ -218,7 +218,7 @@ class AppJourneyTest {
         compose.onNodeWithContentDescription("Add Basmati Rice 5 kg").performClick()
         compose.onNodeWithContentDescription("Add Sunflower Oil 1 L").performClick()
         compose.waitForIdle()
-        compose.onAllNodesWithContentDescription("More")[1].performClick() // second unit of oil
+        compose.onAllNodesWithContentDescription("Increase quantity")[1].performClick() // second unit of oil
         capture("item_picker")
         clickText("Done")
         waitForText("Fully received")
@@ -447,7 +447,7 @@ class AppJourneyTest {
             assertEquals(listOf("Roll / Admission no." to "BFA-118", "Class / Course" to "Class X"), newest.customFields)
         }
         back()
-        clickText("Parties")
+        clickText("Students")
         waitForText("Students (")
         capture("students")
         clickText("More")

@@ -243,7 +243,7 @@ class InvoiceEditorViewModel @Inject constructor(
         customValues = customValues + (label to value)
     }
 
-    val title: String get() = (if (invoiceId == 0L) "New " else "Edit ") + business.value.docShortTitle(type).let { if (it == type.shortTitle) it.lowercase().replaceFirstChar { c -> c.uppercase() } else it }
+    val title: String get() = (if (invoiceId == 0L) "New " else "Edit ") + business.value.docShortTitle(type).lowercase()
 
     fun interState(): Boolean {
         val b = business.value

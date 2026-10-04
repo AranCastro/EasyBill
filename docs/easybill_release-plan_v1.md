@@ -11,7 +11,7 @@ document lists what the owner must still decide and do.
 **Status (4 October 2026):** `main` is the default branch (step 1 done). The release key has
 been created (steps 2 and 3: key file and note delivered to the owner). Certificate SHA-256:
 `42:65:F6:84:1D:D6:FC:BC:AA:6A:B3:0F:4F:4D:7C:1C:3A:12:C3:0A:6D:30:AA:4A:EC:8E:36:7E:F7:33:D0:F8`.
-Next: step 4 (GitHub secrets), then the test tag.
+Step 4 (GitHub secrets and variable) done. Next: the test run (step 5).
 
 On Windows use PowerShell and Git for Windows. The code is already on the `main` branch.
 
@@ -31,15 +31,16 @@ On Windows use PowerShell and Git for Windows. The code is already on the `main`
      `RELEASE_STORE_PASSWORD` and `RELEASE_KEY_PASSWORD` (both the same password).
    - Variable (the Variables tab): `EXPECTED_CERT_SHA256` = the lower-case fingerprint the script printed.
    Then delete the `.base64` file.
-5. **Dry run.** In PowerShell: `git checkout main`, `git pull`, `git tag v2.0.0-rc1`,
-   `git push origin v2.0.0-rc1`. Wait for the "Release APK" run (Actions tab). Download the APK from
-   the new pre-release, install it on a phone and test: make a bill, share the PDF, print on the
-   Bluetooth printer, scan a barcode, add a customer from contacts, switch on the app lock, take a
-   backup and restore it. Then delete the test release and its tag
-   (`git push origin --delete v2.0.0-rc1`).
-6. **Real release.** `git tag v2.0.0` then `git push origin v2.0.0`. The workflow tests, builds,
-   signs, verifies the certificate against `EXPECTED_CERT_SHA256`, and publishes the release with
-   the APK, a checksum file and the mapping file.
+5. **Dry run.** On GitHub: **Actions › Release APK › Run workflow** (right side), keep the branch
+   `main`, type `2.0.0-rc1` and press **Run workflow**. (Pushing a tag `v2.0.0-rc1` from git does
+   the same.) Wait for the run to turn green, then download the APK from the new pre-release on the
+   Releases page, install it on a phone and test: make a bill, share the PDF, print on the Bluetooth
+   printer, scan a barcode, add a customer from contacts, switch on the app lock, take a backup and
+   restore it. Then delete the test release and its tag (Releases › the release › Delete; Tags ›
+   v2.0.0-rc1 › Delete).
+6. **Real release.** **Actions › Release APK › Run workflow**, type `2.0.0`. The workflow tests,
+   builds, signs, verifies the certificate against `EXPECTED_CERT_SHA256`, creates the tag `v2.0.0`
+   and publishes the release with the APK, a checksum file and the mapping file.
 7. **Check the download.** On the release page, download the APK and `.sha256`; in PowerShell
    `Get-FileHash .\ModernKallaaPetti-v2.0.0.apk -Algorithm SHA256` must match the `.sha256` file.
 8. **Move existing test phones once** (section 1 below): back up, uninstall the test APK, install the

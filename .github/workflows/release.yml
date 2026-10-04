@@ -14,6 +14,14 @@ name: Release APK
 on:
   push:
     tags: [ "v*" ]
+  # Or from the browser: Actions > Release APK > Run workflow, type the version (e.g. 2.0.0 or 2.0.0-rc1 for a test).
+  # GitHub then creates the tag v<version> on the chosen branch itself.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 2.0.0 (or 2.0.0-rc1 for a test release)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -29,19 +37,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Work out the tag
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="v${INPUT_VERSION#v}"
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              echo "Tag $TAG already exists. Choose a new version or delete the old tag and release first." >&2
+              exit 1
+            fi
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Releasing $TAG from $GITHUB_SHA"
+
       - name: Check the tag
         run: |
           # A test tag such as v2.0.0-rc1 is checked against versionName 2.0.0
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           VERSION="${VERSION%%-*}"
           DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
           git fetch origin "$DEFAULT_BRANCH"
           if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
-            echo "Tag $GITHUB_REF_NAME is not on $DEFAULT_BRANCH. Merge first, then tag." >&2
+            echo "Tag $TAG is not on $DEFAULT_BRANCH. Merge first, then tag." >&2
             exit 1
           fi
           if ! grep -q "versionName = \"$VERSION\"" app/build.gradle.kts; then
-            echo "Tag $GITHUB_REF_NAME does not match versionName in app/build.gradle.kts." >&2
+            echo "Tag $TAG does not match versionName in app/build.gradle.kts." >&2
             exit 1
           fi
 
@@ -86,7 +110,7 @@ jobs:
           umask 077
           echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
           BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
-          APK="ModernKallaaPetti-${GITHUB_REF_NAME}.apk"
+          APK="ModernKallaaPetti-${TAG}.apk"
           # 16 KB page alignment, then sign (v2 and v3 are enough for minSdk 26)
           "$BT/zipalign" -f -P 16 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
           "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$KEY_ALIAS" \
@@ -105,11 +129,11 @@ jobs:
           "$BT/zipalign" -c -P 16 -v 4 "$APK" | tail -1
           sha256sum "$APK" > "$APK.sha256"
           # Readable crash reports need the mapping file of this exact build
-          cp app/build/outputs/mapping/release/mapping.txt "mapping-${GITHUB_REF_NAME}.txt"
+          cp app/build/outputs/mapping/release/mapping.txt "mapping-${TAG}.txt"
 
       - name: Release notes from the changelog
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           VERSION="${VERSION%%-*}"
           awk -v v="$VERSION" '
             $0 ~ "^- \\*\\*" v "\\*\\*" { on = 1; print; next }
@@ -122,8 +146,8 @@ jobs:
       - name: Keep the mapping file
         uses: actions/upload-artifact@v4
         with:
-          name: mapping-${{ github.ref_name }}
-          path: mapping-${{ github.ref_name }}.txt
+          name: mapping-${{ env.TAG }}
+          path: mapping-${{ env.TAG }}.txt
           retention-days: 365
 
       - name: Publish GitHub Release
@@ -131,8 +155,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           FLAGS=""
-          case "$GITHUB_REF_NAME" in *-*) FLAGS="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" $FLAGS --title "Modern Kallaa Petti ${GITHUB_REF_NAME#v}" \
+          case "$TAG" in *-*) FLAGS="--prerelease" ;; esac
+          # For a tag pushed from git the tag exists; from Run workflow, GitHub creates it on this commit
+          gh release create "$TAG" --target "$GITHUB_SHA" $FLAGS --title "Modern Kallaa Petti ${TAG#v}" \
             --notes-file notes.md \
-            "ModernKallaaPetti-${GITHUB_REF_NAME}.apk" "ModernKallaaPetti-${GITHUB_REF_NAME}.apk.sha256" \
-            "mapping-${GITHUB_REF_NAME}.txt"
+            "ModernKallaaPetti-${TAG}.apk" "ModernKallaaPetti-${TAG}.apk.sha256" \
+            "mapping-${TAG}.txt"

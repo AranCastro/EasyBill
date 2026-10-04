@@ -1,5 +1,7 @@
 package online.draran.billing.feature.settings
 
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
@@ -55,5 +57,18 @@ class SettingsScreenshotTest {
             }
         }
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/more_light.png")
+    }
+
+    @Test fun aboutAndCredits() {
+        composeRule.setContent {
+            BillingTheme(themeMode = ThemeMode.LIGHT) {
+                Box(Modifier.height(1400.dp)) { AboutRoute(versionName = "2.0.0", onBack = {}) }
+            }
+        }
+        composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/about_credits.png")
+        composeRule.onNodeWithText("Dr Aran Castro").assertIsDisplayed()
+        composeRule.onNodeWithText("arancastro17@gmail.com").assertIsDisplayed()
+        composeRule.onNodeWithText("draran.online").assertIsDisplayed()
+        composeRule.onNodeWithText("+91 74187 42406").assertIsDisplayed()
     }
 }

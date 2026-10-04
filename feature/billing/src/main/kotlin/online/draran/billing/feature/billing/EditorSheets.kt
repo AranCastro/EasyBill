@@ -1,5 +1,6 @@
 package online.draran.billing.feature.billing
 
+import online.draran.billing.core.designsystem.component.rememberContactPicker
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import online.draran.billing.core.designsystem.component.NameAvatar
@@ -95,6 +96,14 @@ internal fun PartyPickerSheet(
     var phone by remember { mutableStateOf("") }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ext = BillingTheme.extendedColors
+    // One tap from the phone's contact list: an existing party with the same number is used, else a new one is added
+    val fromContacts = rememberContactPicker { c ->
+        val last10 = c.phone.takeLast(10)
+        val existing = if (last10.length >= 10) parties.firstOrNull { it.party.type == type && it.party.phone.filter(Char::isDigit).endsWith(last10) } else null
+        if (existing != null) onPick(existing.party, existing.balance)
+        else onQuickAdd(c.name.ifBlank { c.phone }, c.phone)
+        onDismiss()
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.fillMaxHeight(0.9f).padding(horizontal = Spacing.lg).imePadding()) {
             Text("Select ${partyWord.lowercase()}", style = MaterialTheme.typography.titleLarge)
@@ -120,6 +129,9 @@ internal fun PartyPickerSheet(
             LazyColumn(Modifier.weight(1f)) {
                 item {
                     PickerRow(AppIcons.UserPlus, if (query.isBlank()) "Add new ${partyWord.lowercase()}" else "Add \"${query.trim()}\"", null) { adding = true }
+                }
+                item {
+                    PickerRow(AppIcons.Phone, "Choose from phone contacts", "Adds the contact as a ${partyWord.lowercase()}") { fromContacts() }
                 }
                 if (allowCash) {
                     item { PickerRow(AppIcons.Money, CASH_CUSTOMER, "Walk-in, paid immediately") { onCash(); onDismiss() } }

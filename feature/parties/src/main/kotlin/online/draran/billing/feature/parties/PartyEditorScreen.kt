@@ -1,5 +1,10 @@
 package online.draran.billing.feature.parties
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.OutlinedButton
+import online.draran.billing.core.designsystem.component.rememberContactPicker
 import androidx.compose.foundation.layout.heightIn
 import online.draran.billing.core.designsystem.component.rememberDiscardGuard
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +69,10 @@ fun PartyEditorRoute(
     val editing = partyId != 0L
     val noun = if (form.type == PartyType.CUSTOMER) "customer" else "supplier"
     val leave = rememberDiscardGuard(viewModel.isDirty, onExit = onBack)
+    // Name and number come from the phone's contact list; the user can still change them
+    val pickFromContacts = rememberContactPicker { c ->
+        viewModel.update { it.copy(name = c.name.ifBlank { it.name }, phone = c.phone.ifBlank { it.phone }) }
+    }
 
     Scaffold(
         topBar = {
@@ -91,6 +100,13 @@ fun PartyEditorRoute(
                                 form.type == t, { viewModel.update { it.copy(type = t, openingReceivable = t == PartyType.CUSTOMER) } },
                                 SegmentedButtonDefaults.itemShape(i, 2), enabled = partyId == 0L || viewModel.canDelete,
                             ) { Text(t.label) }
+                        }
+                    }
+                    if (!editing) {
+                        OutlinedButton(onClick = pickFromContacts, modifier = Modifier.fillMaxWidth()) {
+                            Icon(AppIcons.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Choose from phone contacts")
                         }
                     }
                     FormField(form.name, { v -> viewModel.update { it.copy(name = v) } }, "Name *", capitalization = KeyboardCapitalization.Words, error = viewModel.nameError.takeIf { errors })

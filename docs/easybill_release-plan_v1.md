@@ -1,6 +1,6 @@
 # Modern Kallaa Petti: Release Plan (v1)
 
-Status on 4 October 2026. This plan covers the first production release signed
+Status on 4 October 2026 (updated for 2.0.0). This plan covers the first production release signed
 with a real release key. It was prepared after a strict audit of the 1.4.0 code
 (money and data, printing and reports, screens, user-facing text, release
 settings). The audit findings that affect users are fixed in 1.5.0; this
@@ -40,10 +40,10 @@ Play App Signing), so that users can move between the two without reinstalling.
 
 ## 3. One-time GitHub setup
 
-1. **Default branch.** The repository's only branch is
-   `claude/vigilant-newton-5zeowg`. Rename it to `main` (Settings › Branches), then
-   `git branch -m main` locally. The release workflow refuses tags that are not on
-   the default branch.
+1. **Default branch.** A `main` branch now exists on GitHub, holding the same code as
+   `claude/vigilant-newton-5zeowg`. In the repository's Settings › Branches, change the
+   default branch to `main`; the old branch can then be deleted. The release workflow
+   refuses tags that are not on the default branch.
 2. **Secrets** (Settings › Secrets and variables › Actions › Secrets):
    `RELEASE_KEYSTORE_BASE64` (the `.base64` file the script wrote),
    `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_PASSWORD` (the same value),
@@ -59,10 +59,10 @@ Play App Signing), so that users can move between the two without reinstalling.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| 1 | **Licence.** The repository is public and the README calls the app free, but there is no `LICENSE` file, so by default all rights are reserved. | Choose MIT or Apache-2.0 (permissive) or GPL-3.0 (changes must stay open). Add the file and a line in the README. |
-| 2 | **Open-source notices.** The README lists only three components. The app also uses AndroidX, Compose, Hilt, Room and Kotlin libraries (Apache-2.0), and Google Play services and ML Kit for the barcode scanner (Google's own terms). | Add an "Open-source licences" screen in the app (the AboutLibraries plugin) and list the Google components honestly in the README. |
-| 3 | **Internet permission.** The release manifest contains INTERNET and ACCESS_NETWORK_STATE, added by the Google barcode-scanner libraries. The app's own code makes no network calls. The first scan needs Google Play services to download the scanner module. | Say this plainly in the privacy policy and the user guide. Do not remove the permission without testing the scanner on a real phone. |
-| 4 | **Privacy policy.** None exists. Google Play requires one; GitHub users should also have one. | One short page (GitHub Pages): all data stays on the phone; optional Google account backup; the scanner module; Bluetooth printing; no advertising, no accounts. |
+| 1 | **Licence.** Done: MIT, `LICENSE`, copyright Dr Aran Castro. | None. |
+| 2 | **Open-source notices.** Done: the About and credits screen and the README list every component and licence, including Google's own terms for the scanner. | None. |
+| 3 | **Internet permission.** Done: declared in the manifest. The app's own code makes no network calls; Google Play services needs it to download the scanner module on first use. | None. The privacy policy says this plainly. |
+| 4 | **Privacy policy.** Done: `docs/privacy-policy.md`, linked in the app (About and credits) and the README. | For Google Play later, use the page link `https://github.com/AranCastro/EasyBill/blob/main/docs/privacy-policy.md` or publish it on draran.online. |
 | 5 | **Cloud backup of app data (Android Auto Backup).** It copies the live database to the user's Google account. Since 1.5.0 this happens only when the phone can encrypt the copy end to end (a screen lock is set). | Keep. After the first release, test once on a real phone: `adb shell bmgr backupnow online.draran.billing`, uninstall, reinstall, check the data. If it ever restores a damaged database, switch off `allowBackup` and rely on the in-app backup file. |
 | 6 | **Android developer verification.** Google is introducing registration of developers and package names for apps installed outside Play on certified devices. | Check the current rules and register `online.draran.billing` with the release key fingerprint if required. |
 | 7 | **Google Play.** Needs a developer account, a closed test for new personal accounts, the Data safety form, content rating and the privacy policy link. The upload is an `.aab` (`./gradlew :app:bundleRelease`). | Decide after the GitHub release has been used for a few weeks. Use the same key. |

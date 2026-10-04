@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Bluetooth thermal printers. (The Google code scanner library adds INTERNET so Play services
-         can fetch its scanner module; the app itself never sends your data anywhere.) -->
+    <!-- Internet: Google Play services downloads the barcode scanner module on first use, and links such as the
+         privacy policy open in the browser. The app never sends your business data anywhere. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Bluetooth thermal printers -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -10,6 +12,11 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <queries>
+        <!-- The phone's contact list, opened with the system picker (no contacts permission needed) -->
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="vnd.android.cursor.dir/phone_v2" />
+        </intent>
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
     </queries>

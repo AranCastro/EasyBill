@@ -33,6 +33,7 @@ import kotlin.reflect.KClass
 @Serializable data object NavInvoiceSettings
 @Serializable data object NavPrinter
 @Serializable data object NavBackup
+@Serializable data object NavAbout
 
 /** Bottom navigation tabs: outline icon when unselected, filled when selected. */
 enum class TopLevelDestination(

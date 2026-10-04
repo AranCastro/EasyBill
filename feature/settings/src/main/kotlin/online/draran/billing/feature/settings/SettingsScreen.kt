@@ -63,6 +63,7 @@ fun SettingsRoute(
     onInvoiceSettings: () -> Unit = {},
     onPrinter: () -> Unit = {},
     onBackup: () -> Unit = {},
+    onAbout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
@@ -84,6 +85,7 @@ fun SettingsRoute(
         onInvoiceSettings = onInvoiceSettings,
         onPrinter = onPrinter,
         onBackup = onBackup,
+        onAbout = onAbout,
     )
 }
 
@@ -102,6 +104,7 @@ fun SettingsScreen(
     onInvoiceSettings: () -> Unit = {},
     onPrinter: () -> Unit = {},
     onBackup: () -> Unit = {},
+    onAbout: () -> Unit = {},
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -208,7 +211,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_version, versionName),
                         subtitle = stringResource(R.string.settings_about_summary),
                         icon = AppIcons.Info,
-                        trailing = null,
+                        onClick = onAbout,
                     )
                 }
             }

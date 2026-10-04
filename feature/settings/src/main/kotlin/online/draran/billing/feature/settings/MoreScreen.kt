@@ -21,7 +21,7 @@ import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
 
 /** Destinations reachable from the More tab. */
-enum class MoreDestination { COUNTER, PURCHASES, ESTIMATES, PAYMENTS, EXPENSES, REPORTS, BACKUP, SETTINGS }
+enum class MoreDestination { COUNTER, PURCHASES, ESTIMATES, PAYMENTS, EXPENSES, REPORTS, BACKUP, SETTINGS, ABOUT }
 
 /** "More" tab: everything that is not on the bottom bar. */
 @Composable
@@ -72,7 +72,8 @@ fun MoreScreen(
             Group(
                 listOf(
                     Entry(AppIcons.Database, "Backup and restore", "Keep a copy on Google Drive or a pen drive", MoreDestination.BACKUP, ext.received, ext.receivedContainer),
-                    Entry(AppIcons.Settings, "Settings", "Business, invoice, printer, theme", MoreDestination.SETTINGS, scheme.primary, scheme.primaryContainer),
+                    Entry(AppIcons.Settings, "Settings", "Business, bills, printer, theme, app lock", MoreDestination.SETTINGS, scheme.primary, scheme.primaryContainer),
+                    Entry(AppIcons.Info, "About and credits", "Created by Dr Aran Castro, licence, privacy policy", MoreDestination.ABOUT, ext.due, ext.dueContainer),
                 ),
                 onOpen,
             )

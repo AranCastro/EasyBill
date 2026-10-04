@@ -8,7 +8,7 @@ on the phone; there is no server and no running cost. (Android's own
 Google account backup may also keep an encrypted copy of the app data, which
 you can switch off in the phone's backup settings.)
 
-**Status: v1.5.0.** Feature-complete for daily shop use (Phases 1–3 of the
+**Status: v2.0.0.** Feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -109,6 +109,15 @@ authorised signature and industry modes for service businesses
 - App lock with fingerprint, face or phone screen lock (v1.4, optional).
 - Light / dark / system theme, Phosphor duotone icons, Tamil name and Tamil text on receipts.
 
+**Customers from your phone book** (v2.0)
+- Add a customer or supplier from the phone's contact list: **Choose from phone
+  contacts** in the party form and in the bill's customer picker. The app uses
+  Android's own contact picker and does not ask for the contacts permission; only
+  the name and mobile number of the contact you choose are copied. A contact whose
+  number is already saved is selected instead of added twice.
+- **About and credits** screen (More tab, or Settings › About): who made the app,
+  how to reach the author, the licence, the privacy policy and the components used.
+
 **Per-bill colour** (v1.5)
 - Every bill can have its own colour, chosen in the bill editor or from the
   palette button on the bill screen. The business colour stays the default.
@@ -166,19 +175,31 @@ decisions needed before the first public release are in
 | `core:datastore` | Device settings (theme) |
 | `feature:*` | onboarding, dashboard, items, parties, billing, money, reports, settings |
 
-## Licences
+## Licence, privacy and credits
 
-- This project's own licence has not been chosen yet. It must be added as a
-  `LICENSE` file before the first public release (see the release plan).
+- The app and its source code are released under the **MIT Licence**
+  ([LICENSE](LICENSE)). Copyright © 2026 Dr Aran Castro.
+- **Privacy policy:** [docs/privacy-policy.md](docs/privacy-policy.md). Business data stays on the
+  phone; the app has no account, no advertising and no tracking.
+- **Author:** Dr Aran Castro · arancastro17@gmail.com · https://draran.online · +91 74187 42406
 - Inter font: SIL Open Font License 1.1 (`core/designsystem/FONT_LICENSE_Inter.txt`)
 - Phosphor Icons: MIT (`core/designsystem/ICONS_LICENSE_Phosphor.txt`)
 - ZXing (QR codes): Apache 2.0
 - AndroidX, Jetpack Compose, Hilt and Dagger, Room, Kotlin and kotlinx libraries: Apache 2.0
 - Barcode scanning uses Google Play services and ML Kit (Google's own terms, not open source).
-  The scanner module is downloaded by Google Play services on first use.
+  The scanner module is downloaded by Google Play services on first use, which is why the
+  app declares the Internet permission.
 
 ## Changelog
 
+- **2.0.0**: Phone contacts, credits, licence and privacy policy.
+  - New: add a customer or supplier from the phone's contacts (party form and the
+    bill's customer picker) without the contacts permission; About and credits
+    screen with the author's details, the MIT licence, the privacy policy link and
+    the components used.
+  - Release: MIT `LICENSE`, privacy policy, the Internet permission declared in the
+    manifest (used by Google Play services for the barcode scanner module), and the
+    `main` branch.
 - **1.5.0**: Third audit, per-bill colour and release preparation.
   - New: the colour of each bill can be chosen on that bill (database v6);
     the greeting says Good night from 9 pm to 5 am and follows the clock while

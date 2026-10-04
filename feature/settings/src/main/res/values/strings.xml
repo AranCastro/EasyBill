@@ -22,7 +22,7 @@
     <string name="settings_backup_summary">Daily copy on this phone, backup to Google Drive</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Modern Kallaa Petti · v%1$s</string>
-    <string name="settings_about_summary">கல்லாப்பெட்டி · Your digital cash box</string>
+    <string name="settings_about_summary">Credits, licence and privacy policy</string>
     <string name="settings_security">Security</string>
     <string name="settings_app_lock">App lock</string>
     <string name="settings_app_lock_summary">Ask for your fingerprint, face or screen lock when the app opens and after it has been away for a minute</string>

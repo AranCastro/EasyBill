@@ -66,10 +66,12 @@ import online.draran.billing.feature.reports.ReportRoute
 import online.draran.billing.feature.reports.ReportsHubRoute
 import online.draran.billing.feature.settings.BackupRoute
 import online.draran.billing.feature.settings.InvoiceSettingsRoute
+import online.draran.billing.feature.settings.AboutRoute
 import online.draran.billing.feature.settings.MoreDestination
 import online.draran.billing.feature.settings.MoreScreen
 import online.draran.billing.feature.settings.PrinterSettingsRoute
 import online.draran.billing.feature.settings.SettingsRoute
+import online.draran.billing.navigation.NavAbout
 import online.draran.billing.navigation.NavBackup
 import online.draran.billing.navigation.NavBusinessProfile
 import online.draran.billing.navigation.NavCounter
@@ -243,6 +245,7 @@ fun BillingApp(
                             MoreDestination.REPORTS -> nav.go(NavReports)
                             MoreDestination.BACKUP -> nav.go(NavBackup)
                             MoreDestination.SETTINGS -> nav.go(NavSettings)
+                            MoreDestination.ABOUT -> nav.go(NavAbout)
                         }
                     },
                 )
@@ -368,8 +371,10 @@ fun BillingApp(
                     onInvoiceSettings = { nav.go(NavInvoiceSettings) },
                     onPrinter = { nav.go(NavPrinter) },
                     onBackup = { nav.go(NavBackup) },
+                    onAbout = { nav.go(NavAbout) },
                 )
             }
+            composable<NavAbout> { AboutRoute(versionName = versionName, onBack = { nav.back() }) }
             composable<NavBusinessProfile> { BusinessProfileRoute(onBack = { nav.back() }) }
             composable<NavInvoiceSettings> { InvoiceSettingsRoute(onBack = { nav.back() }) }
             composable<NavPrinter> { PrinterSettingsRoute(onBack = { nav.back() }) }

@@ -1,4 +1,4 @@
-# Modern Kallaa Petti: User Guide (v1.5.0)
+# Modern Kallaa Petti: User Guide (v2.0.0)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -57,7 +57,11 @@ optional **Due date**.
   bill it later with the scanner. Mark best sellers as **favourite** to show them
   as tiles in Counter billing.
 - **Parties tab › Add party**: customers and suppliers, with phone, GSTIN, state
-  and any amount pending from before (opening balance).
+  and any amount pending from before (opening balance). Tap **Choose from phone
+  contacts** to fill the name and mobile number from your phone book. You can do the
+  same while making a bill: **Change** the customer, then **Choose from phone
+  contacts**. A contact whose number you already saved is selected, not added twice.
+  The app does not read your whole phone book; Android gives it only the contact you tap.
 
 ## 4. Make a bill
 - Tap **New Sale** (Home or Sales tab).
@@ -157,3 +161,8 @@ has been in the background for a minute. A bill you were making is still there
 after unlocking. The switch is available only when the phone has a screen lock;
 if the screen lock is later removed, the app opens without asking. While the lock
 is on, screenshots and the recent-apps picture of the app are blocked.
+
+## 11. About and credits
+**More › About and credits** shows who made the app (Dr Aran Castro, with email,
+website and phone to contact), the MIT licence, the privacy policy and the
+components the app is built with.

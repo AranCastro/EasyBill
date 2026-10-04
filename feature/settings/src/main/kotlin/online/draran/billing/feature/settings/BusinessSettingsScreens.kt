@@ -1,5 +1,6 @@
 package online.draran.billing.feature.settings
 
+import androidx.compose.foundation.layout.heightIn
 import online.draran.billing.core.common.userMessage
 import android.content.Context
 import android.content.Intent
@@ -72,7 +73,48 @@ import javax.inject.Inject
 class BusinessSettingsViewModel @Inject constructor(
     private val repository: BusinessRepository,
     val backup: BackupManager,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val app: Context,
 ) : ViewModel() {
+    /** True while a backup or restore runs: the buttons are off and Back is blocked. */
+    var backupBusy by mutableStateOf(false)
+        private set
+
+    /** Shown once as a snackbar. */
+    var backupMessage by mutableStateOf<String?>(null)
+
+    fun exportBackup(uri: android.net.Uri) = backupTask { backup.exportTo(uri); "Backup saved" }
+    fun saveCopy() = backupTask { backup.saveCopy(); "Copy saved" }
+    fun importBackup(uri: android.net.Uri) = restoreTask { backup.importFrom(uri) }
+    fun restoreCopy(file: File) = restoreTask { backup.restoreAuto(file) }
+
+    // Run in the view model and shielded from cancellation: leaving the screen, turning the phone or pressing Back
+    // must never cut a backup or a restore in half.
+    private fun backupTask(task: suspend () -> String) {
+        if (backupBusy) return
+        backupBusy = true
+        viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { runCatching { task() } }
+            backupMessage = result.fold({ it }, { "The backup could not be saved. ${it.userMessage("Check the free space on your phone and try again.")}" })
+            backupBusy = false
+        }
+    }
+
+    private fun restoreTask(task: suspend () -> Unit) {
+        if (backupBusy) return
+        backupBusy = true
+        viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { runCatching { task() } }
+            val failure = result.exceptionOrNull()
+            if (failure == null || (failure as? online.draran.billing.core.data.RestoreFailedException)?.needsRestart == true) {
+                // The running database was replaced (or closed): the app starts again on the new data
+                restartApp(app)
+            } else {
+                backupMessage = "The backup could not be restored. " + (failure.cause ?: failure).userMessage("Check the free space on your phone and try again.")
+                backupBusy = false
+            }
+        }
+    }
+
     var business by mutableStateOf<Business?>(null)
         private set
 
@@ -126,7 +168,7 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
         topBar = { AppTopBar("Bill settings", onBack = onBack) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onBack) }, enabled = prefixErrors.isEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
+                Button(onClick = { viewModel.save(onBack) }, enabled = prefixErrors.isEmpty(), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Save") }
             }
         },
     ) { padding ->
@@ -216,8 +258,10 @@ fun PrinterSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
     val snackbar = remember { SnackbarHostState() }
     var printers by remember { mutableStateOf(BluetoothPrinter.pairedDevices(context)) }
     var message by remember { mutableStateOf<String?>(null) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+    var refused by remember { mutableStateOf(false) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         printers = BluetoothPrinter.pairedDevices(context)
+        refused = !granted.values.all { it }
     }
     LaunchedEffect(Unit) { if (!BluetoothPrinter.hasPermission(context)) permission.launch(BluetoothPrinter.permissions) }
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); message = null } }
@@ -246,7 +290,12 @@ fun PrinterSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Pair the printer in your phone's Bluetooth settings first (PIN is usually 0000 or 1234). Then choose it here.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (!BluetoothPrinter.hasPermission(context)) {
-                        OutlinedButton(onClick = { permission.launch(BluetoothPrinter.permissions) }) { Text("Allow Nearby devices") }
+                        if (refused) {
+                            Text("Nearby devices is switched off for this app. Open the app settings, choose Permissions, and allow it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            OutlinedButton(onClick = { BluetoothPrinter.openAppSettings(context) }) { Text("Open app settings") }
+                        } else {
+                            OutlinedButton(onClick = { permission.launch(BluetoothPrinter.permissions) }) { Text("Allow Nearby devices") }
+                        }
                     } else if (printers.isEmpty()) {
                         Text("No paired devices found. Turn on Bluetooth and pair your printer.", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -289,33 +338,29 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
     val backup = viewModel.backup
     val last by backup.lastBackup.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var message by remember { mutableStateOf<String?>(null) }
     var pendingRestore by remember { mutableStateOf<(() -> Unit)?>(null) }
     var autoFiles by remember { mutableStateOf(backup.autoBackups()) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val busy = viewModel.backupBusy
     val ext = BillingTheme.extendedColors
+    // The list of copies changes after every backup or restore
+    LaunchedEffect(busy) { if (!busy) autoFiles = backup.autoBackups() }
+    // No leaving the screen halfway through
+    androidx.activity.compose.BackHandler(enabled = busy) {}
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) scope.launch {
-            message = runCatching { backup.exportTo(uri) }.fold({ "Backup saved" }, { "Backup failed. ${it.userMessage("Try again.")}" })
-        }
-    }
-    // A failure after the running database was closed leaves the app without a usable database: restart it
-    fun restoreFailed(error: Throwable) {
-        if ((error as? online.draran.billing.core.data.RestoreFailedException)?.needsRestart == true) restartApp(context)
-        else message = "Restore failed. ${error.userMessage("Choose the backup file again.")}"
+        if (uri != null) viewModel.exportBackup(uri)
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) pendingRestore = {
-            scope.launch {
-                runCatching { backup.importFrom(uri) }.fold({ restartApp(context) }, ::restoreFailed)
-            }
-        }
+        if (uri != null) pendingRestore = { viewModel.importBackup(uri) }
     }
-    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); message = null } }
+    LaunchedEffect(viewModel.backupMessage) { viewModel.backupMessage?.let { snackbar.showSnackbar(it); viewModel.backupMessage = null } }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { AppTopBar("Backup and restore", onBack = onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.lg, vertical = Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            if (busy) {
+                androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Please wait. Do not close the app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (last != null) AppIcons.CloudCheck else AppIcons.CloudSlash, null, tint = if (last != null) ext.received else ext.due)
@@ -328,8 +373,8 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
             }
             SectionCard(title = "Back up") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Save the backup file to Google Drive (free) or to Downloads, then copy it to a pen drive.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = { exportLauncher.launch(backup.suggestedFileName()) }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    Text("Save the backup file to Google Drive (free) or to Downloads, then copy it to a pen drive. The file is not password protected, so keep it somewhere private.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = { exportLauncher.launch(backup.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Icon(AppIcons.Upload, null); Spacer(Modifier.width(8.dp)); Text("Back up now")
                     }
                 }
@@ -337,7 +382,7 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
             SectionCard(title = "Restore") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Replaces all data on this phone with the backup. Use this on a new phone too.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Icon(AppIcons.Download, null); Spacer(Modifier.width(8.dp)); Text("Restore from file")
                     }
                 }
@@ -356,17 +401,10 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            OutlinedButton(onClick = {
-                                pendingRestore = { scope.launch { runCatching { backup.restoreAuto(f) }.fold({ restartApp(context) }, ::restoreFailed) } }
-                            }) { Text("Restore") }
+                            OutlinedButton(onClick = { pendingRestore = { viewModel.restoreCopy(f) } }, enabled = !busy) { Text("Restore") }
                         }
                     }
-                    OutlinedButton(onClick = {
-                        scope.launch {
-                            message = runCatching { backup.saveCopy() }.fold({ "Copy saved" }, { "A copy could not be saved. Check the free space on your phone." })
-                            autoFiles = backup.autoBackups()
-                        }
-                    }) { Text("Save a copy now") }
+                    OutlinedButton(onClick = { viewModel.saveCopy() }, enabled = !busy) { Text("Save a copy now") }
                 }
             }
         }

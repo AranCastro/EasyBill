@@ -48,6 +48,13 @@ class MainActivity : FragmentActivity() {
 
             SystemBarsFollowTheme(dark)
 
+            // With the app lock on, the screen must not leak bills through screenshots, screen recording or the recent-apps picture
+            androidx.compose.runtime.LaunchedEffect(preferences.appLock) {
+                if (preferences.appLock) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                if (android.os.Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!preferences.appLock)
+            }
+
             BillingTheme(themeMode = preferences.themeMode, dynamicColor = preferences.dynamicColor) {
                 // The lock covers the app instead of replacing it, so a half-made bill is still there after unlocking
                 val locked = preferences.appLock && viewModel.unlocked == false && AppLock.canAuthenticate(this)
@@ -60,6 +67,8 @@ class MainActivity : FragmentActivity() {
                         versionName = BuildConfig.VERSION_NAME,
                     )
                 }
+                // A text field under the lock must not keep the keyboard open
+                if (locked) androidx.compose.ui.platform.LocalFocusManager.current.clearFocus()
                 if (locked) LockScreen(onUnlock = { AppLock.prompt(this, onSuccess = viewModel::unlock) }, onLeave = ::finish)
             }
         }

@@ -1,5 +1,7 @@
 package online.draran.billing.feature.parties
 
+import androidx.compose.foundation.layout.heightIn
+import online.draran.billing.core.designsystem.component.rememberDiscardGuard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,17 +63,18 @@ fun PartyEditorRoute(
     var confirmDelete by remember { mutableStateOf(false) }
     val editing = partyId != 0L
     val noun = if (form.type == PartyType.CUSTOMER) "customer" else "supplier"
+    val leave = rememberDiscardGuard(viewModel.isDirty, onExit = onBack)
 
     Scaffold(
         topBar = {
-            AppTopBar(if (editing) "Edit $noun" else "New $noun", onBack = onBack, actions = {
+            AppTopBar(if (editing) "Edit $noun" else "New $noun", onBack = leave, actions = {
                 if (editing && viewModel.canDelete) IconButton(onClick = { confirmDelete = true }) { Icon(AppIcons.Trash, contentDescription = "Delete") }
             })
         },
         bottomBar = {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
                 viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
-                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save $noun") }
+                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Save $noun") }
             }
         },
     ) { padding ->

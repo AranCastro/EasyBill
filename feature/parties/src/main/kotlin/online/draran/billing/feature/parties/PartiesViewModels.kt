@@ -121,7 +121,12 @@ class PartyEditorViewModel @Inject constructor(
         }
     }
 
+    /** True once the user has changed something; asked about before leaving without saving. */
+    private var touched = false
+    val isDirty: Boolean get() = touched && !saving
+
     fun update(transform: (PartyForm) -> PartyForm) {
+        touched = true
         val next = transform(form)
         form = if (next.gstin != form.gstin && Gstin.isValid(next.gstin)) next.copy(stateCode = Gstin.stateCode(next.gstin).orEmpty()) else next
     }
@@ -164,7 +169,16 @@ class PartyEditorViewModel @Inject constructor(
     }
 
     fun delete(onDone: () -> Unit) {
-        viewModelScope.launch { if (repository.delete(partyId)) onDone() }
+        viewModelScope.launch {
+            try {
+                if (repository.delete(partyId)) onDone()
+                else saveError = "This party cannot be deleted: it has bills or payments, or an opening balance. Set the opening balance to zero first."
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                saveError = "The party could not be deleted. Try again."
+            }
+        }
     }
 }
 

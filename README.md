@@ -1,6 +1,6 @@
 # Modern Kallaa Petti (MKP)
 
-*கல்லாப்பெட்டி — the shop cash box, made digital.* Repository codename: EasyBill.
+*கல்லாப்பெட்டி: the shop cash box, made digital.* Repository codename: EasyBill.
 
 Free, offline-first billing, stock and accounts app for Android, for GST and
 non-GST shops in India. Kotlin + Jetpack Compose + Material 3. All data stays
@@ -8,7 +8,7 @@ on the phone; there is no server and no running cost. (Android's own
 Google account backup may also keep an encrypted copy of the app data, which
 you can switch off in the phone's backup settings.)
 
-**Status: v1.3.1** — feature-complete for daily shop use (Phases 1–3 of the
+**Status: v1.5.0.** Feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -70,7 +70,7 @@ authorised signature and industry modes for service businesses
 
 **Billing**
 - Sale invoices, purchase bills, estimates/quotations, sale returns (credit
-  notes) and purchase returns (debit notes) — one fast editor for all.
+  notes) and purchase returns (debit notes) in one fast editor.
 - GST: CGST + SGST or IGST chosen automatically from the party's state; tax
   inclusive or exclusive prices; line discounts; round-off; Bill of Supply when
   GST is off.
@@ -82,7 +82,7 @@ authorised signature and industry modes for service businesses
   as you type (full-text index).
 - Convert estimate → sale, duplicate a bill, make a return from a bill.
 
-**Bills out**
+**Printing and sharing**
 - A4 PDF tax invoice with tax summary by rate, amount in words, UPI QR for the
   balance due, bank details, terms and signature block.
 - Share on WhatsApp or any app, print through Android printing (Wi-Fi printers,
@@ -107,7 +107,11 @@ authorised signature and industry modes for service businesses
 - Automatic copy also taken just before any restore, listed as "Before restore"
   so a wrong restore can be undone; hourly check while the app stays open.
 - App lock with fingerprint, face or phone screen lock (v1.4, optional).
-- Light / dark / system theme, Phosphor duotone icons, Tamil-friendly brand.
+- Light / dark / system theme, Phosphor duotone icons, Tamil name and Tamil text on receipts.
+
+**Per-bill colour** (v1.5)
+- Every bill can have its own colour, chosen in the bill editor or from the
+  palette button on the bill screen. The business colour stays the default.
 
 **Look and feel** (v1.4)
 - Dashboard: overdue bills card, this month's top sellers with bars, today's
@@ -133,16 +137,20 @@ Robolectric and save screenshots to `app/build/outputs/roborazzi/`.
 
 ### Signing a release APK
 
-Create your own key once and keep two copies of it safely. Losing it means you
-cannot ship updates.
+Create the key once on your own computer (never in the repository), keep two
+copies in two safe places, and note the certificate fingerprint:
 
-```powershell
-keytool -genkeypair -v -keystore kallaa-petti-release.jks -alias kallaapetti -keyalg RSA -keysize 2048 -validity 10000
+```bash
+bash tools/make-release-keystore.sh          # asks for a password, writes the key outside the repository
+./gradlew :app:assembleRelease
+bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 1.5.0
 ```
 
-Then in Android Studio use **Build › Generate Signed App Bundle / APK**, or set
-the four `RELEASE_*` secrets described in `.github/workflows/release.yml` and
-push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
+Losing the key means no update can ever be installed over the installed app.
+The GitHub release workflow signs the same way when a tag `vX.Y.Z` is pushed.
+The full runbook, the GitHub secrets, the version-number rule and the
+decisions needed before the first public release are in
+[docs/easybill_release-plan_v1.md](docs/easybill_release-plan_v1.md).
 
 ## Modules
 
@@ -160,13 +168,45 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
 
 ## Licences
 
+- This project's own licence has not been chosen yet. It must be added as a
+  `LICENSE` file before the first public release (see the release plan).
 - Inter font: SIL Open Font License 1.1 (`core/designsystem/FONT_LICENSE_Inter.txt`)
 - Phosphor Icons: MIT (`core/designsystem/ICONS_LICENSE_Phosphor.txt`)
 - ZXing (QR codes): Apache 2.0
+- AndroidX, Jetpack Compose, Hilt and Dagger, Room, Kotlin and kotlinx libraries: Apache 2.0
+- Barcode scanning uses Google Play services and ML Kit (Google's own terms, not open source).
+  The scanner module is downloaded by Google Play services on first use.
 
 ## Changelog
 
-- **1.4.0** — Second audit, richer screens and app lock.
+- **1.5.0**: Third audit, per-bill colour and release preparation.
+  - New: the colour of each bill can be chosen on that bill (database v6);
+    the greeting says Good night from 9 pm to 5 am and follows the clock while
+    the app stays open; an unsaved-changes question before leaving any editor,
+    the counter cart included; a bill being made survives the phone ending the
+    app in the background.
+  - Money: payments clear the opening balance first, so the party screen and the
+    bill screens agree; credit and debit notes from before 1.4 are applied at
+    start-up; bill and receipt numbers are never given out again after a delete;
+    the state in a customer's GSTIN decides IGST when no state is saved; editing a
+    bill keeps its IGST or CGST and SGST split; GSTR-3B shows cash to pay and credit
+    carried forward using the set-off rules; a line with no price is queried once.
+  - Printing: tax invoice lines show taxable value; credit and debit notes name the
+    bill they are set against; the receipt QR is sent as a picture so cheap 58 mm
+    printers print it; Bluetooth falls back to an unencrypted link and sends data
+    in small pieces; CSV keeps HSN codes with leading zeros; long reports open at
+    once; exports always match the report on screen.
+  - Safety: backup and restore finish even if the screen is left (a progress bar
+    shows and Back is blocked); a restore file is test-opened before the live
+    data is replaced; the app lock hides the screen from screenshots and the
+    recent-apps picture; Bluetooth permission can be allowed from the app
+    settings after being refused.
+  - Wording: one word for each idea (bill, customer, to collect, to pay, payment
+    in and out), sentence case everywhere, no raw error messages, plural fixes.
+  - Release: the release workflow checks the tag, verifies the signature and
+    certificate, publishes a checksum and keeps the mapping file; scripts create
+    the key and sign locally.
+- **1.4.0**: Second audit, overdue tracking and app lock.
   - New: overdue tracking (Home card, Sales filter, labels with days overdue);
     top sellers this month; share today's summary; app lock; saved banner;
     Sales list grouped by day; coloured avatars and report icons; vibration on
@@ -184,7 +224,7 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
     for blanks and duplicates; double taps on navigation and item save no
     longer open two screens or save twice; one-time items are added correctly.
 
-- **1.3.1** — Full audit and bug fixes.
+- **1.3.1**: Full audit and bug fixes.
   - Crash: sharing Profit & loss or Cash flow as PDF.
   - Data safety: restore validates the backup (integrity, app version), swaps the
     database in one step and keeps the previous database as
@@ -206,25 +246,25 @@ push a tag such as `v1.0.0` to get a signed APK from GitHub Actions.
     deleted; reminders only for customers who owe; unit editable with GST.
   - Release workflow runs the tests; CI lints every module; Android account
     backup includes the logo and signature.
-- **1.3.0** — Bill colour per business, suggested from the logo, with
+- **1.3.0**: Bill colour per business, suggested from the logo, with
   ready-made colours and a contrast check; used on bills, statements and
   report PDFs; database v4 with automatic migration.
-- **1.2.0** — Optional MSME (Udyam) registration with enterprise type, printed
+- **1.2.0**: Optional MSME (Udyam) registration with enterprise type, printed
   on bills and receipts; MSMED Act payment-term note for micro and small
   enterprises; database v3 with automatic migration. Fixed the A4 signature
   block running into the page footer when the left column (QR, bank details,
   terms) was tall.
-- **1.1.0** — Business logo; authorised signature (photo or drawn) with name
+- **1.1.0**: Business logo; authorised signature (photo or drawn) with name
   and designation; seven industry modes with their own words, bill titles,
   bill fields, due dates and starter services; logo on thermal receipts;
   database v2 with automatic migration from 1.0.0. Fixed restore on Android
   8–12 (an Android 13-only call).
-- **1.0.0** — Full app: database, onboarding with GST switch, items with stock
+- **1.0.0**: Full app: database, onboarding with GST switch, items with stock
   and barcodes, parties with ledgers, sale/purchase/estimate/return bills,
   counter mode with UPI QR, A4 PDF, WhatsApp share, Android and Bluetooth
   thermal printing, payments, expenses, ten reports with PDF/CSV export,
   backup/restore with daily copies, invoice and printer settings, live dashboard.
-- **0.3.1** — Kallaa petti launcher icon.
-- **0.3.0** — Renamed to Modern Kallaa Petti.
-- **0.2.0** — Theme setting and Phosphor duotone icons.
-- **0.1.0** — Project skeleton, design system, dashboard, CI.
+- **0.3.1**: Kallaa petti launcher icon.
+- **0.3.0**: Renamed to Modern Kallaa Petti.
+- **0.2.0**: Theme setting and Phosphor duotone icons.
+- **0.1.0**: Project skeleton, design system, dashboard, CI.

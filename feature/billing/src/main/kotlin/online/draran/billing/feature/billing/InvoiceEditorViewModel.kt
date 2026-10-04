@@ -4,7 +4,11 @@ import online.draran.billing.core.common.userMessage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.os.Bundle
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +63,7 @@ class InvoiceEditorViewModel @Inject constructor(
     private val parties: PartyRepository,
     private val businessRepository: BusinessRepository,
     private val branding: BrandingManager,
+    private val savedState: SavedStateHandle,
 ) : ViewModel() {
 
     val business: StateFlow<Business> = businessRepository.business.stateIn(viewModelScope, SharingStarted.Eagerly, Business())
@@ -108,6 +113,78 @@ class InvoiceEditorViewModel @Inject constructor(
     /** Whether tax applies to this bill: its own setting when editing an old bill, else the shop's. */
     val gstOn: Boolean get() = editGst ?: business.value.gstEnabled
     private var originalNumber = ""
+    private var zeroConfirmed = false
+
+    /** A new bill with something on it: the user is asked before it is thrown away. */
+    val isDirty: Boolean get() = loaded && !saving && invoiceId == 0L && (lines.isNotEmpty() || notes.isNotBlank())
+
+    init {
+        // Called when the system saves the screen's state, so the bill survives the app being ended in the background
+        savedState.setSavedStateProvider(DRAFT_KEY) { Bundle().apply { putString(DRAFT_JSON, encodeDraft()) } }
+    }
+
+    private fun encodeDraft(): String? {
+        if (!loaded || saving) return null
+        val worthKeeping = lines.isNotEmpty() || notes.isNotBlank() || received.isNotBlank() || !party.isCash
+        if (!worthKeeping) return null
+        return JSONObject().apply {
+            put("type", type.name); put("invoiceId", invoiceId); put("number", number)
+            put("originalNumber", originalNumber); put("suggested", suggestedNumber)
+            put("date", date.toEpochDay()); put("due", dueDate?.toEpochDay() ?: JSONObject.NULL)
+            put("party", JSONObject().apply {
+                put("id", party.id ?: JSONObject.NULL); put("name", party.name); put("phone", party.phone)
+                put("gstin", party.gstin); put("address", party.address); put("state", party.stateCode); put("balance", party.balance.paise)
+            })
+            put("lines", JSONArray().also { arr ->
+                lines.forEach { l ->
+                    arr.put(JSONObject().apply {
+                        put("id", l.id); put("itemId", l.itemId ?: JSONObject.NULL); put("name", l.name); put("hsn", l.hsn); put("unit", l.unit)
+                        put("qty", l.qtyMilli); put("rate", l.rate.paise); put("disc", l.discountBp); put("tax", l.taxRateBp)
+                        put("incl", l.taxInclusive); put("cost", l.costRate.paise)
+                    })
+                }
+            })
+            put("notes", notes); put("received", received); put("fullyPaid", fullyPaid); put("mode", mode.name)
+            put("billColor", billColor); put("convertedFrom", convertedFromId ?: -1L)
+            put("editGst", when (editGst) { null -> -1; true -> 1; false -> 0 })
+            put("editRound", when (editRound) { null -> -1; true -> 1; false -> 0 })
+            put("custom", JSONObject(customValues)); put("labels", JSONArray(draftLabels))
+        }.toString()
+    }
+
+    /** Puts a kept bill back, but only when it belongs to the same screen (same kind of bill, same bill being edited). */
+    private fun restoreDraft(json: String, docType: DocType, id: Long): Boolean = runCatching {
+        val o = JSONObject(json)
+        if (o.getString("type") != docType.name || o.getLong("invoiceId") != id) return false
+        type = docType
+        invoiceId = id
+        number = o.getString("number"); originalNumber = o.getString("originalNumber"); suggestedNumber = o.getString("suggested")
+        date = LocalDate.ofEpochDay(o.getLong("date"))
+        dueDate = if (o.isNull("due")) null else LocalDate.ofEpochDay(o.getLong("due"))
+        o.getJSONObject("party").let { p ->
+            party = PartyChoice(
+                id = if (p.isNull("id")) null else p.getLong("id"), name = p.getString("name"), phone = p.getString("phone"),
+                gstin = p.getString("gstin"), address = p.getString("address"), stateCode = p.getString("state"), balance = Money(p.getLong("balance")),
+            )
+        }
+        lines = (0 until o.getJSONArray("lines").length()).map { i ->
+            o.getJSONArray("lines").getJSONObject(i).let { l ->
+                InvoiceLine(
+                    id = l.getLong("id"), itemId = if (l.isNull("itemId")) null else l.getLong("itemId"), name = l.getString("name"),
+                    hsn = l.getString("hsn"), unit = l.getString("unit"), qtyMilli = l.getLong("qty"), rate = Money(l.getLong("rate")),
+                    discountBp = l.getInt("disc"), taxRateBp = l.getInt("tax"), taxInclusive = l.getBoolean("incl"), costRate = Money(l.getLong("cost")),
+                )
+            }
+        }
+        notes = o.getString("notes"); received = o.getString("received"); fullyPaid = o.getBoolean("fullyPaid")
+        mode = PaymentMode.valueOf(o.getString("mode")); billColor = o.getInt("billColor")
+        convertedFromId = o.getLong("convertedFrom").takeIf { it >= 0 }
+        editGst = o.getInt("editGst").let { if (it < 0) null else it == 1 }
+        editRound = o.getInt("editRound").let { if (it < 0) null else it == 1 }
+        o.getJSONObject("custom").let { c -> customValues = c.keys().asSequence().associateWith { c.getString(it) } }
+        draftLabels = (0 until o.getJSONArray("labels").length()).map { o.getJSONArray("labels").getString(it) }
+        true
+    }.getOrDefault(false)
 
     fun init(docType: DocType, id: Long, sourceId: Long, partyId: Long) {
         if (loaded) return
@@ -116,6 +193,9 @@ class InvoiceEditorViewModel @Inject constructor(
         viewModelScope.launch {
             // The shop settings load asynchronously; totals below must not run on the empty defaults
             business.first { it.onboarded }
+            // The system may have ended the app while another app was in front: take the unsaved bill back
+            val kept = savedState.get<Bundle>(DRAFT_KEY)?.getString(DRAFT_JSON)
+            if (kept != null && restoreDraft(kept, docType, id)) return@launch
             val draft: InvoiceDraft? = when {
                 id != 0L -> invoices.draftForEdit(id)
                 sourceId != 0L -> invoices.draftFrom(sourceId, docType)
@@ -200,12 +280,14 @@ class InvoiceEditorViewModel @Inject constructor(
         costRate = item.purchasePrice,
     )
 
-    private var lastAddedNewItem = 0L
+    // Kept with the saved state too, so a restored screen does not add the same new item twice
+    private var lastAddedNewItem: Long = savedState.get<Long>("lastNewItem") ?: 0L
 
     /** Adds an item that was just created from this screen. */
     fun addNewItem(id: Long) {
         if (id == 0L || id == lastAddedNewItem) return
         lastAddedNewItem = id
+        savedState["lastNewItem"] = id
         viewModelScope.launch { items.get(id)?.let { addItem(it) } }
     }
 
@@ -258,6 +340,14 @@ class InvoiceEditorViewModel @Inject constructor(
         return true
     }
 
+    /**
+     * A scanned code. Runs in the view model, so a scan that returns while the screen is turning is not lost;
+     * [onMissing] is called when no item has this code.
+     */
+    fun onBarcode(code: String, onMissing: () -> Unit) {
+        viewModelScope.launch { if (!addByBarcode(code)) onMissing() }
+    }
+
     fun paidAmount(): Money {
         val total = totals().total
         if (!type.tracksPayment) return Money.ZERO
@@ -273,7 +363,11 @@ class InvoiceEditorViewModel @Inject constructor(
             lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) } != null -> lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) }
             type.tracksPayment && party.isCash && paidAmount().paise < total.paise ->
                 "Choose a ${type.partyType.label.lowercase()} to keep a balance, or mark the bill as fully paid."
-            type == DocType.PURCHASE && number.isBlank() -> null
+            // A line without a price is usually a forgotten price: ask once, then let it through
+            lines.any { it.rate.paise == 0L } && !zeroConfirmed -> {
+                zeroConfirmed = true
+                "\"${lines.first { it.rate.paise == 0L }.name}\" has no price. Tap Save again to save it at ₹0, or enter a price."
+            }
             else -> null
         }
         if (error != null) return
@@ -317,6 +411,7 @@ class InvoiceEditorViewModel @Inject constructor(
         date = LocalDate.now()
         editGst = null
         editRound = null
+        zeroConfirmed = false
         billColor = 0
         lines = emptyList()
         notes = ""
@@ -350,3 +445,6 @@ class InvoiceEditorViewModel @Inject constructor(
 
     suspend fun numberOf(id: Long): String = invoices.get(id)?.number.orEmpty()
 }
+
+private const val DRAFT_KEY = "bill-draft"
+private const val DRAFT_JSON = "json"

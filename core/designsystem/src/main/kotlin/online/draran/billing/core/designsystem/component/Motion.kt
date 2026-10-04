@@ -246,7 +246,8 @@ fun SuccessBanner(visible: Boolean, text: String, modifier: Modifier = Modifier,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(32.dp).scale(tickScale.value).clip(CircleShape).background(received), contentAlignment = Alignment.Center) {
-                Icon(AppIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                // White on the light green of the dark theme is hard to see
+                Icon(AppIcons.Check, contentDescription = null, tint = if (received.luminance() > 0.4f) Color(0xFF053B1B) else Color.White, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(Spacing.md))
             Column {

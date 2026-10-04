@@ -1,5 +1,6 @@
 package online.draran.billing.core.designsystem.component
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -75,7 +76,7 @@ fun BillColourSheet(
                 }
             }
             Spacer(Modifier.height(Spacing.xs))
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Done") }
+            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Done") }
             Spacer(Modifier.height(Spacing.md))
         }
     }

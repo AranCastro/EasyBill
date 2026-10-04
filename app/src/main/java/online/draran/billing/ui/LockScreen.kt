@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -65,7 +67,7 @@ fun LockScreen(onUnlock: () -> Unit, onLeave: () -> Unit) {
     // Surface takes all touches, so nothing underneath can be tapped while locked
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
-            Modifier.fillMaxSize().padding(Spacing.xl),
+            Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(Spacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -84,7 +86,7 @@ fun LockScreen(onUnlock: () -> Unit, onLeave: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(Spacing.xl))
-            Button(onClick = onUnlock, modifier = Modifier.height(52.dp)) {
+            Button(onClick = onUnlock, modifier = Modifier.heightIn(min = 52.dp)) {
                 Icon(AppIcons.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Unlock", style = MaterialTheme.typography.titleMedium)

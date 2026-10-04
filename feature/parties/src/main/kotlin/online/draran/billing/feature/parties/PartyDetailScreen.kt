@@ -1,5 +1,7 @@
 package online.draran.billing.feature.parties
 
+import androidx.compose.foundation.layout.heightIn
+import online.draran.billing.core.designsystem.component.cardPages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -96,10 +98,10 @@ fun PartyDetailRoute(
                     .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                FilledTonalButton(onClick = { onPayment(party.type) }, modifier = Modifier.weight(1f).height(50.dp)) {
+                FilledTonalButton(onClick = { onPayment(party.type) }, modifier = Modifier.weight(1f).heightIn(min = 50.dp)) {
                     Text(if (isCustomer) "Payment in" else "Payment out")
                 }
-                Button(onClick = { onNewBill(party.type) }, modifier = Modifier.weight(1f).height(50.dp)) {
+                Button(onClick = { onNewBill(party.type) }, modifier = Modifier.weight(1f).heightIn(min = 50.dp)) {
                     Text(if (isCustomer) "New sale" else "New purchase")
                 }
             }
@@ -150,16 +152,8 @@ fun PartyDetailRoute(
                     }
                 }
             } else {
-                item {
-                    SurfaceCard {
-                        Column {
-                            val rows = ledger.asReversed()
-                            rows.forEachIndexed { i, e ->
-                                LedgerRow(e) { if (e.kind != "OPENING") (if (e.isPayment) onOpenPayment else onOpenInvoice)(e.refId) }
-                                if (i < rows.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
+                cardPages(ledger.asReversed(), "ledger") { e ->
+                    LedgerRow(e) { if (e.kind != "OPENING") (if (e.isPayment) onOpenPayment else onOpenInvoice)(e.refId) }
                 }
             }
         }

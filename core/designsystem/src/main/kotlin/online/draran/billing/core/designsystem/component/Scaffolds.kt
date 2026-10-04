@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -68,7 +69,7 @@ fun BottomActionBar(
     enabled: Boolean = true,
     secondary: (@Composable () -> Unit)? = null,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, shadowElevation = 8.dp, modifier = modifier) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, shadowElevation = 8.dp, modifier = modifier.imePadding()) {
         Column {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(

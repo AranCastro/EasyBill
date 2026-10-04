@@ -1,5 +1,6 @@
 package online.draran.billing.feature.items
 
+import online.draran.billing.core.designsystem.component.cardPages
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -157,18 +158,7 @@ fun ItemsScreen(
                 }
             }
         } else {
-            item {
-                SurfaceCard {
-                    Column {
-                        ui.items.forEachIndexed { index, item ->
-                            ItemRow(item, onClick = { onOpenItem(item.item.id) })
-                            if (index < ui.items.lastIndex) {
-                                androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
-                }
-            }
+            cardPages(ui.items, "items", dividerStart = 68.dp) { item -> ItemRow(item, onClick = { onOpenItem(item.item.id) }) }
         }
     }
 }

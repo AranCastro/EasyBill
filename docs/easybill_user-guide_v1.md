@@ -1,11 +1,11 @@
-# Modern Kallaa Petti — User Guide (v1.4.0)
+# Modern Kallaa Petti: User Guide (v1.5.0)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
 2. Allow installing from that source when Android asks, then tap **Install**.
 3. If Play Protect warns "unknown developer", choose **More details › Install anyway**.
 
-Android 8.0 or newer is required. The app needs no internet connection.
+Android 8.0 or newer is required. The app needs no internet connection for billing. The barcode scanner is provided by Google Play services, which downloads it once on first use.
 
 ## 2. First setup (one screen)
 - **Type of business**: Shop / Retail, School / Coaching / Training,
@@ -18,13 +18,13 @@ Android 8.0 or newer is required. The app needs no internet connection.
   plain background prints best.
 - **Business name**, mobile number, address and **state** (decides CGST + SGST or IGST).
 - Turn on **GST registered** and enter your GSTIN if you charge GST. Leave it off
-  for simple bills without tax (non-GST or composition shops).
+  for bills without tax (non-GST or composition shops).
 - **MSME / Udyam (optional)**: if your business has an Udyam registration,
   enter the number (e.g. UDYAM-TN-02-0012345) and choose **Micro**, **Small** or
   **Medium** as on the certificate. It prints under the GSTIN on every bill.
   For micro and small enterprises, sale bills also carry a note that business
   buyers must pay within the agreed period, not later than 45 days, under
-  Section 15 of the MSMED Act, 2006. Turn the note off in **Settings › Invoice
+  Section 15 of the MSMED Act, 2006. Turn the note off in **Settings › Bill
   settings › MSME payment note**. Leave the field blank if you are not
   registered.
 - Add your **UPI ID** to print a payment QR code on every bill.
@@ -47,7 +47,7 @@ Service types add fields such as Roll / Admission no. (schools), Stylist
 (salons), Job card no. (repairs) or PO / Work order no. (research and
 consultancy). Fill them under **Bill details** in the bill editor; filled fields
 print in the bill's Details box and on thermal receipts. Rename, clear or add
-fields (up to four) in **Settings › Invoice settings › Bill fields**, for
+fields (up to four) in **Settings › Bill settings › Bill fields**, for
 example "Vehicle no." for a transporter. Invoice-style types also offer an
 optional **Due date**.
 
@@ -70,13 +70,24 @@ optional **Due date**.
 - Tap **Save**. On the bill screen: **WhatsApp**, **Share PDF**, **Print**
   (Wi-Fi printers / Save as PDF) or **Thermal** (Bluetooth receipt printer).
 
-After saving, a green **Saved** banner confirms the bill number and total.
+After saving, a green banner such as **Sale saved** confirms the bill number and total.
 Amounts can be typed with Indian grouping (1,00,000) or with a decimal comma
 (12,50 is read as ₹12.50).
 
+**Colour of one bill.** Each bill can have its own colour. In the bill editor,
+tap **Bill colour** near the bottom; on a saved bill, tap the palette button at
+the top. Choose a colour from your logo or one of the ready-made colours, or
+**Business colour** to go back to the colour set in your business profile. Only
+that bill changes; the money on it does not.
+
+**Leaving a bill.** If you press Back with items on a new bill, the app asks
+whether to discard it. If the phone closes the app in the background (for
+example during a call), the bill you were making is there when you return. A
+line with no price asks once before it is saved at ₹0.
+
 Purchases, estimates and returns use the same screen: **More › Purchases /
 Estimates**, or the menu (⋮) on a bill for **Sale return** and **Duplicate**.
-Open an estimate and tap **Convert to sale invoice** when the customer confirms.
+Open an estimate and tap **Convert to sale** when the customer confirms.
 
 A **sale return** (credit note) for a customer first reduces what is due on
 that customer's oldest unpaid bills; a **purchase return** (debit note) does the
@@ -123,7 +134,7 @@ their own font, so the app prints those lines as small pictures. They look
 slightly larger and take a little longer to print. English lines print as
 normal text.
 
-## 9. Backup — do this every week
+## 9. Backup: do this every week
 Your data lives only on your phone. **More › Backup & restore › Back up now**
 and choose **Google Drive** in the file picker (free) or Downloads. On a new
 phone, install the app and use **Restore from file**. The app also keeps a daily
@@ -134,9 +145,15 @@ automatic copies marked **Before restore**; tap **Restore** on it to undo a
 restore. Backups include your logo and signature. If the app stays open all
 day, the daily copy is still made (the app checks every hour).
 
+### Greeting and settings words
+The Home greeting follows the time: Good morning from 5 am, afternoon from 12 noon,
+evening from 5 pm and Good night from 9 pm. The names of the tabs and buttons
+follow your business type (for example Students, Fee receipts).
+
 ## 10. App lock
 **Settings › Security › App lock** asks for your fingerprint, face or phone
 screen lock (PIN, pattern, password) when the app opens and again after the app
 has been in the background for a minute. A bill you were making is still there
 after unlocking. The switch is available only when the phone has a screen lock;
-if the screen lock is later removed, the app opens without asking.
+if the screen lock is later removed, the app opens without asking. While the lock
+is on, screenshots and the recent-apps picture of the app are blocked.

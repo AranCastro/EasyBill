@@ -60,6 +60,10 @@ class PaymentEditorViewModel @Inject constructor(
     var linkedToBill by mutableStateOf(false)
         private set
     private var loaded = false
+    private var suggested = ""
+
+    /** A new payment with something typed that is not just the suggested amount. */
+    val isDirty: Boolean get() = paymentId == 0L && !saving && (note.isNotBlank() || reference.isNotBlank() || (amount.isNotBlank() && amount != suggested))
 
     fun load(dir: PaymentDirection, id: Long, party: Long) {
         if (loaded) return
@@ -79,7 +83,7 @@ class PaymentEditorViewModel @Inject constructor(
                     val bal = parties.parties.first().firstOrNull { it.party.id == party }?.balance
                     if (bal != null) {
                         val due = if (dir == PaymentDirection.IN) bal.paise else -bal.paise
-                        if (due > 0) amount = MoneyParse.toInput(Money(due))
+                        if (due > 0) { amount = MoneyParse.toInput(Money(due)); suggested = amount }
                     }
                 }
             }
@@ -118,7 +122,9 @@ class PaymentEditorViewModel @Inject constructor(
     }
 
     fun delete(onDone: () -> Unit) {
-        viewModelScope.launch { repository.delete(paymentId); onDone() }
+        viewModelScope.launch {
+            try { repository.delete(paymentId); onDone() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { saveError = "The payment could not be deleted. Try again." }
+        }
     }
 }
 
@@ -152,6 +158,8 @@ class ExpenseEditorViewModel @Inject constructor(private val repository: Expense
 
     val amountError: String? get() = if ((MoneyParse.parse(amount)?.paise ?: 0) <= 0) "Enter the amount" else null
 
+    val isDirty: Boolean get() = expenseId == 0L && !saving && (amount.isNotBlank() || note.isNotBlank())
+
     var saving by mutableStateOf(false)
         private set
     var saveError by mutableStateOf<String?>(null)
@@ -174,6 +182,8 @@ class ExpenseEditorViewModel @Inject constructor(private val repository: Expense
     }
 
     fun delete(onDone: () -> Unit) {
-        viewModelScope.launch { repository.delete(expenseId); onDone() }
+        viewModelScope.launch {
+            try { repository.delete(expenseId); onDone() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { saveError = "The expense could not be deleted. Try again." }
+        }
     }
 }

@@ -1,5 +1,7 @@
 package online.draran.billing.feature.items
 
+import androidx.compose.foundation.layout.heightIn
+import online.draran.billing.core.designsystem.component.rememberDiscardGuard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,12 +81,13 @@ fun ItemEditorRoute(
     var confirmDelete by remember { mutableStateOf(false) }
     var adjusting by remember { mutableStateOf(false) }
     val editing = itemId != 0L
+    val leave = rememberDiscardGuard(viewModel.isDirty, onExit = onBack)
 
     Scaffold(
         topBar = {
             AppTopBar(
                 title = (if (editing) "Edit " else "New ") + viewModel.business.collectAsStateWithLifecycle().value.type.item.lowercase(),
-                onBack = onBack,
+                onBack = leave,
                 actions = {
                     if (editing) {
                         IconButton(onClick = { viewModel.update { it.copy(favourite = !it.favourite) } }) {
@@ -96,8 +99,9 @@ fun ItemEditorRoute(
             )
         },
         bottomBar = {
-            Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
-                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
+                viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
+                Button(onClick = { viewModel.save(onSaved) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Text(if (editing) "Save changes" else "Save item")
                 }
             }
@@ -195,7 +199,7 @@ fun ItemEditorRoute(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FormField(
                         form.barcode, { v -> viewModel.update { it.copy(barcode = v.trim()) } }, "Barcode",
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Ascii,
                         trailing = { IconButton(onClick = { scanBarcode(context) { code -> viewModel.update { it.copy(barcode = code) } } }) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") } },
                     )
                     FormField(form.code, { v -> viewModel.update { it.copy(code = v) } }, "Item code (short)", capitalization = KeyboardCapitalization.Characters)

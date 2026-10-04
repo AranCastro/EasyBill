@@ -1,5 +1,6 @@
 package online.draran.billing.feature.parties
 
+import online.draran.billing.core.designsystem.component.cardPages
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -107,16 +108,7 @@ fun PartiesScreen(
                 }
             }
         } else {
-            item {
-                SurfaceCard {
-                    Column {
-                        ui.parties.forEachIndexed { i, p ->
-                            PartyRow(p) { onOpenParty(p.party.id) }
-                            if (i < ui.parties.lastIndex) HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        }
-                    }
-                }
-            }
+            cardPages(ui.parties, "parties", dividerStart = 68.dp) { p -> PartyRow(p) { onOpenParty(p.party.id) } }
         }
     }
 }

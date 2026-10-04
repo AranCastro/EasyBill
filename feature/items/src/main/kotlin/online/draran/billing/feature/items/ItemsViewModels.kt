@@ -1,5 +1,6 @@
 package online.draran.billing.feature.items
 
+import online.draran.billing.core.common.userMessage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -151,7 +152,12 @@ class ItemEditorViewModel @Inject constructor(
         }
     }
 
+    /** True once the user has changed something; asked about before leaving without saving. */
+    private var touched = false
+    val isDirty: Boolean get() = touched && !saving
+
     fun update(transform: (ItemForm) -> ItemForm) {
+        touched = true
         form = transform(form)
         nameTaken = false
     }
@@ -164,13 +170,17 @@ class ItemEditorViewModel @Inject constructor(
 
     var saving by mutableStateOf(false)
         private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
 
     fun save(onSaved: (Long) -> Unit) {
         showErrors = true
         if (form.name.isBlank()) return
         if (saving) return // a double tap would save two items and pop the bill editor behind this screen
         saving = true
+        saveError = null
         viewModelScope.launch {
+            try {
             if (repository.nameTaken(form.name, itemId)) {
                 nameTaken = true
                 saving = false
@@ -197,13 +207,25 @@ class ItemEditorViewModel @Inject constructor(
                 ),
             )
             onSaved(id)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                saveError = e.userMessage("Could not save. Try again.")
+                saving = false
+            }
         }
     }
 
     fun delete(onDone: () -> Unit) {
         viewModelScope.launch {
-            repository.delete(itemId)
-            onDone()
+            try {
+                repository.delete(itemId)
+                onDone()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                saveError = "The item could not be deleted. Try again."
+            }
         }
     }
 

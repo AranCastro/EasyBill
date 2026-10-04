@@ -15,8 +15,8 @@ android {
         applicationId = "online.draran.billing"
         minSdk = 26
         targetSdk = 37
-        versionCode = 15
-        versionName = "1.4.0"
+        versionCode = 10500
+        versionName = "1.5.0"
     }
 
     buildTypes {

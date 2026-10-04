@@ -1,5 +1,6 @@
 package online.draran.billing.feature.billing
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -102,7 +103,11 @@ fun InvoiceDetailRoute(
         }
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.all { it }) thermal() else scope.launch { snackbar.showSnackbar("Allow Nearby devices to print over Bluetooth") }
+        if (granted.values.all { it }) thermal() else scope.launch {
+            // After two refusals Android stops asking; the app's settings page is then the only way to allow it
+            val r = snackbar.showSnackbar("Allow Nearby devices to print over Bluetooth", actionLabel = "Settings")
+            if (r == SnackbarResult.ActionPerformed) BluetoothPrinter.openAppSettings(context)
+        }
     }
     LaunchedEffect(viewModel.message) {
         viewModel.message?.let { snackbar.showSnackbar(it); viewModel.message = null }
@@ -192,7 +197,7 @@ fun InvoiceDetailRoute(
             }
             if (inv.type.tracksPayment && inv.balance.paise > 0 && inv.partyId != null) {
                 item {
-                    FilledTonalButton(onClick = { onRecordPayment(inv.type, inv.partyId) }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    FilledTonalButton(onClick = { onRecordPayment(inv.type, inv.partyId) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Icon(AppIcons.HandCoins, null); Spacer(Modifier.width(8.dp))
                         Text(if (inv.type.paymentDirection == online.draran.billing.core.model.PaymentDirection.IN) "Record payment received" else "Record payment made")
                     }

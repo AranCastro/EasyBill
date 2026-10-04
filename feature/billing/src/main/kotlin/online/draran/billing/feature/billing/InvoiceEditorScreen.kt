@@ -1,5 +1,7 @@
 package online.draran.billing.feature.billing
 
+import online.draran.billing.core.designsystem.component.rememberHaptics
+import online.draran.billing.core.designsystem.component.rememberDiscardGuard
 import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.shape.CircleShape
@@ -95,10 +97,21 @@ fun InvoiceEditorRoute(
     val parties by viewModel.allParties.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var pickParty by remember { mutableStateOf(false) }
-    var pickItems by remember { mutableStateOf(false) }
-    var editIndex by remember { mutableIntStateOf(-2) } // -2 none, -1 new one-time line
-    var editNumber by remember { mutableStateOf(false) }
+    // Kept across a screen turn, so an open sheet and what was typed in it are not lost
+    var pickParty by rememberSaveable { mutableStateOf(false) }
+    var pickItems by rememberSaveable { mutableStateOf(false) }
+    var editIndex by rememberSaveable { mutableStateOf(-2) } // -2 none, -1 new one-time line
+    var editNumber by rememberSaveable { mutableStateOf(false) }
+    val leave = rememberDiscardGuard(viewModel.isDirty, "Discard this bill?", "The bill has not been saved and will be lost.", onExit = onBack)
+    val haptics = rememberHaptics()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // A message about the bill sits at the bottom of a long form: buzz and scroll to it
+    LaunchedEffect(viewModel.error) {
+        if (viewModel.error != null) {
+            haptics.error()
+            listState.animateScrollToItem(maxOf(0, listState.layoutInfo.totalItemsCount - 1))
+        }
+    }
     var pickColour by rememberSaveable { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(viewModel.notes.isNotBlank()) }
     // An edited bill's notes arrive after the first frame: keep the field open once they do, even if cleared later
@@ -114,17 +127,15 @@ fun InvoiceEditorRoute(
     val itemsWord = if (isPurchase) "Items" else words.items
 
     fun scan() = scanBarcode(context) { code ->
-        scope.launch {
-            if (!viewModel.addByBarcode(code)) {
-                Toast.makeText(context, "No item has barcode $code. Add it as a new item.", Toast.LENGTH_SHORT).show()
-                onCreateItem(code)
-            }
+        viewModel.onBarcode(code) {
+            Toast.makeText(context, "No item has barcode $code. Add it as a new item.", Toast.LENGTH_SHORT).show()
+            onCreateItem(code)
         }
     }
 
     Scaffold(
         topBar = {
-            AppTopBar(viewModel.title, onBack = onBack, actions = {
+            AppTopBar(viewModel.title, onBack = leave, actions = {
                 IconButton(onClick = { scan() }) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") }
             })
         },
@@ -143,7 +154,8 @@ fun InvoiceEditorRoute(
         },
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().imePadding(),
+            Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = padding.calculateTopPadding() + Spacing.xs, bottom = padding.calculateBottomPadding() + Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {

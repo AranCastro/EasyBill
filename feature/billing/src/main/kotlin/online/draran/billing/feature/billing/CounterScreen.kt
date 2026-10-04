@@ -1,5 +1,8 @@
 package online.draran.billing.feature.billing
 
+import online.draran.billing.core.designsystem.component.rememberDiscardGuard
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -99,8 +102,9 @@ fun CounterRoute(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var query by remember { mutableStateOf("") }
-    var showCart by remember { mutableStateOf(false) }
-    var charging by remember { mutableStateOf(false) }
+    var showCart by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var charging by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val leave = rememberDiscardGuard(viewModel.lines.isNotEmpty() && !viewModel.saving, "Leave the counter?", "The items in the cart have not been billed and will be cleared.", "Leave", onExit = onBack)
     val totals = viewModel.totals()
     val count = viewModel.lines.sumOf { it.qtyMilli }
     val haptics = rememberHaptics()
@@ -111,9 +115,9 @@ fun CounterRoute(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            AppTopBar(if (business.type == online.draran.billing.core.model.BusinessType.RETAIL) "Counter" else business.type.counterLabel, onBack = onBack, subtitle = viewModel.number, actions = {
+            AppTopBar(if (business.type == online.draran.billing.core.model.BusinessType.RETAIL) "Counter" else business.type.counterLabel, onBack = leave, subtitle = viewModel.number, actions = {
                 IconButton(onClick = {
-                    scanBarcode(context) { code -> scope.launch { if (!viewModel.addByBarcode(code)) onCreateItem(code) } }
+                    scanBarcode(context) { code -> viewModel.onBarcode(code) { onCreateItem(code) } }
                 }) { Icon(AppIcons.Barcode, contentDescription = "Scan barcode") }
             })
         },
@@ -127,7 +131,7 @@ fun CounterRoute(
                         Text(if (viewModel.lines.isEmpty()) "Tap items to add" else "${Qty.format(count)} ${if (count == Qty.ONE) "item" else "items"} · View cart", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         AnimatedAmountText(totals.total, style = MaterialTheme.typography.titleLarge, durationMillis = 300)
                     }
-                    Button(onClick = { charging = true }, enabled = viewModel.lines.isNotEmpty(), modifier = Modifier.height(52.dp)) {
+                    Button(onClick = { charging = true }, enabled = viewModel.lines.isNotEmpty(), modifier = Modifier.heightIn(min = 52.dp)) {
                         Text("Charge ${IndianFormat.rupees(totals.total, showPaise = false)}", style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -220,7 +224,7 @@ fun CounterRoute(
 @Composable
 private fun CartSheet(viewModel: InvoiceEditorViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = Spacing.lg).navigationBarsPadding()) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.lg).navigationBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Cart", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 OutlinedButton(onClick = { viewModel.reset(); onDismiss() }) { Text("Clear") }
@@ -257,7 +261,7 @@ private fun ChargeSheet(
     var print by remember { mutableStateOf(canPrint) }
     val ext = BillingTheme.extendedColors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = Spacing.lg).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.lg).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Amount to collect", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 AmountText(total, style = MaterialTheme.typography.displaySmall)
@@ -295,9 +299,14 @@ private fun ChargeSheet(
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
             Button(
-                onClick = { viewModel.fullyPaid = true; viewModel.save { id -> onSaved(id, print && canPrint) } },
+                onClick = {
+                    viewModel.fullyPaid = true
+                    // The counter has no date field: a sale made after midnight is dated today, not the day the screen was opened
+                    viewModel.date = java.time.LocalDate.now()
+                    viewModel.save { id -> onSaved(id, print && canPrint) }
+                },
                 enabled = !viewModel.saving,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
             ) { Text(if (viewModel.saving) "Saving…" else "Paid · Save bill", style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.height(Spacing.md))
         }

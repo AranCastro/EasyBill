@@ -181,7 +181,7 @@ fun BillingApp(
             },
         ) {
             composable<NavOnboarding> {
-                OnboardingRoute(onDone = { nav.go(NavHome) { popUpTo<NavOnboarding> { inclusive = true } } })
+                OnboardingRoute(onDone = { nav.goNow(NavHome) { popUpTo<NavOnboarding> { inclusive = true } } })
             }
 
             // Tabs
@@ -258,7 +258,7 @@ fun BillingApp(
                     onBack = { nav.back() },
                     onSaved = { id ->
                         nav.previousBackStackEntry?.savedStateHandle?.set(NEW_ITEM_KEY, id)
-                        nav.back()
+                        nav.backNow()
                     },
                 )
             }
@@ -269,7 +269,7 @@ fun BillingApp(
                     type = PartyType.valueOf(r.type),
                     prefillName = r.name,
                     onBack = { nav.back() },
-                    onSaved = { id -> if (r.id == 0L) nav.go(NavPartyDetail(id)) { popUpTo<NavPartyEditor> { inclusive = true } } else nav.back() },
+                    onSaved = { id -> if (r.id == 0L) nav.goNow(NavPartyDetail(id)) { popUpTo<NavPartyEditor> { inclusive = true } } else nav.backNow() },
                 )
             }
             composable<NavPartyDetail> { entry ->
@@ -299,10 +299,10 @@ fun BillingApp(
                     onSaved = { id ->
                         // Editing from a bill's page: go back to that page (it refreshes itself) instead of stacking a second copy
                         val cameFromDetail = nav.previousBackStackEntry?.destination?.hierarchy?.any { it.hasRoute(NavInvoiceDetail::class) } == true
-                        if (r.id != 0L && cameFromDetail) nav.back()
-                        else nav.go(NavInvoiceDetail(id, saved = true)) { popUpTo<NavInvoiceEditor> { inclusive = true } }
+                        if (r.id != 0L && cameFromDetail) nav.backNow()
+                        else nav.goNow(NavInvoiceDetail(id, saved = true)) { popUpTo<NavInvoiceEditor> { inclusive = true } }
                     },
-                    onCreateItem = { code -> nav.go(createItemRoute(code)) },
+                    onCreateItem = { code -> nav.goNow(createItemRoute(code)) },
                 )
             }
             composable<NavCounter> { entry ->
@@ -310,7 +310,7 @@ fun BillingApp(
                 CounterRoute(
                     onBack = { nav.back() },
                     onOpenInvoice = ::openInvoice,
-                    onCreateItem = { code -> nav.go(createItemRoute(code)) },
+                    onCreateItem = { code -> nav.goNow(createItemRoute(code)) },
                     newItemId = newItem,
                 )
             }
@@ -403,6 +403,18 @@ private fun NavBackStackEntry.isTab(): Boolean =
  */
 private fun NavHostController.go(route: Any, builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {}) {
     if (currentBackStackEntry?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) navigate(route, builder)
+}
+
+/**
+ * Like [go], for a result that arrives after work has finished (a bill saved, a barcode scanned): the
+ * screen may be paused for a moment then, and the move must not be dropped. The caller runs it once.
+ */
+private fun NavHostController.goNow(route: Any, builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {}) {
+    navigate(route, builder)
+}
+
+private fun NavHostController.backNow() {
+    if (previousBackStackEntry != null) popBackStack()
 }
 
 /** Back, but never past the first screen: a double tap on a back arrow must not leave a blank window. */

@@ -1,5 +1,7 @@
 package online.draran.billing.feature.billing
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import online.draran.billing.core.designsystem.component.NameAvatar
 import online.draran.billing.core.designsystem.component.rememberHaptics
 import androidx.compose.foundation.background
@@ -292,7 +294,7 @@ internal fun LineEditSheet(
     val amounts = TaxEngine.line(parsed.toInput(), interState, gstEnabled)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
-        Column(Modifier.padding(horizontal = Spacing.lg).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.lg).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(if (isNew) "One-time item" else "Edit line", style = MaterialTheme.typography.titleLarge)
             FormField(name, { name = it }, "Item name", capitalization = KeyboardCapitalization.Words)
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {

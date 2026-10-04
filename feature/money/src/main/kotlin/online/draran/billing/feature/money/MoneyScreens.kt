@@ -1,5 +1,8 @@
 package online.draran.billing.feature.money
 
+import androidx.compose.foundation.layout.heightIn
+import online.draran.billing.core.designsystem.component.cardPages
+import online.draran.billing.core.designsystem.component.rememberDiscardGuard
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -95,10 +98,7 @@ fun PaymentsRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (PaymentDir
             if (payments.isEmpty()) {
                 item { SurfaceCard { EmptyState(AppIcons.HandCoins, "No payments yet", "Payments recorded with bills and separate payments appear here.") } }
             } else {
-                item {
-                    SurfaceCard {
-                        Column {
-                            payments.forEachIndexed { i, p ->
+                cardPages(payments, "payments") { p ->
                                 Row(Modifier.fillMaxWidth().clickable { onOpen(p.id) }.padding(horizontal = Spacing.lg, vertical = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
                                     IconBadge(AppIcons.HandCoins, if (p.direction == PaymentDirection.IN) ext.received else MaterialTheme.colorScheme.error, if (p.direction == PaymentDirection.IN) ext.receivedContainer else MaterialTheme.colorScheme.errorContainer, size = 40)
                                     Spacer(Modifier.width(Spacing.md))
@@ -108,10 +108,6 @@ fun PaymentsRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (PaymentDir
                                     }
                                     AmountText(p.amount, style = MaterialTheme.typography.titleSmall, showPaise = false)
                                 }
-                                if (i < payments.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -133,16 +129,17 @@ fun PaymentEditorRoute(
     // Usual parties first; the others stay available for refunds (money paid back to a customer, or received back from a supplier)
     val candidates = parties.sortedBy { if (it.party.type == viewModel.partyType) 0 else 1 }
     val selected = parties.firstOrNull { it.party.id == viewModel.partyId }
+    val leave = rememberDiscardGuard(viewModel.isDirty, onExit = onBack)
     Scaffold(
         topBar = {
-            AppTopBar(if (isIn) "Payment in" else "Payment out", subtitle = viewModel.number, onBack = onBack, actions = {
+            AppTopBar(if (isIn) "Payment in" else "Payment out", subtitle = viewModel.number, onBack = leave, actions = {
                 if (viewModel.paymentId != 0L && !viewModel.linkedToBill) IconButton(onClick = { confirmDelete = true }) { Icon(AppIcons.Trash, "Delete") }
             })
         },
         bottomBar = {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
                 viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
-                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.linkedToBill && !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save payment") }
+                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.linkedToBill && !viewModel.saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Save payment") }
             }
         },
     ) { padding ->
@@ -194,10 +191,7 @@ fun ExpensesRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit,
             if (expenses.isEmpty()) {
                 item { SurfaceCard { EmptyState(AppIcons.Wallet, "No expenses yet", "Record rent, salary, electricity and other costs to see your actual profit.", actionLabel = "Add expense", onAction = onNew) } }
             } else {
-                item {
-                    SurfaceCard {
-                        Column {
-                            expenses.forEachIndexed { i, e ->
+                cardPages(expenses, "expenses") { e ->
                                 Row(Modifier.fillMaxWidth().clickable { onOpen(e.id) }.padding(horizontal = Spacing.lg, vertical = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
                                     IconBadge(AppIcons.Wallet, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer, size = 40)
                                     Spacer(Modifier.width(Spacing.md))
@@ -207,10 +201,6 @@ fun ExpensesRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit,
                                     }
                                     AmountText(e.amount, style = MaterialTheme.typography.titleSmall, showPaise = false)
                                 }
-                                if (i < expenses.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -221,16 +211,17 @@ fun ExpensesRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit,
 fun ExpenseEditorRoute(expenseId: Long, onBack: () -> Unit, viewModel: ExpenseEditorViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { viewModel.load(expenseId) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val leave = rememberDiscardGuard(viewModel.isDirty, onExit = onBack)
     Scaffold(
         topBar = {
-            AppTopBar(if (expenseId == 0L) "New expense" else "Edit expense", onBack = onBack, actions = {
+            AppTopBar(if (expenseId == 0L) "New expense" else "Edit expense", onBack = leave, actions = {
                 if (expenseId != 0L) IconButton(onClick = { confirmDelete = true }) { Icon(AppIcons.Trash, "Delete") }
             })
         },
         bottomBar = {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
                 viewModel.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Spacing.sm)) }
-                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save expense") }
+                Button(onClick = { viewModel.save(onBack) }, enabled = !viewModel.saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Save expense") }
             }
         },
     ) { padding ->

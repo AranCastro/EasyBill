@@ -5,13 +5,16 @@ on:
     branches: [ "**" ]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +29,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Unit and screenshot tests
-        run: ./gradlew testDebugUnitTest :core:model:test
+        run: ./gradlew testDebugUnitTest :core:model:test :core:common:test
 
       # All modules: library modules are not linted by :app:lintDebug alone
       - name: Lint

@@ -11,7 +11,9 @@ document lists what the owner must still decide and do.
 **Status (4 October 2026):** `main` is the default branch (step 1 done). The release key has
 been created (steps 2 and 3: key file and note delivered to the owner). Certificate SHA-256:
 `42:65:F6:84:1D:D6:FC:BC:AA:6A:B3:0F:4F:4D:7C:1C:3A:12:C3:0A:6D:30:AA:4A:EC:8E:36:7E:F7:33:D0:F8`.
-Step 4 (GitHub secrets and variable) done. Next: the test run (step 5).
+Step 4 (GitHub secrets and variable) done. The first test run stopped at signing because the
+pasted password secret carried a line break and a non-ASCII space; the workflow now trims such
+characters and opens the keystore before the build, so a wrong secret fails within seconds.
 
 On Windows use PowerShell and Git for Windows. The code is already on the `main` branch.
 

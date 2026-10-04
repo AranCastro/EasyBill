@@ -69,6 +69,13 @@ jobs:
             exit 1
           fi
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Opens the keystore before the long build, so a wrong secret fails in seconds
       - name: Check signing secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -77,18 +84,27 @@ jobs:
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
           EXPECTED: ${{ vars.EXPECTED_CERT_SHA256 }}
         run: |
+          set -euo pipefail
           for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD EXPECTED; do
             if [ -z "${!name}" ]; then
               echo "$name is not set. See the comment at the top of this file." >&2
               exit 1
             fi
           done
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+          . .github/scripts/clean-signing-secrets.sh
+          KS="$RUNNER_TEMP/check.jks"
+          trap 'rm -f "$KS"' EXIT
+          umask 077
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+          if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" >/dev/null; then
+            if keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env KEY_PASSWORD >/dev/null 2>&1; then
+              echo "RELEASE_STORE_PASSWORD is wrong but RELEASE_KEY_PASSWORD opens the key. Copy the same password into both secrets." >&2
+            else
+              echo "The keystore does not open with RELEASE_STORE_PASSWORD and alias RELEASE_KEY_ALIAS. Check both secrets." >&2
+            fi
+            exit 1
+          fi
+          echo "Keystore opens and holds the alias."
 
       - name: Tests and lint
         run: ./gradlew testDebugUnitTest :core:model:test :core:common:test lintDebug
@@ -105,6 +121,7 @@ jobs:
           EXPECTED: ${{ vars.EXPECTED_CERT_SHA256 }}
         run: |
           set -euo pipefail
+          . .github/scripts/clean-signing-secrets.sh
           KS="$RUNNER_TEMP/release.jks"
           trap 'rm -f "$KS" "$RUNNER_TEMP/aligned.apk"' EXIT
           umask 077

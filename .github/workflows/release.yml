@@ -1,11 +1,16 @@
 name: Release APK
 
-# Push a tag like v1.0.0 to build a signed release APK and attach it to a GitHub Release.
-# Required repository secrets:
-#   RELEASE_KEYSTORE_BASE64  base64 of your .jks file
+# Push a tag such as v1.5.0 to build, sign, verify and publish the release APK.
+# The tag must be on the default branch and must equal "v" + versionName in app/build.gradle.kts.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   RELEASE_KEYSTORE_BASE64  base64 of the .jks file (tools/make-release-keystore.sh prints where it is)
 #   RELEASE_STORE_PASSWORD   keystore password
-#   RELEASE_KEY_ALIAS        key alias (e.g. kallaapetti)
-#   RELEASE_KEY_PASSWORD     key password
+#   RELEASE_KEY_ALIAS        key alias (kallaapetti)
+#   RELEASE_KEY_PASSWORD     key password (the same as the store password for a PKCS12 keystore)
+# Repository variable:
+#   EXPECTED_CERT_SHA256     SHA-256 fingerprint of the release certificate, lower case, no colons.
+#                            The build stops if the signed APK carries a different certificate.
 on:
   push:
     tags: [ "v*" ]
@@ -15,45 +20,116 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BUILD_TOOLS: 37.0.0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
+          git fetch origin "$DEFAULT_BRANCH"
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
+            echo "Tag $GITHUB_REF_NAME is not on $DEFAULT_BRANCH. Merge first, then tag." >&2
+            exit 1
+          fi
+          if ! grep -q "versionName = \"$VERSION\"" app/build.gradle.kts; then
+            echo "Tag $GITHUB_REF_NAME does not match versionName in app/build.gradle.kts." >&2
+            exit 1
+          fi
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          EXPECTED: ${{ vars.EXPECTED_CERT_SHA256 }}
+        run: |
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD EXPECTED; do
+            if [ -z "${!name}" ]; then
+              echo "$name is not set. See the comment at the top of this file." >&2
+              exit 1
+            fi
+          done
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Check signing secrets
-        env:
-          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "Add the RELEASE_* repository secrets (see the comment at the top of this file) before tagging a release." >&2
-            exit 1
-          fi
-
-      - name: Tests
-        run: ./gradlew testDebugUnitTest :core:model:test
+      - name: Tests and lint
+        run: ./gradlew testDebugUnitTest :core:model:test :core:common:test lintDebug
 
       - name: Build release APK
         run: ./gradlew :app:assembleRelease
 
-      - name: Sign APK
+      - name: Sign and verify
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          EXPECTED: ${{ vars.EXPECTED_CERT_SHA256 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
-          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
-          $BT/zipalign -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
-          $BT/apksigner sign --ks release.jks --ks-pass env:STORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
-            --out "ModernKallaaPetti-${GITHUB_REF_NAME}.apk" aligned.apk
-          rm release.jks aligned.apk
+          set -euo pipefail
+          KS="$RUNNER_TEMP/release.jks"
+          trap 'rm -f "$KS" "$RUNNER_TEMP/aligned.apk"' EXIT
+          umask 077
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+          BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          APK="ModernKallaaPetti-${GITHUB_REF_NAME}.apk"
+          # 16 KB page alignment, then sign (v2 and v3 are enough for minSdk 26)
+          "$BT/zipalign" -f -P 16 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --min-sdk-version 26 --v4-signing-enabled false --out "$APK" "$RUNNER_TEMP/aligned.apk"
+          # The APK must verify, be aligned, and carry the expected certificate
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee verify.txt
+          grep -q "v2 scheme (APK Signature Scheme v2): true" verify.txt
+          grep -q "v3 scheme (APK Signature Scheme v3): true" verify.txt
+          GOT="$(grep -m1 'certificate SHA-256 digest' verify.txt | sed 's/.*: //' | tr -d ':' | tr 'A-F' 'a-f')"
+          WANT="$(echo "$EXPECTED" | tr -d ':' | tr 'A-F' 'a-f')"
+          if [ "$GOT" != "$WANT" ]; then
+            echo "Certificate mismatch. Signed with $GOT but expected $WANT." >&2
+            exit 1
+          fi
+          "$BT/zipalign" -c -P 16 -v 4 "$APK" | tail -1
+          sha256sum "$APK" > "$APK.sha256"
+          # Readable crash reports need the mapping file of this exact build
+          cp app/build/outputs/mapping/release/mapping.txt "mapping-${GITHUB_REF_NAME}.txt"
+
+      - name: Release notes from the changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^- \\*\\*" v "\\*\\*" { on = 1; print; next }
+            on && /^- \*\*/ { exit }
+            on { print }
+          ' README.md > notes.md
+          if [ ! -s notes.md ]; then echo "Release $VERSION" > notes.md; fi
+          cat notes.md
+
+      - name: Keep the mapping file
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-${{ github.ref_name }}
+          path: mapping-${{ github.ref_name }}.txt
+          retention-days: 365
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ModernKallaaPetti-*.apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FLAGS=""
+          case "$GITHUB_REF_NAME" in *-*) FLAGS="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" $FLAGS --title "Modern Kallaa Petti ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md \
+            "ModernKallaaPetti-${GITHUB_REF_NAME}.apk" "ModernKallaaPetti-${GITHUB_REF_NAME}.apk.sha256" \
+            "mapping-${GITHUB_REF_NAME}.txt"

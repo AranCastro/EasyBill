@@ -116,7 +116,7 @@ fun InvoiceEditorRoute(
     fun scan() = scanBarcode(context) { code ->
         scope.launch {
             if (!viewModel.addByBarcode(code)) {
-                Toast.makeText(context, "No item with barcode $code. Create it now.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "No item has barcode $code. Add it as a new item.", Toast.LENGTH_SHORT).show()
                 onCreateItem(code)
             }
         }
@@ -271,7 +271,7 @@ fun InvoiceEditorRoute(
                 item {
                     SectionCard {
                         Column {
-                            AmountRow("Sub total", totals.subtotal)
+                            AmountRow("Subtotal", totals.subtotal)
                             if (!totals.discount.isZero) AmountRow("Discount", -totals.discount, color = ext.received)
                             if (viewModel.gstOn) {
                                 AmountRow("Taxable value", totals.taxable)
@@ -297,7 +297,7 @@ fun InvoiceEditorRoute(
                                 Column(Modifier.weight(1f)) {
                                     Text("Fully $word", style = MaterialTheme.typography.titleSmall)
                                     Text(
-                                        if (viewModel.fullyPaid) "${IndianFormat.rupees(totals.total)} $word now" else "Enter what was $word now; the rest is added to the balance",
+                                        if (viewModel.fullyPaid) "${IndianFormat.rupees(totals.total)} $word now" else "Enter the amount $word now. The rest is added to the balance.",
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }

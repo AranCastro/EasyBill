@@ -24,10 +24,10 @@
         <item quantity="other">to %d parties</item>
     </plurals>
     <string name="dashboard_quick_actions">Quick actions</string>
-    <string name="action_new_sale">New Sale</string>
+    <string name="action_new_sale">New sale</string>
     <string name="action_counter">Counter</string>
-    <string name="action_payment_in">Payment In</string>
-    <string name="action_add_item">Add Item</string>
+    <string name="action_payment_in">Payment in</string>
+    <string name="action_add_item">Add item</string>
     <string name="action_purchase">Purchase</string>
     <string name="action_expense">Expense</string>
     <string name="action_estimate">Estimate</string>
@@ -35,13 +35,13 @@
     <string name="dashboard_last_7_days">Last 7 days</string>
     <string name="dashboard_low_stock_title">Low stock</string>
     <plurals name="dashboard_low_stock_message">
-        <item quantity="one">%d item is running low. Tap to review.</item>
-        <item quantity="other">%d items are running low. Tap to review.</item>
+        <item quantity="one">%d item is low on stock. Tap to review.</item>
+        <item quantity="other">%d items are low on stock. Tap to review.</item>
     </plurals>
     <string name="dashboard_recent_activity">Recent activity</string>
     <string name="dashboard_see_all">See all</string>
     <string name="dashboard_empty_title">No bills yet</string>
-    <string name="dashboard_empty_message">Create your first sale. It takes less than 10 seconds.</string>
+    <string name="dashboard_empty_message">Tap New sale to create your first bill.</string>
     <string name="dashboard_paid">Paid</string>
     <string name="dashboard_due">Due %1$s</string>
     <string name="dashboard_backup_never">Not backed up yet. Back up now to keep your data safe.</string>
@@ -53,8 +53,8 @@
     <string name="dashboard_backup_now">Back up</string>
     <string name="txn_sale">Sale</string>
     <string name="txn_purchase">Purchase</string>
-    <string name="txn_payment_in">Payment In</string>
-    <string name="txn_payment_out">Payment Out</string>
+    <string name="txn_payment_in">Payment in</string>
+    <string name="txn_payment_out">Payment out</string>
     <string name="txn_expense">Expense</string>
     <string name="txn_estimate">Estimate</string>
     <string name="txn_sale_return">Sale return</string>

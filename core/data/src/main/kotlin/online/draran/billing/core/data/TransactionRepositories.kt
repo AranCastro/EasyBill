@@ -11,6 +11,7 @@ import online.draran.billing.core.database.ExpenseEntity
 import online.draran.billing.core.database.InvoiceEntity
 import online.draran.billing.core.database.InvoiceLineEntity
 import online.draran.billing.core.database.PaymentEntity
+import online.draran.billing.core.model.Gstin
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.Expense
 import online.draran.billing.core.model.Invoice
@@ -66,6 +67,16 @@ const val CASH_CUSTOMER = "Cash Customer"
  */
 @Singleton
 class Allocator @Inject constructor(private val db: BillingDatabase) {
+    /**
+     * Applies every party's credit and debit notes again. Run at start-up: notes made before
+     * version 1.4 were never set against bills, and this brings them in. Safe to repeat.
+     */
+    suspend fun reallocateAll() {
+        db.withTransaction {
+            db.invoiceDao().partiesWithNotes().forEach { reallocate(it) }
+        }
+    }
+
     suspend fun reallocate(partyId: Long?) {
         if (partyId == null) return
         val invoices = db.invoiceDao()
@@ -103,8 +114,14 @@ class Allocator @Inject constructor(private val db: BillingDatabase) {
             payments.deleteStandaloneAllocations(partyId, direction)
             val remaining = docs.map { (it.total - it.paid).coerceAtLeast(0) }.toLongArray()
             val allocations = mutableListOf<AllocationEntity>()
+            // The amount brought forward (opening balance) is the oldest due: payments clear it before any bill
+            val opening = db.partyDao().get(partyId)?.openingBalance ?: 0L
+            var openingDue = (if (direction == PaymentDirection.IN) opening else -opening).coerceAtLeast(0)
             for (payment in standalone) {
                 var left = payment.amount
+                val toOpening = minOf(left, openingDue)
+                openingDue -= toOpening
+                left -= toOpening
                 for (i in docs.indices) {
                     if (left <= 0) break
                     if (remaining[i] <= 0) continue
@@ -144,7 +161,7 @@ class InvoiceRepository @Inject constructor(
     /** The next free number: after the highest sequence, skipping any number typed by hand that is already used. */
     suspend fun nextNumber(type: DocType): String {
         val prefix = businessRepository.get().prefix(type)
-        var seq = dao.maxSeq(type) + 1
+        var seq = highestSeq(type) + 1
         var candidate = prefix + seq.toString().padStart(4, '0')
         while (dao.countNumber(type, candidate, 0) > 0) {
             seq++
@@ -152,6 +169,9 @@ class InvoiceRepository @Inject constructor(
         }
         return candidate
     }
+
+    /** The highest sequence ever used for this kind: a deleted bill's number is not handed out again. */
+    private suspend fun highestSeq(type: DocType): Long = maxOf(dao.maxSeq(type), db.counterDao().last(type.name))
 
     suspend fun numberTaken(type: DocType, number: String, exceptId: Long) = dao.countNumber(type, number.trim(), exceptId) > 0
 
@@ -163,8 +183,12 @@ class InvoiceRepository @Inject constructor(
         return TaxEngine.bill(draft.lines.map { it.toInput() }, isInterState(draft, business, gstOn), gstOn, draft.roundOff ?: business.roundOff)
     }
 
+    /** The party's state: the one chosen, else the one in a valid GSTIN, else blank (same state as the business). */
+    private fun partyState(draft: InvoiceDraft): String =
+        draft.partyStateCode.ifBlank { draft.partyGstin.trim().uppercase().takeIf { Gstin.isValid(it) }?.let { Gstin.stateCode(it) }.orEmpty() }
+
     fun isInterState(draft: InvoiceDraft, business: online.draran.billing.core.model.Business, gstOn: Boolean = draft.gstEnabled ?: business.gstEnabled): Boolean =
-        gstOn && draft.partyStateCode.isNotBlank() && draft.partyStateCode != business.stateCode
+        gstOn && partyState(draft).let { it.isNotBlank() && it != business.stateCode }
 
     /** Saves the bill, its lines and any payment taken now; returns the bill id. */
     suspend fun save(draft: InvoiceDraft): Long {
@@ -179,13 +203,13 @@ class InvoiceRepository @Inject constructor(
             val roundOn = draft.roundOff ?: existing?.roundOffEnabled ?: business.roundOff
             val interState = isInterState(draft, business, gstOn)
             val totals = TaxEngine.bill(draft.lines.map { it.toInput() }, interState, gstOn, roundOn)
-            val seq = existing?.seq ?: (dao.maxSeq(draft.type) + 1)
+            var seq = existing?.seq ?: (highestSeq(draft.type) + 1)
             val typed = draft.number.trim()
             val number = if (typed.isNotEmpty()) {
                 // Supplier bill numbers may repeat across suppliers; our own documents must be unique
                 // An unchanged number is always allowed (older data may already hold two bills with one number)
                 val unchanged = existing != null && existing.number == typed
-                if (!unchanged && draft.type != DocType.PURCHASE && dao.countNumber(draft.type, typed, draft.id) > 0) error("Number $typed is already used")
+                if (!unchanged && draft.type != DocType.PURCHASE && dao.countNumber(draft.type, typed, draft.id) > 0) error("Bill number $typed is already in use. Enter a different number.")
                 typed
             } else {
                 var s = seq
@@ -194,6 +218,7 @@ class InvoiceRepository @Inject constructor(
                     s++
                     candidate = business.prefix(draft.type) + s.toString().padStart(4, '0')
                 }
+                if (existing == null) seq = s
                 candidate
             }
             val entity = InvoiceEntity(
@@ -208,7 +233,7 @@ class InvoiceRepository @Inject constructor(
                 partyPhone = draft.partyPhone,
                 partyGstin = draft.partyGstin.trim().uppercase(),
                 partyAddress = draft.partyAddress,
-                placeOfSupply = draft.partyStateCode.ifBlank { business.stateCode },
+                placeOfSupply = partyState(draft).ifBlank { business.stateCode },
                 interState = interState,
                 gstEnabled = gstOn,
                 roundOffEnabled = roundOn,
@@ -227,6 +252,7 @@ class InvoiceRepository @Inject constructor(
                 billColor = draft.billColor,
             )
             val id = if (existing == null) dao.insert(entity) else entity.id.also { dao.update(entity) }
+            db.counterDao().apply { ensure(draft.type.name); raise(draft.type.name, seq) }
             dao.deleteLines(id)
             dao.insertLines(
                 draft.lines.zip(totals.lines).mapIndexed { index, (line, amounts) ->
@@ -301,15 +327,19 @@ class InvoiceRepository @Inject constructor(
         /** Largest amount for one line (₹1,000 crore): keeps quantity x rate far from overflowing a Long. */
         private const val MAX_LINE_PAISE = 1_000_000_000_000L
 
+        /** Largest quantity on one line: a billion units. Keeps stock sums inside the range of a Long. */
+        const val MAX_QTY_MILLI = 1_000_000_000_000L
+
         /** A message when the line cannot be saved, else null. */
         fun lineProblem(line: online.draran.billing.core.model.InvoiceLine): String? {
-            if (line.qtyMilli <= 0) return "Quantities must be more than zero"
+            if (line.qtyMilli <= 0) return "Enter a quantity greater than zero."
+            if (line.qtyMilli > MAX_QTY_MILLI) return "The quantity for \"${line.name}\" is too large."
             val gross = try {
                 Math.multiplyExact(line.qtyMilli, Math.abs(line.rate.paise))
             } catch (e: ArithmeticException) {
-                return "\"${line.name}\": the amount is too large"
+                return "The amount for \"${line.name}\" is too large."
             }
-            return if (gross / 1000 > MAX_LINE_PAISE) "\"${line.name}\": the amount is too large (up to ₹1,000 crore per line)" else null
+            return if (gross / 1000 > MAX_LINE_PAISE) "The amount for \"${line.name}\" is too large (up to ₹1,000 crore per line)." else null
         }
     }
 
@@ -345,7 +375,8 @@ class InvoiceRepository @Inject constructor(
         return InvoiceDraft(
             id = inv.id, type = inv.type, number = inv.number, date = inv.date, dueDate = inv.dueDate,
             partyId = inv.partyId, partyName = inv.partyName, partyPhone = inv.partyPhone, partyGstin = inv.partyGstin,
-            partyAddress = inv.partyAddress, partyStateCode = party?.stateCode ?: inv.placeOfSupply.takeIf { inv.interState }.orEmpty(),
+            partyAddress = inv.partyAddress, // The state the bill was made with, not the party's current one, so a typo fix cannot flip IGST to CGST and SGST
+            partyStateCode = inv.placeOfSupply.takeIf { inv.interState }.orEmpty(),
             lines = inv.lines, notes = inv.notes, paidNow = Money(linked?.amount ?: 0),
             paymentMode = linked?.mode ?: PaymentMode.CASH, convertedFromId = inv.convertedFromId,
             customFields = inv.customFields,
@@ -373,14 +404,18 @@ class PaymentRepository @Inject constructor(
 
     suspend fun get(id: Long): Payment? = dao.get(id)?.toModel()
 
-    suspend fun nextNumber(direction: PaymentDirection) = direction.prefix + (dao.maxSeq(direction) + 1).toString().padStart(4, '0')
+    private suspend fun highestSeq(direction: PaymentDirection): Long = maxOf(dao.maxSeq(direction), db.counterDao().last(direction.name))
+
+    suspend fun nextNumber(direction: PaymentDirection) = direction.prefix + (highestSeq(direction) + 1).toString().padStart(4, '0')
 
     /** Saves a standalone payment and settles it against the party's open bills. */
     suspend fun save(payment: Payment): Long {
         require(payment.amount.paise > 0) { "Enter an amount" }
         return db.withTransaction {
             val existing = if (payment.id != 0L) dao.get(payment.id) else null
-            val seq = existing?.seq ?: (dao.maxSeq(payment.direction) + 1)
+            // A payment taken with a bill is changed on the bill, not here
+            require(existing?.invoiceId == null) { "This payment belongs to a bill. Change it from the bill." }
+            val seq = existing?.seq ?: (highestSeq(payment.direction) + 1)
             val entity = PaymentEntity(
                 id = payment.id,
                 direction = payment.direction,
@@ -397,6 +432,7 @@ class PaymentRepository @Inject constructor(
                 createdAt = existing?.createdAt ?: System.currentTimeMillis(),
             )
             val id = if (existing == null) dao.insert(entity) else entity.id.also { dao.update(entity) }
+            db.counterDao().apply { ensure(payment.direction.name); raise(payment.direction.name, seq) }
             allocator.reallocate(payment.partyId)
             if (existing?.partyId != null && existing.partyId != payment.partyId) allocator.reallocate(existing.partyId)
             id

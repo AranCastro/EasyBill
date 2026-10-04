@@ -248,3 +248,14 @@ data class StockAdjustmentEntity(
     val note: String,
     val createdAt: Long,
 )
+
+/**
+ * Highest document number used so far, per kind ("SALE", "PAYMENT_IN", ...). It only goes up, so a
+ * number that was shared with a customer is never given to another bill after the bill is deleted.
+ * Added in version 6.
+ */
+@Entity(tableName = "doc_counter")
+data class DocCounterEntity(
+    @PrimaryKey val key: String,
+    val last: Long,
+)

@@ -86,7 +86,8 @@ class RepositoryTest {
 
         payments.save(Payment(direction = PaymentDirection.IN, number = "", partyId = pid, partyName = "Ravi", date = today, amount = Money.rupees(1200)))
         assertEquals(Money.rupees(1000), invoices.get(first)!!.paid)
-        assertEquals(Money.rupees(300), invoices.get(second)!!.paid) // 100 at sale + 200 settled
+        // The 100 brought forward is the oldest due, so the payment clears it first: 1000 + 100 left for the second bill
+        assertEquals(Money.rupees(200), invoices.get(second)!!.paid) // 100 at sale + 100 settled
         assertEquals(Money.rupees(300), parties.party(pid).first()!!.balance)
 
         // Deleting the first bill frees the payment, which now settles the second bill fully
@@ -338,7 +339,7 @@ class RepositoryTest {
         assertEquals(numbers.size, numbers.toSet().size)
         // Typing a number that is taken is refused; supplier bill numbers may repeat
         val taken = runCatching { invoices.save(InvoiceDraft(type = DocType.SALE, number = "INV-0002", date = today, lines = listOf(line(null, 1, 10)))) }
-        assertTrue(taken.exceptionOrNull()?.message?.contains("already used") == true)
+        assertTrue(taken.exceptionOrNull()?.message?.contains("already in use") == true)
         invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "S-1", date = today, lines = listOf(line(null, 1, 10))))
         invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "S-1", date = today, lines = listOf(line(null, 1, 10))))
         // The suggestion skips used numbers
@@ -565,5 +566,99 @@ class RepositoryTest {
         // Back to the business colour
         invoices.setBillColor(id, 0)
         assertEquals(0, invoices.get(id)!!.billColor)
+    }
+
+    @Test fun openingBalanceIsClearedBeforeNewBills() = runTest {
+        val pid = parties.save(Party(name = "Ravi", type = PartyType.CUSTOMER, openingBalance = Money.rupees(5000)))
+        payments.save(Payment(direction = PaymentDirection.IN, number = "", partyId = pid, partyName = "Ravi", date = today.minusDays(5), amount = Money.rupees(5000)))
+        val bill = sale(pid, 1000)
+        // The 5,000 paid earlier belongs to the old due, so the new bill is still open and the screens agree
+        assertEquals(Money.rupees(1000), invoices.get(bill)!!.balance)
+        assertEquals(Money.rupees(1000), parties.party(pid).first()!!.balance)
+    }
+
+    @Test fun deletedBillNumbersAreNotHandedOutAgain() = runTest {
+        val first = sale(null, 100, paid = 100)
+        val second = sale(null, 100, paid = 100)
+        assertEquals("INV-0002", invoices.get(second)!!.number)
+        invoices.delete(second)
+        assertEquals("INV-0003", invoices.nextNumber(DocType.SALE))
+        assertEquals("INV-0003", invoices.get(sale(null, 100, paid = 100))!!.number)
+        // Receipts too
+        val p1 = payments.save(Payment(direction = PaymentDirection.IN, number = "", partyId = null, partyName = "X", date = today, amount = Money.rupees(10)))
+        val usedNumber = payments.get(p1)!!.number
+        payments.delete(p1)
+        assertTrue(payments.nextNumber(PaymentDirection.IN) > usedNumber)
+        assertTrue(first > 0)
+    }
+
+    @Test fun stateInTheGstinDecidesIgstWhenTheStateIsBlank() = runTest {
+        // Business is in Tamil Nadu (33); this customer's GSTIN starts with 29 (Karnataka) and no state was saved
+        val id = invoices.save(
+            InvoiceDraft(
+                type = DocType.SALE, number = "", date = today, partyName = "Blr Traders", partyGstin = "29AAPFU0939F1ZR",
+                lines = listOf(line(null, 1, 1000, tax = 1800)), paidNow = Money.rupees(1180),
+            ),
+        )
+        val inv = invoices.get(id)!!
+        assertTrue(inv.interState)
+        assertEquals("29", inv.placeOfSupply)
+        assertEquals(Money.rupees(180), inv.totals.igst)
+        // Editing the bill for a typo keeps IGST even if the party record has no state
+        val saved = invoices.draftForEdit(id)!!
+        val again = invoices.get(invoices.save(saved.copy(notes = "typo fixed")))!!
+        assertTrue(again.interState)
+        assertEquals(Money.rupees(180), again.totals.igst)
+    }
+
+    @Test fun notesMadeBeforeVersion14AreAppliedAtStartUp() = runTest {
+        val pid = parties.save(Party(name = "Ravi", type = PartyType.CUSTOMER))
+        val saleId = sale(pid, 1000, date = today.minusDays(3))
+        sale(pid, 300, date = today.minusDays(2), type = DocType.SALE_RETURN)
+        assertEquals(Money.rupees(700), invoices.get(saleId)!!.balance)
+        // What an upgraded database looks like: the notes exist, nothing is set against bills yet
+        db.paymentDao().deleteNoteAllocations(pid)
+        assertEquals(Money.rupees(1000), invoices.get(saleId)!!.balance)
+        Allocator(db).reallocateAll()
+        assertEquals(Money.rupees(700), invoices.get(saleId)!!.balance)
+    }
+
+    @Test fun aPaymentTakenWithABillIsChangedOnTheBill() = runTest {
+        val bill = sale(null, 500, paid = 200)
+        val linked = db.paymentDao().forInvoice(bill).single()
+        val failure = runCatching { payments.save(linked.toModel().copy(amount = Money.rupees(999))) }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+        assertEquals(Money.rupees(200), invoices.get(bill)!!.paid)
+    }
+
+    @Test fun absurdQuantitiesAndOpeningBalanceDeletes() = runTest {
+        assertTrue(InvoiceRepository.lineProblem(InvoiceLine(itemId = null, name = "Free", qtyMilli = Long.MAX_VALUE / 2, rate = Money.ZERO)) != null)
+        val pid = parties.save(Party(name = "Old customer", type = PartyType.CUSTOMER, openingBalance = Money.rupees(500)))
+        assertFalse(parties.canDelete(pid))
+        parties.save(parties.get(pid)!!.copy(openingBalance = Money.ZERO))
+        assertTrue(parties.canDelete(pid))
+    }
+
+    @Test fun restoreRefusesAFileThatDoesNotFitThisApp() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.deleteDatabase(BillingDatabase.NAME)
+        val fileDb = Room.databaseBuilder(context, BillingDatabase::class.java, BillingDatabase.NAME).allowMainThreadQueries().build()
+        ItemRepository(fileDb.itemDao()).save(Item(name = "Keep Me"))
+        // A file with the right version number and a business table, but none of the other tables
+        val odd = java.io.File(context.cacheDir, "odd.db").also { it.delete() }
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(odd, null).use { d ->
+            d.execSQL("CREATE TABLE business (id INTEGER PRIMARY KEY, name TEXT)")
+            d.version = BillingDatabase.VERSION
+        }
+        val zip = ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(zip).use { z ->
+            z.putNextEntry(java.util.zip.ZipEntry("manifest.txt")); z.write("app=Modern Kallaa Petti\n".toByteArray()); z.closeEntry()
+            z.putNextEntry(java.util.zip.ZipEntry("database.db")); z.write(odd.readBytes()); z.closeEntry()
+        }
+        val failure = runCatching { BackupManager(context, fileDb).restore(zip.toByteArray().inputStream()) }.exceptionOrNull()
+        assertTrue(failure != null)
+        // The running database is untouched and still usable
+        assertEquals(listOf("Keep Me"), ItemRepository(fileDb.itemDao()).items().first().map { it.item.name })
+        fileDb.close()
     }
 }

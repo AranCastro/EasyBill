@@ -93,7 +93,7 @@ fun PaymentsRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (PaymentDir
                 )
             }
             if (payments.isEmpty()) {
-                item { SurfaceCard { EmptyState(AppIcons.HandCoins, "No payments yet", "Payments taken with bills and separate payments appear here.") } }
+                item { SurfaceCard { EmptyState(AppIcons.HandCoins, "No payments yet", "Payments recorded with bills and separate payments appear here.") } }
             } else {
                 item {
                     SurfaceCard {
@@ -135,7 +135,7 @@ fun PaymentEditorRoute(
     val selected = parties.firstOrNull { it.party.id == viewModel.partyId }
     Scaffold(
         topBar = {
-            AppTopBar(if (isIn) "Payment received" else "Payment made", subtitle = viewModel.number, onBack = onBack, actions = {
+            AppTopBar(if (isIn) "Payment in" else "Payment out", subtitle = viewModel.number, onBack = onBack, actions = {
                 if (viewModel.paymentId != 0L && !viewModel.linkedToBill) IconButton(onClick = { confirmDelete = true }) { Icon(AppIcons.Trash, "Delete") }
             })
         },
@@ -192,7 +192,7 @@ fun ExpensesRoute(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit,
                 KpiCard("This month", Money(expenses.filter { !it.date.isBefore(monthStart) }.sumOf { it.amount.paise }), AppIcons.Wallet, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
             }
             if (expenses.isEmpty()) {
-                item { SurfaceCard { EmptyState(AppIcons.Wallet, "No expenses yet", "Record rent, salary, electricity and other costs to see true profit.", actionLabel = "Add expense", onAction = onNew) } }
+                item { SurfaceCard { EmptyState(AppIcons.Wallet, "No expenses yet", "Record rent, salary, electricity and other costs to see your actual profit.", actionLabel = "Add expense", onAction = onNew) } }
             } else {
                 item {
                     SurfaceCard {

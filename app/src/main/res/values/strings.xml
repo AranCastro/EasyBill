@@ -9,11 +9,4 @@
     <string name="nav_items">Items</string>
     <string name="nav_parties">Parties</string>
     <string name="nav_more">More</string>
-    <string name="new_sale">New Sale</string>
-    <string name="back">Back</string>
-    <string name="coming_soon_title">Coming in %1$s</string>
-    <string name="sales_empty">Your sale invoices will appear here.</string>
-    <string name="items_empty">Add products and services with price, GST rate and stock.</string>
-    <string name="parties_empty">Add customers and suppliers to track what they owe.</string>
-    <string name="new_sale_empty">Fast billing screen: search or scan items, then Save &amp; Print.</string>
 </resources>

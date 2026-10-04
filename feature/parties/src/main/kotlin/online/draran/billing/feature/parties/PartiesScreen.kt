@@ -54,7 +54,7 @@ fun PartiesRoute(
     val type by viewModel.type.collectAsStateWithLifecycle()
     val business by viewModel.business.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(type) { onTypeChanged(type) }
-    PartiesScreen(ui, query, type, contentPadding, { viewModel.query.value = it }, { viewModel.type.value = it }, onOpenParty, { onAddParty(type) }, customerWord = business.type.party)
+    PartiesScreen(ui, query, type, contentPadding, { viewModel.query.value = it }, { viewModel.type.value = it }, onOpenParty, { onAddParty(type) }, customerWord = business.type.party, partiesWord = business.type.parties)
 }
 
 @Composable
@@ -68,6 +68,7 @@ fun PartiesScreen(
     onOpenParty: (Long) -> Unit,
     onAdd: () -> Unit,
     customerWord: String = "Customer",
+    partiesWord: String = "Parties",
 ) {
     val ext = BillingTheme.extendedColors
     LazyColumn(
@@ -79,11 +80,11 @@ fun PartiesScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        item { Text("Parties", style = MaterialTheme.typography.headlineSmall) }
+        item { Text(partiesWord, style = MaterialTheme.typography.headlineSmall) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                KpiCard("You'll get", ui.toCollect, AppIcons.ArrowDownLeft, ext.received, ext.receivedContainer, Modifier.weight(1f))
-                KpiCard("You'll give", ui.toPay, AppIcons.ArrowUpRight, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer, Modifier.weight(1f))
+                KpiCard("To collect", ui.toCollect, AppIcons.ArrowDownLeft, ext.received, ext.receivedContainer, Modifier.weight(1f))
+                KpiCard("To pay", ui.toPay, AppIcons.ArrowUpRight, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer, Modifier.weight(1f))
             }
         }
         item {
@@ -99,7 +100,7 @@ fun PartiesScreen(
                     EmptyState(
                         icon = if (type == PartyType.CUSTOMER) AppIcons.User else AppIcons.Truck,
                         title = if (query.isBlank()) "No ${if (type == PartyType.CUSTOMER) customerWord.lowercase() + "s" else "suppliers"} yet" else "No matches",
-                        message = "Add parties to give credit, track dues and share statements on WhatsApp.",
+                        message = if (type == PartyType.CUSTOMER) "Add ${customerWord.lowercase()}s to give credit, track dues and share statements on WhatsApp." else "Add suppliers to record purchases and track what you owe them.",
                         actionLabel = "Add ${if (type == PartyType.CUSTOMER) customerWord.lowercase() else "supplier"}",
                         onAction = onAdd,
                     )
@@ -136,7 +137,7 @@ private fun PartyRow(p: PartyWithBalance, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(p.party.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                listOfNotNull(p.party.phone.takeIf { it.isNotBlank() }, p.lastActivity?.let { "Last: ${it.format(ShortDateFormat)}" }).joinToString(" · ").ifEmpty { "No transactions yet" },
+                listOfNotNull(p.party.phone.takeIf { it.isNotBlank() }, p.lastActivity?.let { "Last activity ${it.format(ShortDateFormat)}" }).joinToString(" · ").ifEmpty { "No transactions yet" },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -155,8 +156,8 @@ private fun PartyRow(p: PartyWithBalance, onClick: () -> Unit) {
             )
             Text(
                 when {
-                    bal.paise > 0 -> "You'll get"
-                    bal.paise < 0 -> "You'll give"
+                    bal.paise > 0 -> "To collect"
+                    bal.paise < 0 -> "To pay"
                     else -> "Settled"
                 },
                 style = MaterialTheme.typography.labelSmall,

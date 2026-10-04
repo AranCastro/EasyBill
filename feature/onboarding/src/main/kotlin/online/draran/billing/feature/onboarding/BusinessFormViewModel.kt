@@ -1,5 +1,6 @@
 package online.draran.billing.feature.onboarding
 
+import online.draran.billing.core.common.userMessage
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -122,7 +123,7 @@ class BusinessFormViewModel @Inject constructor(
         viewModelScope.launch {
             imageJobs++
             working = true
-            runCatching { action() }.onFailure { message = it.message ?: "Could not use this image" }
+            runCatching { action() }.onFailure { message = it.userMessage("This image could not be used. Choose another photo.") }
             // Two overlapping actions: stay busy until the last one ends
             imageJobs--
             working = imageJobs > 0
@@ -151,14 +152,14 @@ class BusinessFormViewModel @Inject constructor(
         !form.gstEnabled -> null
         form.gstin.isBlank() -> "Enter your 15-character GSTIN"
         !Gstin.isValid(form.gstin) -> "This GSTIN is not valid. Check for typing mistakes."
-        Gstin.stateCode(form.gstin) != form.stateCode -> "GSTIN belongs to ${IndianStates.nameOf(Gstin.stateCode(form.gstin))}"
+        Gstin.stateCode(form.gstin) != form.stateCode -> "This GSTIN is for ${IndianStates.nameOf(Gstin.stateCode(form.gstin))}. Change the state or check the GSTIN."
         else -> null
     }
-    val upiError: String? get() = if (form.upiId.isNotBlank() && !form.upiId.trim().matches(Regex("^[A-Za-z0-9.\\-_]{2,}@[A-Za-z][A-Za-z0-9.\\-]+$"))) "UPI ID looks like name@bank" else null
+    val upiError: String? get() = if (form.upiId.isNotBlank() && !form.upiId.trim().matches(Regex("^[A-Za-z0-9.\\-_]{2,}@[A-Za-z][A-Za-z0-9.\\-]+$"))) "Enter a UPI ID such as name@bank" else null
 
     val udyamError: String? get() = when {
         form.udyamNumber.isBlank() -> null
-        !Udyam.isValid(form.udyamNumber) -> "Udyam number looks like UDYAM-TN-02-0012345"
+        !Udyam.isValid(form.udyamNumber) -> "Enter the Udyam number as UDYAM-TN-02-0012345"
         form.msmeCategory == null -> "Choose Micro, Small or Medium (as on your Udyam certificate)"
         else -> null
     }
@@ -170,7 +171,7 @@ class BusinessFormViewModel @Inject constructor(
         showErrors = true
         if (nameError != null || phoneError != null || gstinError != null || upiError != null || udyamError != null) return
         if (working) {
-            message = "Please wait a moment: the image is still being processed"
+            message = "Wait a moment. The image is still being processed."
             return
         }
         if (saving) return // a double tap would start the app twice
@@ -199,7 +200,7 @@ class BusinessFormViewModel @Inject constructor(
             )
             onDone()
             } catch (e: Exception) {
-                message = e.message ?: "Could not save"
+                message = e.userMessage("Could not save. Try again.")
                 saving = false
             }
         }

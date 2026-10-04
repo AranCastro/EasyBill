@@ -1,5 +1,6 @@
 package online.draran.billing.feature.money
 
+import online.draran.billing.core.common.userMessage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -110,7 +111,7 @@ class PaymentEditorViewModel @Inject constructor(
                 )
                 onDone() // stays "saving": the screen is closing
             } catch (e: Exception) {
-                saveError = e.message ?: "Could not save"
+                saveError = e.userMessage("Could not save. Try again.")
                 saving = false
             }
         }
@@ -166,7 +167,7 @@ class ExpenseEditorViewModel @Inject constructor(private val repository: Expense
                 repository.save(Expense(expenseId, category, date, MoneyParse.parse(amount) ?: Money.ZERO, mode, note))
                 onDone()
             } catch (e: Exception) {
-                saveError = e.message ?: "Could not save"
+                saveError = e.userMessage("Could not save. Try again.")
                 saving = false
             }
         }

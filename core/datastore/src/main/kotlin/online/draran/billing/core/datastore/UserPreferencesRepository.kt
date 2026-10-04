@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import online.draran.billing.core.model.ThemeMode
 import online.draran.billing.core.model.UserPreferences
@@ -17,7 +18,7 @@ import javax.inject.Singleton
 class UserPreferencesRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
-    val preferences: Flow<UserPreferences> = dataStore.data.map { prefs ->
+    val preferences: Flow<UserPreferences> = dataStore.data.catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }.map { prefs ->
         UserPreferences(
             themeMode = prefs[Keys.THEME_MODE]
                 ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }

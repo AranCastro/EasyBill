@@ -1,5 +1,6 @@
 package online.draran.billing.feature.billing
 
+import online.draran.billing.core.common.userMessage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -271,7 +272,7 @@ class InvoiceEditorViewModel @Inject constructor(
             dueDate?.isBefore(date) == true && type == DocType.SALE -> "The due date cannot be before the bill date"
             lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) } != null -> lines.firstNotNullOfOrNull { InvoiceRepository.lineProblem(it) }
             type.tracksPayment && party.isCash && paidAmount().paise < total.paise ->
-                "Select a ${type.partyType.label.lowercase()} to keep a balance, or mark it fully paid"
+                "Choose a ${type.partyType.label.lowercase()} to keep a balance, or mark the bill as fully paid."
             type == DocType.PURCHASE && number.isBlank() -> null
             else -> null
         }
@@ -285,7 +286,7 @@ class InvoiceEditorViewModel @Inject constructor(
                     suggestedNumber = number
                 }
                 if (number.isNotBlank() && number != originalNumber && type != DocType.PURCHASE && invoices.numberTaken(type, number, invoiceId)) {
-                    error = "Number $number is already used"
+                    error = "Bill number $number is already in use. Enter a different number."
                     saving = false
                     return@launch
                 }
@@ -303,7 +304,7 @@ class InvoiceEditorViewModel @Inject constructor(
                 // Stays "saving" after success, so a second tap cannot save a copy; reset() or a new editor clears it
                 onSaved(id)
             } catch (e: Exception) {
-                error = e.message ?: "Could not save"
+                error = e.userMessage("Could not save. Try again.")
                 saving = false
             }
         }
@@ -343,7 +344,7 @@ class InvoiceEditorViewModel @Inject constructor(
                     online.draran.billing.core.print.ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos()
                 }
             }.fold({ bytes -> online.draran.billing.core.print.BluetoothPrinter.print(context, b.printerAddress, bytes) }, { Result.failure(it) })
-            onResult(result.fold({ "Receipt printed" }, { "Print failed: ${it.message}" }))
+            onResult(result.fold({ "Receipt printed" }, { "Printing failed. Check that the printer is on, in range and paired." }))
         }
     }
 

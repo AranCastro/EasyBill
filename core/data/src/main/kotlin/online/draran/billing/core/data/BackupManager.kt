@@ -46,12 +46,12 @@ class BackupManager @Inject constructor(
         "kallaa-petti-backup-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")) + ".zip"
 
     suspend fun exportTo(uri: Uri) = withContext(Dispatchers.IO) {
-        context.contentResolver.openOutputStream(uri)?.use { write(it) } ?: error("Cannot open the selected file")
+        context.contentResolver.openOutputStream(uri)?.use { write(it) } ?: error("Could not open the selected file. Choose it again.")
         markBackedUp()
     }
 
     suspend fun importFrom(uri: Uri) = withContext(Dispatchers.IO) {
-        context.contentResolver.openInputStream(uri)?.use { restore(it) } ?: error("Cannot open the selected file")
+        context.contentResolver.openInputStream(uri)?.use { restore(it) } ?: error("Could not open the selected file. Choose it again.")
     }
 
     suspend fun restoreAuto(file: File) = withContext(Dispatchers.IO) { file.inputStream().use { restore(it) } }
@@ -167,6 +167,9 @@ class BackupManager @Inject constructor(
             try {
                 // Everything that can fail for lack of space happens before the live database is touched
                 temp.copyTo(staged, overwrite = true)
+                // Let Room open (and, if the backup is older, migrate) the staged file now. A file that passes the
+                // basic checks but does not fit this app's tables would otherwise crash the app after the swap.
+                openWithRoom(staged)
                 val safetyDir = File(context.filesDir, "backups").apply { mkdirs() }
                 db.close()
                 closed = true
@@ -212,6 +215,21 @@ class BackupManager @Inject constructor(
             File(temp.path + "-wal").delete()
             File(temp.path + "-shm").delete()
             File(temp.path + "-journal").delete()
+        }
+    }
+
+    private fun openWithRoom(file: File) {
+        try {
+            val trial = androidx.room.Room.databaseBuilder(context, BillingDatabase::class.java, file.path).build()
+            try {
+                trial.openHelper.writableDatabase // runs the migrations and the schema check
+            } finally {
+                trial.close()
+            }
+            File(file.path + "-wal").delete()
+            File(file.path + "-shm").delete()
+        } catch (e: Exception) {
+            throw IllegalStateException("This backup cannot be used with this version of the app. Try a newer backup.", e)
         }
     }
 

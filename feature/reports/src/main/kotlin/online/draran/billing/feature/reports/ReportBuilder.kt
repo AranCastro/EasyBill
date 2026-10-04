@@ -66,7 +66,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
         val paid = docs.map { it.paid }.sum()
         return ReportContent(
             kpis = listOf(
-                Kpi("Total (${docs.size} bills)", total, Tone.BRAND),
+                Kpi("Total (${docs.size} ${if (docs.size == 1) "bill" else "bills"})", total, Tone.BRAND),
                 Kpi(paidWord, paid, Tone.GOOD),
                 Kpi("Due", total - paid, Tone.BAD),
                 Kpi("Returns", returns.map { it.total }.sum()),
@@ -160,8 +160,8 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
             kpis = listOf(Kpi("Stock value (cost)", value, Tone.BRAND)),
             sections = listOf(
                 ReportSection(
-                    if (low.isEmpty()) null else "Running low",
-                    listOf("Item", "Stock", "Alert at"),
+                    if (low.isEmpty()) null else "Low stock",
+                    listOf("Item", "Stock", "Alert below"),
                     low.map { listOf(it.item.name, "${Qty.format(it.stockMilli)} ${it.item.unit}", "${Qty.format(it.item.lowStockMilli)} ${it.item.unit}") },
                 ).takeIf { low.isNotEmpty() },
                 ReportSection(
@@ -171,7 +171,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                     listOf("Total value" to rs(value)),
                 ),
             ).filterNotNull(),
-            note = if (low.isEmpty()) null else "${low.size} item(s) are at or below their alert level.",
+            note = if (low.isEmpty()) null else if (low.size == 1) "1 item is at or below its alert level." else "${low.size} items are at or below their alert level.",
         )
     }
 
@@ -222,10 +222,10 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
         val toGet = receivable.map { it.balance }.sum()
         val toGive = payable.map { it.balance.abs() }.sum()
         return ReportContent(
-            kpis = listOf(Kpi("You'll get", toGet, Tone.GOOD), Kpi("You'll give", toGive, Tone.BAD)),
+            kpis = listOf(Kpi("To collect", toGet, Tone.GOOD), Kpi("To pay", toGive, Tone.BAD)),
             sections = listOf(
-                ReportSection("Receivable (they owe you)", listOf("Party", "Phone", "Amount"), receivable.map { listOf(it.party.name, it.party.phone, rs(it.balance)) }, listOf("Total" to rs(toGet))),
-                ReportSection("Payable (you owe them)", listOf("Party", "Phone", "Amount"), payable.map { listOf(it.party.name, it.party.phone, rs(it.balance.abs())) }, listOf("Total" to rs(toGive))),
+                ReportSection("To collect (they owe you)", listOf("Party", "Phone", "Amount"), receivable.map { listOf(it.party.name, it.party.phone, rs(it.balance)) }, listOf("Total" to rs(toGet))),
+                ReportSection("To pay (you owe them)", listOf("Party", "Phone", "Amount"), payable.map { listOf(it.party.name, it.party.phone, rs(it.balance.abs())) }, listOf("Total" to rs(toGive))),
             ),
         )
     }

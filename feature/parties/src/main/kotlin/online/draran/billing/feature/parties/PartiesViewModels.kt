@@ -1,5 +1,6 @@
 package online.draran.billing.feature.parties
 
+import online.draran.billing.core.common.userMessage
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -126,11 +127,11 @@ class PartyEditorViewModel @Inject constructor(
     }
 
     val nameError get() = if (form.name.isBlank()) "Enter a name" else null
-    val gstinError get() = if (form.gstin.isNotBlank() && !Gstin.isValid(form.gstin)) "This GSTIN is not valid" else null
+    val gstinError get() = if (form.gstin.isNotBlank() && !Gstin.isValid(form.gstin)) "This GSTIN is not valid. Check for typing mistakes." else null
     val phoneError: String? get() = when {
         form.phone.isBlank() -> null
         form.phone.any { !(it.isDigit() || it in " +-()") } -> "Use digits only"
-        form.phone.count { it.isDigit() } !in 10..12 -> "Enter a 10-digit number"
+        form.phone.count { it.isDigit() } !in 10..12 -> "Enter a 10-digit mobile number"
         else -> null
     }
 
@@ -156,7 +157,7 @@ class PartyEditorViewModel @Inject constructor(
                 )
                 onSaved(id)
             } catch (e: Exception) {
-                saveError = e.message ?: "Could not save"
+                saveError = e.userMessage("Could not save. Try again.")
                 saving = false
             }
         }
@@ -190,7 +191,7 @@ class PartyDetailViewModel @Inject constructor(
         val b = business.value
         val amount = IndianFormat.rupees(p.balance.abs())
         val upi = if (b.upiId.isNotBlank()) "\nPay by UPI: ${b.upiId}" else ""
-        return "Dear ${p.party.name},\nThis is a gentle reminder that $amount is pending with ${b.name}.$upi\nThank you!"
+        return "Dear ${p.party.name},\nA payment of $amount is pending with ${b.name}. Please pay at your convenience.$upi\nThank you."
     }
 
     fun shareStatement(context: Context) {
@@ -205,7 +206,7 @@ class PartyDetailViewModel @Inject constructor(
                     context = context,
                     businessName = b.name,
                     businessInfo = listOf(b.address.replace("\n", ", "), b.phone, if (b.gstEnabled) "GSTIN ${b.gstin}" else "").filter { it.isNotBlank() }.joinToString(" · "),
-                    title = "Party Statement",
+                    title = "Statement of Account",
                     subtitle = "${p.party.name} · as on ${LocalDate.now().pretty()}",
                     columns = listOf(PdfColumn("Date", 1.1f), PdfColumn("Particulars", 2.4f), PdfColumn("Debit", 1.2f, true), PdfColumn("Credit", 1.2f, true), PdfColumn("Balance", 1.3f, true)),
                     rows = rows.map { e ->
@@ -230,8 +231,8 @@ class PartyDetailViewModel @Inject constructor(
     companion object {
         fun kindLabel(kind: String): String = when (kind) {
             "OPENING" -> "Opening balance"
-            "PAYMENT_IN" -> "Payment received"
-            "PAYMENT_OUT" -> "Payment made"
+            "PAYMENT_IN" -> "Payment in"
+            "PAYMENT_OUT" -> "Payment out"
             else -> DocType.entries.firstOrNull { it.name == kind }?.shortTitle ?: kind
         }
 

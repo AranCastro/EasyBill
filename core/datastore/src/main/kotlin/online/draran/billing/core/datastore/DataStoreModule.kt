@@ -20,5 +20,8 @@ object DataStoreModule {
     @Singleton
     fun providePreferencesDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         // Stored at files/datastore/user_prefs.preferences_pb (covered by backup rules)
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("user_prefs") }
+        // A damaged settings file starts again from the defaults instead of stopping the app
+        PreferenceDataStoreFactory.create(
+            corruptionHandler = androidx.datastore.core.handlers.ReplaceFileCorruptionHandler { androidx.datastore.preferences.core.emptyPreferences() },
+        ) { context.preferencesDataStoreFile("user_prefs") }
 }

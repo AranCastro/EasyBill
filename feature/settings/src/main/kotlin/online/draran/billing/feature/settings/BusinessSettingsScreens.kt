@@ -1,5 +1,6 @@
 package online.draran.billing.feature.settings
 
+import online.draran.billing.core.common.userMessage
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateUtils
@@ -112,7 +113,7 @@ internal fun prefixProblems(b: Business): Map<DocType, String> = buildMap {
         val clash = numberedTypes.firstOrNull { it != type && b.prefix(it).trim().equals(p, ignoreCase = true) }
         when {
             p.isEmpty() -> put(type, "Enter a prefix")
-            clash != null -> put(type, "Same as ${clash.title}")
+            clash != null -> put(type, "Already used for ${clash.title}. Use a different prefix.")
         }
     }
 }
@@ -122,7 +123,7 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
     val b = viewModel.business ?: return
     val prefixErrors = prefixProblems(b)
     Scaffold(
-        topBar = { AppTopBar("Invoice settings", onBack = onBack) },
+        topBar = { AppTopBar("Bill settings", onBack = onBack) },
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(Spacing.lg)) {
                 Button(onClick = { viewModel.save(onBack) }, enabled = prefixErrors.isEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Save") }
@@ -151,7 +152,7 @@ fun InvoiceSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text(
-                        "Up to four extra fields filled on each bill and printed in its Details box, e.g. Roll no., Stylist, Vehicle no. Leave blank to hide. Reset uses the defaults for ${b.type.label}.",
+                        "Add up to four extra fields to each bill. They print in the Details box, for example Roll no., Stylist or Vehicle no. Leave a field blank to hide it. Reset restores the defaults for ${b.type.label}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -269,7 +270,7 @@ fun PrinterSettingsRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewMode
                             scope.launch {
                                 val sample = ThermalReceipt.testPage(b)
                                 val r = BluetoothPrinter.print(context, b.printerAddress, sample)
-                                message = r.fold({ "Test page sent" }, { "Could not print: ${it.message}" })
+                                message = r.fold({ "Test page sent" }, { "The test page could not be printed. Check that the printer is on and paired." })
                             }
                         }) { Text("Print test page") }
                     }
@@ -296,13 +297,13 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) scope.launch {
-            message = runCatching { backup.exportTo(uri) }.fold({ "Backup saved" }, { "Backup failed: ${it.message}" })
+            message = runCatching { backup.exportTo(uri) }.fold({ "Backup saved" }, { "Backup failed. ${it.userMessage("Try again.")}" })
         }
     }
     // A failure after the running database was closed leaves the app without a usable database: restart it
     fun restoreFailed(error: Throwable) {
         if ((error as? online.draran.billing.core.data.RestoreFailedException)?.needsRestart == true) restartApp(context)
-        else message = "Restore failed: ${error.message}"
+        else message = "Restore failed. ${error.userMessage("Choose the backup file again.")}"
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) pendingRestore = {
@@ -313,7 +314,7 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
     }
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); message = null } }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { AppTopBar("Backup & restore", onBack = onBack) }) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = { AppTopBar("Backup and restore", onBack = onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.lg, vertical = Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -327,7 +328,7 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
             }
             SectionCard(title = "Back up") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Save a backup file anywhere: choose Google Drive in the picker to keep it in the cloud for free, or save to Downloads and copy it to a pen drive.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Save the backup file to Google Drive (free) or to Downloads, then copy it to a pen drive.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = { exportLauncher.launch(backup.suggestedFileName()) }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                         Icon(AppIcons.Upload, null); Spacer(Modifier.width(8.dp)); Text("Back up now")
                     }
@@ -362,7 +363,7 @@ fun BackupRoute(onBack: () -> Unit, viewModel: BusinessSettingsViewModel = hiltV
                     }
                     OutlinedButton(onClick = {
                         scope.launch {
-                            message = runCatching { backup.saveCopy() }.fold({ "Copy saved" }, { "Could not save a copy: ${it.message ?: "storage error"}" })
+                            message = runCatching { backup.saveCopy() }.fold({ "Copy saved" }, { "A copy could not be saved. Check the free space on your phone." })
                             autoFiles = backup.autoBackups()
                         }
                     }) { Text("Save a copy now") }

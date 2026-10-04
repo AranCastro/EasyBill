@@ -104,7 +104,7 @@ enum class BusinessType(
         tracksStock = true, showsDueDate = true, counterLabel = "Quick job bill",
         presets = listOf(
             ServicePreset("Inspection charge", 200, 1800, "9987"),
-            ServicePreset("Labour charge", 500, 1800, "9987", "hour"),
+            ServicePreset("Labour charge", 500, 1800, "9987", "hr"),
             ServicePreset("Service charge", 300, 1800, "9987"),
         ),
     ),
@@ -115,7 +115,7 @@ enum class BusinessType(
         tracksStock = false, showsDueDate = true, counterLabel = "Quick invoice",
         presets = listOf(
             ServicePreset("Professional fees", 10000, 1800, "9983"),
-            ServicePreset("Hourly consulting", 1500, 1800, "9983", "hour"),
+            ServicePreset("Hourly consulting", 1500, 1800, "9983", "hr"),
             ServicePreset("Design work", 5000, 1800, "9983"),
         ),
     ),
@@ -125,8 +125,8 @@ enum class BusinessType(
     val salesTab: String get() = sales.substringAfterLast(' ').replaceFirstChar { it.uppercase() }
     val itemsTab: String get() = items.substringBefore(" &")
 
-    /** Main add-bill button, e.g. "New Sale", "New Fee Receipt", "New Invoice". */
-    val newSaleLabel: String get() = if (this == RETAIL) "New Sale" else "New " + billTitle.substringBefore(" /")
+    /** Main add-bill button, e.g. "New sale", "New fee receipt", "New invoice". */
+    val newSaleLabel: String get() = if (this == RETAIL) "New sale" else "New " + billTitle.substringBefore(" /").lowercase()
 
     companion object {
         fun of(name: String?): BusinessType = entries.firstOrNull { it.name == name } ?: RETAIL

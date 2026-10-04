@@ -341,7 +341,7 @@ class InvoicePdf(
             canvas.drawText(rs(value), right, y + 12f, if (strong) fonts.paint(10.5f, fonts.bold, align = Paint.Align.RIGHT) else vp)
             y += 18f
         }
-        row("Sub total", t.subtotal)
+        row("Subtotal", t.subtotal)
         if (!t.discount.isZero) row("Discount", -t.discount)
         if (gst) {
             row("Taxable value", t.taxable)

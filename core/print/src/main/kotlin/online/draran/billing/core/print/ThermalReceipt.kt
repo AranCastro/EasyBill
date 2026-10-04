@@ -113,7 +113,7 @@ class ThermalReceipt(
         }
         // Short MSME note only when credit is given; the A4 bill carries the full wording
         if (business.msmeNote() != null && invoice.type == DocType.SALE && invoice.balance.paise > 0) {
-            wrapText("MSME supplier: payment due within 45 days (MSMED Act 2006, s.15)", width).forEach { line(it, center = true) }
+            wrapText("MSME supplier: pay within the agreed period, not later than 45 days (MSMED Act 2006, s.15)", width).forEach { line(it, center = true) }
         }
         emit(business.terms, center = true)
         return out

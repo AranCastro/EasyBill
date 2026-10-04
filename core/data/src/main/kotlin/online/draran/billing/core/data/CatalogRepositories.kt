@@ -62,6 +62,7 @@ class ItemRepository @Inject constructor(private val dao: ItemDao) {
 
     suspend fun adjustStock(itemId: Long, qtyMilli: Long, note: String, date: LocalDate = LocalDate.now()) {
         if (qtyMilli == 0L) return
+        require(kotlin.math.abs(qtyMilli) <= InvoiceRepository.MAX_QTY_MILLI) { "The quantity is too large." }
         dao.insertAdjustment(StockAdjustmentEntity(itemId = itemId, date = date.toDay(), qty = qtyMilli, note = note, createdAt = System.currentTimeMillis()))
     }
 
@@ -125,7 +126,7 @@ class PartyRepository @Inject constructor(private val dao: PartyDao) {
     }
 
     /** Parties with bills or payments cannot be deleted, so their history stays intact. */
-    suspend fun canDelete(id: Long) = dao.transactionCount(id) == 0
+    suspend fun canDelete(id: Long) = dao.transactionCount(id) == 0 && (dao.get(id)?.openingBalance ?: 0L) == 0L
 
     suspend fun delete(id: Long): Boolean {
         if (!canDelete(id)) return false

@@ -8,5 +8,5 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 internal fun scanBarcode(context: Context, onResult: (String) -> Unit) {
     GmsBarcodeScanning.getClient(context).startScan()
         .addOnSuccessListener { barcode -> barcode.rawValue?.let(onResult) }
-        .addOnFailureListener { Toast.makeText(context, "Scanner not available on this phone", Toast.LENGTH_SHORT).show() }
+        .addOnFailureListener { Toast.makeText(context, "The barcode scanner is not available on this phone.", Toast.LENGTH_SHORT).show() }
 }

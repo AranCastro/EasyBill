@@ -17,6 +17,7 @@ import androidx.room.RoomDatabase
         NoteAllocationEntity::class,
         ExpenseEntity::class,
         StockAdjustmentEntity::class,
+        DocCounterEntity::class,
     ],
     version = BillingDatabase.VERSION,
     exportSchema = true,
@@ -41,6 +42,7 @@ abstract class BillingDatabase : RoomDatabase() {
     abstract fun paymentDao(): PaymentDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun activityDao(): ActivityDao
+    abstract fun counterDao(): CounterDao
 
     companion object {
         const val NAME = "kallaa_petti.db"

@@ -207,7 +207,7 @@ fun InvoiceDetailRoute(
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) {
                         Icon(AppIcons.ArrowUUpRight, null); Spacer(Modifier.width(8.dp))
-                        Text(if (converted != null) "Already converted · open sale" else "Convert to sale invoice")
+                        Text(if (converted != null) "Already converted · open sale" else "Convert to sale")
                     }
                 }
             }
@@ -242,7 +242,7 @@ fun InvoiceDetailRoute(
     if (confirmDelete && inv != null) {
         ConfirmDialog(
             "Delete ${inv.number}?",
-            "Stock and the party balance will be updated. Any payment taken with this bill is also removed.",
+            "This updates stock and the party balance, and removes any payment recorded on this bill. You cannot undo it.",
             "Delete", onConfirm = { viewModel.delete(onBack) }, onDismiss = { confirmDelete = false }, destructive = true,
         )
     }

@@ -118,7 +118,7 @@ fun ItemEditorRoute(
                                     style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = TABULAR_NUMBERS),
                                     color = if (s.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                                 )
-                                if (s.isLow) Text("Running low", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                if (s.isLow) Text("Low stock", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                             }
                             OutlinedButton(onClick = { adjusting = true }) {
                                 Icon(AppIcons.Scales, contentDescription = null)

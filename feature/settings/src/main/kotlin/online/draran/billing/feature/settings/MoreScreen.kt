@@ -49,7 +49,7 @@ fun MoreScreen(
         item {
             Group(
                 listOf(
-                    Entry(AppIcons.CashRegister, "Counter billing", "Tap-to-add quick sales with UPI QR", MoreDestination.COUNTER, scheme.primary, scheme.primaryContainer),
+                    Entry(AppIcons.CashRegister, "Counter billing", "Quick sales by tapping items, with UPI QR", MoreDestination.COUNTER, scheme.primary, scheme.primaryContainer),
                     Entry(AppIcons.ShoppingCart, "Purchases", "Purchase bills and returns", MoreDestination.PURCHASES, ext.due, ext.dueContainer),
                     Entry(AppIcons.NotePencil, "Estimates", "Quotations you can convert to a sale", MoreDestination.ESTIMATES, ext.due, ext.dueContainer),
                 ),
@@ -71,7 +71,7 @@ fun MoreScreen(
         item {
             Group(
                 listOf(
-                    Entry(AppIcons.Database, "Backup & restore", "Keep a copy on Google Drive or a pen drive", MoreDestination.BACKUP, ext.received, ext.receivedContainer),
+                    Entry(AppIcons.Database, "Backup and restore", "Keep a copy on Google Drive or a pen drive", MoreDestination.BACKUP, ext.received, ext.receivedContainer),
                     Entry(AppIcons.Settings, "Settings", "Business, invoice, printer, theme", MoreDestination.SETTINGS, scheme.primary, scheme.primaryContainer),
                 ),
                 onOpen,

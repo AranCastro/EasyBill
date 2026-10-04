@@ -14,7 +14,7 @@ data class Business(
     val gstin: String = "",
     val upiId: String = "",
     val bankDetails: String = "",
-    val terms: String = "Thank you for your business!",
+    val terms: String = "Thank you for your business.",
     val roundOff: Boolean = true,
     val showUpiQr: Boolean = true,
     val pricesIncludeTax: Boolean = false,

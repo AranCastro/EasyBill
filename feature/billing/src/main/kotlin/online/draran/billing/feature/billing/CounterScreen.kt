@@ -124,7 +124,7 @@ fun CounterRoute(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable(enabled = viewModel.lines.isNotEmpty()) { showCart = true }.padding(Spacing.sm)) {
-                        Text(if (viewModel.lines.isEmpty()) "Tap items to add" else "${Qty.format(count)} items · View cart", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (viewModel.lines.isEmpty()) "Tap items to add" else "${Qty.format(count)} ${if (count == Qty.ONE) "item" else "items"} · View cart", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         AnimatedAmountText(totals.total, style = MaterialTheme.typography.titleLarge, durationMillis = 300)
                     }
                     Button(onClick = { charging = true }, enabled = viewModel.lines.isNotEmpty(), modifier = Modifier.height(52.dp)) {
@@ -268,7 +268,7 @@ private fun ChargeSheet(
                     MoneyField(given, { given = it }, "Cash given by customer (optional)")
                     val change = (MoneyParse.parse(given)?.paise ?: 0) - total.paise
                     if (change > 0) {
-                        Text("Return change: ${IndianFormat.rupees(online.draran.billing.core.model.Money(change))}", style = MaterialTheme.typography.titleMedium, color = ext.received)
+                        Text("Change to return: ${IndianFormat.rupees(online.draran.billing.core.model.Money(change))}", style = MaterialTheme.typography.titleMedium, color = ext.received)
                     }
                 }
                 PaymentMode.UPI -> {

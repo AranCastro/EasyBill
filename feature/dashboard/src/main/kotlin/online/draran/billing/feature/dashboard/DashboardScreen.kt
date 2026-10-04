@@ -460,7 +460,7 @@ private fun QuickActionsCard(onNavigate: (DashboardDestination) -> Unit, busines
                             label = when {
                                 businessType == BusinessType.RETAIL -> stringResource(spec.labelRes)
                                 spec.destination == DashboardDestination.NEW_SALE -> businessType.newSaleLabel
-                                spec.destination == DashboardDestination.ADD_ITEM -> "Add ${businessType.item}"
+                                spec.destination == DashboardDestination.ADD_ITEM -> "Add ${businessType.item.lowercase()}"
                                 else -> stringResource(spec.labelRes)
                             },
                             icon = spec.icon,
@@ -522,7 +522,7 @@ private fun OverdueCard(count: Int, amount: online.draran.billing.core.model.Mon
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
-                Text("Past the due date · tap to follow up", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+                Text("Bills past their due date. Tap to view.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
             }
             AnimatedAmountText(amount, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer, showPaise = false, countUp = true)
         }

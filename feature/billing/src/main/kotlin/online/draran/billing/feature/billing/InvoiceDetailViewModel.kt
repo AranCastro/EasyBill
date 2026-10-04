@@ -109,7 +109,7 @@ class InvoiceDetailViewModel @Inject constructor(
         val due = if (inv.balance.paise > 0) "\nBalance due: ${IndianFormat.rupees(inv.balance)}" else ""
         val upi = if (inv.balance.paise > 0 && b.upiId.isNotBlank()) "\nPay by UPI: ${b.upiId}" else ""
         val title = if (inv.type == online.draran.billing.core.model.DocType.SALE) (if (inv.gstEnabled) "Tax Invoice" else b.type.billTitle) else inv.type.title
-        return "$title ${inv.number} from ${b.name}\nAmount: ${IndianFormat.rupees(inv.totals.total)}$due$upi\nThank you!"
+        return "$title ${inv.number} from ${b.name}\nTotal: ${IndianFormat.rupees(inv.totals.total)}$due$upi\nThank you."
     }
 
     fun share(context: Context, whatsApp: Boolean) {
@@ -120,7 +120,7 @@ class InvoiceDetailViewModel @Inject constructor(
                 val file = pdfFile(context)
                 if (file != null) Sharing.shareFile(context, file, "application/pdf", shareText(), whatsApp)
             } catch (e: Exception) {
-                message = "Could not create the PDF: ${e.message ?: "unknown error"}"
+                message = "The PDF could not be created. Try again."
             } finally {
                 busy = false
             }
@@ -134,7 +134,7 @@ class InvoiceDetailViewModel @Inject constructor(
                 val file = pdfFile(context) ?: return@launch
                 Sharing.printPdf(context, file, invoice.value?.number ?: "Bill")
             } catch (e: Exception) {
-                message = "Could not start printing: ${e.message ?: "unknown error"}"
+                message = "Printing could not start. Try again."
             }
         }
     }
@@ -151,7 +151,7 @@ class InvoiceDetailViewModel @Inject constructor(
             val result = runCatching { withContext(Dispatchers.Default) { ThermalReceipt(inv, b, branding.logo(b.logoFile)).escPos() } }
                 .fold({ bytes -> BluetoothPrinter.print(context, b.printerAddress, bytes) }, { Result.failure(it) })
             busy = false
-            message = result.fold({ "Sent to ${b.printerName.ifBlank { "printer" }}" }, { "Printing failed: ${it.message ?: "check the printer is on and paired"}" })
+            message = result.fold({ "Sent to ${b.printerName.ifBlank { "printer" }}" }, { "Printing failed. Check that the printer is on, in range and paired." })
         }
         return true
     }

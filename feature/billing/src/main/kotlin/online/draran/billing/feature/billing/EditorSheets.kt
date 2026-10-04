@@ -248,7 +248,7 @@ internal fun QtyStepper(qty: Long, onMinus: () -> Unit, onPlus: () -> Unit, modi
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = { haptics.tick(); onMinus() }, modifier = Modifier.size(36.dp)) {
-            Icon(if (qty <= Qty.ONE) AppIcons.Trash else AppIcons.Minus, contentDescription = "Less", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+            Icon(if (qty <= Qty.ONE) AppIcons.Trash else AppIcons.Minus, contentDescription = "Decrease quantity", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
         }
         Text(
             Qty.format(qty),
@@ -257,7 +257,7 @@ internal fun QtyStepper(qty: Long, onMinus: () -> Unit, onPlus: () -> Unit, modi
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         FilledIconButton(onClick = { haptics.tick(); onPlus() }, modifier = Modifier.size(36.dp), colors = IconButtonDefaults.filledIconButtonColors()) {
-            Icon(AppIcons.Plus, contentDescription = "More", modifier = Modifier.size(18.dp))
+            Icon(AppIcons.Plus, contentDescription = "Increase quantity", modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -308,7 +308,7 @@ internal fun LineEditSheet(
                 }
             }
             // With GST on, the rate takes the second slot above; the unit still needs a place
-            if (gstEnabled) FormField(unit, { unit = it }, "Unit (kg, pcs, hour...)")
+            if (gstEnabled) FormField(unit, { unit = it }, "Unit (for example kg, pcs, hr)")
             if (gstEnabled && tax > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Price includes GST", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

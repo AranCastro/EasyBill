@@ -111,7 +111,7 @@ fun OnboardingRoute(onDone: () -> Unit, viewModel: BusinessFormViewModel = hiltV
                     )
                 }
                 Spacer(Modifier.height(Spacing.lg))
-                Text("Vanakkam! Welcome to", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f))
+                Text("Welcome to", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f))
                 Text("Modern Kallaa Petti", style = MaterialTheme.typography.headlineMedium, color = Color.White)
                 Text("கல்லாப்பெட்டி · Your digital cash box", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(Spacing.md))
@@ -241,7 +241,7 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
             Column(Modifier.weight(1f)) {
                 Text("GST registered", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    if (form.gstEnabled) "Tax invoices with CGST / SGST / IGST" else "Simple bills without tax (non-GST / composition)",
+                    if (form.gstEnabled) "Tax invoices with CGST / SGST / IGST" else "Bills without tax (non-GST or composition scheme)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -260,7 +260,7 @@ private fun BusinessFormFields(viewModel: BusinessFormViewModel) {
         }
     }
     MsmeSection(viewModel)
-    SectionCard(title = "Get paid faster") {
+    SectionCard(title = "UPI payment") {
         FormField(
             form.upiId, { v -> viewModel.update { it.copy(upiId = v.trim()) } }, "UPI ID (optional)",
             capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Email,
@@ -279,7 +279,7 @@ private fun MsmeSection(viewModel: BusinessFormViewModel) {
     SectionCard(title = "MSME / Udyam (optional)") {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(
-                "If your business has an Udyam registration, add it here. It is printed on your bills. Business buyers must pay micro and small enterprises within 45 days (MSMED Act, 2006). Leave blank if not registered.",
+                "Add your Udyam registration if you have one. It is printed on your bills. Under the MSMED Act, 2006, business buyers must pay micro and small enterprises within the agreed period, not later than 45 days. Leave blank if not registered.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

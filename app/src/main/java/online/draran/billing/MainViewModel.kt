@@ -31,6 +31,7 @@ class MainViewModel @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
     businessRepository: BusinessRepository,
     backupManager: BackupManager,
+    allocator: online.draran.billing.core.data.Allocator,
 ) : ViewModel() {
 
     val uiState: StateFlow<MainUiState> = combine(preferencesRepository.preferences, businessRepository.business) { prefs, business ->
@@ -61,6 +62,8 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             unlocked = !preferencesRepository.preferences.first().appLock
         }
+        // Credit and debit notes made before they could be set against bills are brought in once; safe to repeat
+        viewModelScope.launch { runCatching { allocator.reallocateAll() } }
         // Daily safety copy in app storage. Checked every hour too, because a shop may keep
         // the app open all day and never restart it; the check is cheap when not due.
         viewModelScope.launch {

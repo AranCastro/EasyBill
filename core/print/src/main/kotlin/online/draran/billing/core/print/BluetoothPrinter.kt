@@ -46,7 +46,7 @@ object BluetoothPrinter {
     @SuppressLint("MissingPermission")
     suspend fun print(context: Context, address: String, bytes: ByteArray): Result<Unit> = withContext(Dispatchers.IO) {
         printLock.withLock { runCatching {
-            check(hasPermission(context)) { "Allow Nearby devices permission to use the printer" }
+            check(hasPermission(context)) { "Allow the Nearby devices permission to use the printer." }
             val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
                 ?: error("This phone has no Bluetooth")
             check(adapter.isEnabled) { "Turn on Bluetooth" }

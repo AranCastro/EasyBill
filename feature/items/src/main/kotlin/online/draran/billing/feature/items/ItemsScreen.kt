@@ -141,7 +141,7 @@ fun ItemsScreen(
                             title = if (ui.totalCount == 0) "Add your first ${type.item.lowercase()}" else "No matching ${type.items.lowercase()}",
                             message = when {
                                 ui.totalCount != 0 -> "Try another name, or add it as a new ${type.item.lowercase()}."
-                                type.tracksStock -> "Save products with price, GST and stock once. Billing then takes a few taps."
+                                type.tracksStock -> "Save each item once with its price, GST rate and stock. Billing then takes a few taps."
                                 else -> "Save each ${type.item.lowercase()} with its price once. Billing then takes a few taps."
                             },
                             actionLabel = "Add ${type.item.lowercase()}",

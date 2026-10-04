@@ -15,16 +15,16 @@ class BusinessTypeTest {
     }
 
     @Test fun billTitlesFollowGstRules() {
-        assertEquals("New Sale", BusinessType.RETAIL.newSaleLabel)
-        assertEquals("New Fee Receipt", BusinessType.EDUCATION.newSaleLabel)
-        assertEquals("New Bill", BusinessType.CLINIC.newSaleLabel)
+        assertEquals("New sale", BusinessType.RETAIL.newSaleLabel)
+        assertEquals("New fee receipt", BusinessType.EDUCATION.newSaleLabel)
+        assertEquals("New bill", BusinessType.CLINIC.newSaleLabel)
         val school = Business(type = BusinessType.EDUCATION)
         assertEquals("Fee Receipt", school.saleTitle())
         assertEquals("Fee Receipt", school.docShortTitle(DocType.SALE))
         assertEquals("Estimate", school.docTitle(DocType.ESTIMATE))
         // A GST-registered business must title sale bills "Tax Invoice"
         assertEquals("Tax Invoice", school.copy(gstEnabled = true).docTitle(DocType.SALE))
-        assertEquals("Sale Invoice", Business().docTitle(DocType.SALE))
+        assertEquals("Sale bill", Business().docTitle(DocType.SALE))
     }
 
     @Test fun presetsAreUniqueAndUseServiceCodes() {

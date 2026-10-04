@@ -133,6 +133,7 @@ fun BillingApp(
                                     when (tab) {
                                         TopLevelDestination.SALES -> businessType.salesTab
                                         TopLevelDestination.ITEMS -> businessType.itemsTab
+                                        TopLevelDestination.PARTIES -> businessType.parties
                                         else -> stringResource(tab.label)
                                     },
                                     maxLines = 1,
@@ -147,7 +148,7 @@ fun BillingApp(
             val fab: Pair<String, () -> Unit>? = when (currentTab) {
                 TopLevelDestination.HOME, TopLevelDestination.SALES -> businessType.newSaleLabel to { newBill(DocType.SALE) }
                 TopLevelDestination.ITEMS -> "Add ${businessType.item.lowercase()}" to { nav.go(NavItemEditor()) }
-                TopLevelDestination.PARTIES -> (if (partiesTabType == PartyType.CUSTOMER && businessType != BusinessType.RETAIL) "Add ${businessType.party.lowercase()}" else "Add party") to { nav.go(NavPartyEditor(type = partiesTabType.name)) }
+                TopLevelDestination.PARTIES -> (if (partiesTabType == PartyType.CUSTOMER) "Add ${businessType.party.lowercase()}" else "Add supplier") to { nav.go(NavPartyEditor(type = partiesTabType.name)) }
                 else -> null
             }
             AnimatedVisibility(visible = fab != null, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {

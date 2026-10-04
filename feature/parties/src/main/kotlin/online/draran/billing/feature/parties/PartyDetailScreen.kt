@@ -112,9 +112,9 @@ fun PartyDetailRoute(
                 ) {
                     Text(
                         when {
-                            bal.paise > 0 -> "You'll get"
-                            bal.paise < 0 -> "You'll give"
-                            else -> "All settled"
+                            bal.paise > 0 -> "To collect"
+                            bal.paise < 0 -> "To pay"
+                            else -> "Settled"
                         },
                         style = MaterialTheme.typography.labelLarge, color = ext.onHero.copy(alpha = 0.85f),
                     )
@@ -181,7 +181,7 @@ private fun LedgerRow(e: LedgerEntry, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(PartyDetailViewModel.kindLabel(e.kind) + if (e.kind != "OPENING") " · ${e.number}" else "", style = MaterialTheme.typography.titleSmall)
-            Text(e.date.format(ShortDateFormat) + " · Bal " + PartyDetailViewModel.balanceLabel(e.balance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(e.date.format(ShortDateFormat) + " · Balance " + PartyDetailViewModel.balanceLabel(e.balance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val color: Color = if (e.amount.paise >= 0) MaterialTheme.colorScheme.onSurface else ext.received
         Column(horizontalAlignment = Alignment.End) {

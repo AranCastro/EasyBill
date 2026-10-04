@@ -153,7 +153,7 @@ class ReportViewModel @Inject constructor(
                     }
                 }
                 Sharing.shareFile(context, file, "application/pdf", "${kind.title} · ${subtitle()}")
-            }.onFailure { message = "Could not create the PDF: ${it.message ?: "unknown error"}" }
+            }.onFailure { message = "The PDF could not be created. Try again." }
         }
     }
 
@@ -166,7 +166,7 @@ class ReportViewModel @Inject constructor(
                     File(Sharing.sharedDir(context), Sharing.safeName("${kind.title}_${range.start}_${range.end}") + ".csv").also { it.writeText("\uFEFF" + text) /* BOM so Excel reads text correctly */ }
                 }
                 Sharing.shareFile(context, file, "text/csv", kind.title)
-            }.onFailure { message = "Could not create the file: ${it.message ?: "unknown error"}" }
+            }.onFailure { message = "The file could not be created. Try again." }
         }
     }
 }

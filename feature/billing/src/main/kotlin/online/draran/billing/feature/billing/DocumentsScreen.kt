@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import online.draran.billing.core.data.InvoiceRepository
 import online.draran.billing.core.designsystem.component.AmountText
@@ -70,6 +71,17 @@ enum class DocList(val title: String, val types: List<DocType>, val newType: Doc
     ESTIMATES("Estimates", listOf(DocType.ESTIMATE), DocType.ESTIMATE, "estimate"),
 }
 
+/** Screen title: a school sees "Fee receipts", a salon "Bills", a shop "Sales". */
+internal fun DocList.heading(type: online.draran.billing.core.model.BusinessType): String = if (this == DocList.SALES) type.sales else title
+
+internal fun DocList.newLabel(type: online.draran.billing.core.model.BusinessType): String =
+    if (this == DocList.SALES) type.newSaleLabel else "New $noun"
+
+internal fun DocList.billWord(count: Int): String {
+    val word = if (this == DocList.SALES) "bill" else noun
+    return if (count == 1) word else word + "s"
+}
+
 data class DocsUi(
     val docs: List<InvoiceSummary> = emptyList(),
     val monthTotal: Money = Money.ZERO,
@@ -80,7 +92,11 @@ data class DocsUi(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class DocumentsViewModel @Inject constructor(repository: InvoiceRepository) : ViewModel() {
+class DocumentsViewModel @Inject constructor(repository: InvoiceRepository, businessRepository: online.draran.billing.core.data.BusinessRepository) : ViewModel() {
+    /** The business type decides the words: "Fee receipts" and "New fee receipt" instead of "Sales" and "New sale". */
+    val businessType: StateFlow<online.draran.billing.core.model.BusinessType> = businessRepository.business.map { it.type }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), online.draran.billing.core.model.BusinessType.RETAIL)
+
     val list = MutableStateFlow<DocList?>(null)
     val query = MutableStateFlow("")
     val filter = MutableStateFlow(DocFilter.ALL)
@@ -132,10 +148,11 @@ fun DocumentsRoute(
         viewModel.list.value = list
         viewModel.filter.value = initialFilter
     }
+    val businessType by viewModel.businessType.collectAsStateWithLifecycle()
     Scaffold(
-        topBar = { AppTopBar(list.title, onBack = onBack) },
+        topBar = { AppTopBar(list.heading(businessType), onBack = onBack) },
         floatingActionButton = {
-            AppFab("New ${list.noun}", onClick = { onNew(list.newType) })
+            AppFab(list.newLabel(businessType), onClick = { onNew(list.newType) })
         },
     ) { padding ->
         DocumentsContent(list, viewModel, padding, onOpen, onNew, showTitle = false)
@@ -155,6 +172,8 @@ private fun DocumentsContent(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val ext = BillingTheme.extendedColors
+    val businessType by viewModel.businessType.collectAsStateWithLifecycle()
+    val heading = list.heading(businessType)
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -164,7 +183,7 @@ private fun DocumentsContent(
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        if (showTitle) item { Text(list.title, style = MaterialTheme.typography.headlineSmall) }
+        if (showTitle) item { Text(heading, style = MaterialTheme.typography.headlineSmall) }
         if (list != DocList.ESTIMATES) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -185,9 +204,9 @@ private fun DocumentsContent(
                 SurfaceCard {
                     EmptyState(
                         AppIcons.Receipt,
-                        if (ui.count == 0) "No ${list.title.lowercase()} yet" else "Nothing matches",
-                        if (ui.count == 0) "Your ${list.title.lowercase()} will appear here." else "Try a different search or filter.",
-                        actionLabel = onNew?.let { "New ${list.noun}" },
+                        if (ui.count == 0) "No ${heading.lowercase()} yet" else "No matches",
+                        if (ui.count == 0) "Your ${heading.lowercase()} will appear here." else "Try a different search or filter.",
+                        actionLabel = onNew?.let { list.newLabel(businessType) },
                         onAction = { onNew?.invoke(list.newType) },
                     )
                 }
@@ -201,7 +220,10 @@ private fun DocumentsContent(
                     Row(Modifier.fillMaxWidth().padding(start = Spacing.xs, end = Spacing.xs, top = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                         Text(dayLabel(day, today), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                         Text(
-                            "${docs.size} · " + online.draran.billing.core.common.IndianFormat.rupees(dayTotal, showPaise = false),
+                            run {
+                                val n = docs.count { it.type == list.newType }
+                                if (n == 0) "Returns only" else "$n ${list.billWord(n)} · " + online.draran.billing.core.common.IndianFormat.rupees(dayTotal, showPaise = false)
+                            },
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

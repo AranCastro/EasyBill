@@ -67,7 +67,7 @@ fun BillColourSheet(
                     }
                 }
             }
-            Text(if (logoColours.isEmpty()) "Colours" else "More colours", style = MaterialTheme.typography.labelLarge)
+            Text(if (logoColours.isEmpty()) "Ready-made colours" else "More colours", style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 BillColors.PRESETS.forEach { (name, c) ->
                     // Indigo is stored as itself here: 0 would mean "business colour"

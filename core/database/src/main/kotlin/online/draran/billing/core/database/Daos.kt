@@ -126,6 +126,9 @@ interface InvoiceDao {
     @Query("DELETE FROM invoice WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("SELECT DISTINCT partyId FROM invoice WHERE partyId IS NOT NULL AND type IN ('SALE_RETURN', 'PURCHASE_RETURN')")
+    suspend fun partiesWithNotes(): List<Long>
+
     @Query("UPDATE invoice SET billColor = :color WHERE id = :id")
     suspend fun setBillColor(id: Long, color: Int)
 
@@ -371,4 +374,16 @@ interface ActivityDao {
             "ORDER BY date DESC, createdAt DESC LIMIT :limit",
     )
     fun observe(from: Long, to: Long, limit: Int): Flow<List<ActivityRow>>
+}
+
+@Dao
+interface CounterDao {
+    @Query("SELECT COALESCE(MAX(last), 0) FROM doc_counter WHERE `key` = :key")
+    suspend fun last(key: String): Long
+
+    @Query("INSERT OR IGNORE INTO doc_counter(`key`, last) VALUES (:key, 0)")
+    suspend fun ensure(key: String)
+
+    @Query("UPDATE doc_counter SET last = MAX(last, :value) WHERE `key` = :key")
+    suspend fun raise(key: String, value: Long)
 }

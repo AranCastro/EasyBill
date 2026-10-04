@@ -8,6 +8,11 @@ document lists what the owner must still decide and do.
 
 ## 0. Checklist for the first public release (do these in order)
 
+**Status (4 October 2026):** `main` is the default branch (step 1 done). The release key has
+been created (steps 2 and 3: key file and note delivered to the owner). Certificate SHA-256:
+`42:65:F6:84:1D:D6:FC:BC:AA:6A:B3:0F:4F:4D:7C:1C:3A:12:C3:0A:6D:30:AA:4A:EC:8E:36:7E:F7:33:D0:F8`.
+Next: step 4 (GitHub secrets), then the test tag.
+
 On Windows use PowerShell and Git for Windows. The code is already on the `main` branch.
 
 1. **Make `main` the default branch.** GitHub › your repository › Settings › Branches ›

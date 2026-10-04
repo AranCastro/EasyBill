@@ -157,6 +157,10 @@ bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 1.5.0
 ```
 
 Losing the key means no update can ever be installed over the installed app.
+
+Official releases are signed with the certificate whose SHA-256 fingerprint is
+`42:65:F6:84:1D:D6:FC:BC:AA:6A:B3:0F:4F:4D:7C:1C:3A:12:C3:0A:6D:30:AA:4A:EC:8E:36:7E:F7:33:D0:F8`.
+Check a downloaded APK with `apksigner verify --print-certs ModernKallaaPetti-vX.Y.Z.apk`.
 The GitHub release workflow signs the same way when a tag `vX.Y.Z` is pushed.
 The full runbook, the GitHub secrets, the version-number rule and the
 decisions needed before the first public release are in

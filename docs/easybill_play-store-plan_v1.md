@@ -1,6 +1,7 @@
 # Modern Kallaa Petti: Google Play Release Plan (v1)
 
-Prepared on 29 October 2026, for version 2.1.0. The app is already published as a signed APK
+Prepared on 29 October 2026, for version 2.1.0. Updated the same day: the app bundle, the
+store graphics and the store texts are now ready (sections 2 and 4). The app is already published as a signed APK
 on GitHub Releases (see `easybill_release-plan_v1.md`). This plan covers the additional steps
 needed to publish the same app on Google Play. Play rules change often; each item marked
 *check* should be confirmed in Play Console on the day it is done.
@@ -10,9 +11,9 @@ needed to publish the same app on Google Play. Play rules change often; each ite
 | Step | Who | Time |
 |---|---|---|
 | 1. Developer account (personal), identity verification | Owner | 2 to 7 days |
-| 2. Android App Bundle (`.aab`) in the release workflow | Claude | 1 session |
+| 2. Android App Bundle (`.aab`) in the release workflow | Done | |
 | 3. Play App Signing with the existing release key | Owner, with the steps below | 30 minutes |
-| 4. Store listing (text, icon, feature graphic, screenshots) | Claude drafts, owner approves | 1 session |
+| 4. Store listing (text, icon, feature graphic, screenshots) | Done; owner approves | |
 | 5. App content forms (privacy, Data safety, rating, financial features) | Owner, with the answers below | 1 to 2 hours |
 | 6. Closed test: 12 testers, 14 days without a break | Owner and testers | 14 days or more |
 | 7. Apply for production access, then publish | Owner | up to about 7 days for review |
@@ -37,14 +38,16 @@ most of it the closed test.
 
 ## 2. App bundle
 
-Play accepts only Android App Bundles (`.aab`) for new apps. The GitHub release workflow
-currently builds an APK. Planned change (Claude can make it in one round):
+Play accepts only Android App Bundles (`.aab`) for new apps. **Done:** the release workflow
+now also runs `./gradlew :app:bundleRelease`, signs the bundle with `jarsigner` using the same
+keystore secrets, checks its certificate against `EXPECTED_CERT_SHA256` (the run stops on any
+other certificate), and attaches `ModernKallaaPetti-vX.Y.Z.aab` and its `.sha256` to the GitHub
+release next to the APK. Download the `.aab` from the release page and upload it to Play
+Console. `tools/sign-release.sh` signs a locally built bundle the same way.
 
-1. Add `./gradlew :app:bundleRelease` to `.github/workflows/release.yml`.
-2. Sign the bundle with `jarsigner` using the same keystore secrets, then verify the
-   certificate against `EXPECTED_CERT_SHA256` as the APK step already does.
-3. Attach `ModernKallaaPetti-vX.Y.Z.aab` to the GitHub release next to the APK, so the owner
-   can upload it to Play Console.
+The first release that carries a bundle is the next one run through the workflow (2.1.0 was
+published before this change). To get a bundle for 2.1.0 itself, run the workflow with
+version `2.1.1` after raising the version, or sign a local build with the script.
 
 The APK on GitHub and the bundle on Play share one `versionCode` sequence
 (`MAJOR × 10000 + MINOR × 100 + PATCH`). A number can never be used twice on Play.
@@ -70,6 +73,24 @@ update from Play (and the other way round) without uninstalling.
 Never upload the `.jks` file or its password anywhere else. Keep both backup copies.
 
 ## 4. Store listing
+
+**Done:** all texts and images are in `fastlane/metadata/android/en-IN/` (the layout read by
+Play upload tools and by F-Droid). Choose **English (India) – en-IN** as the default language
+in Play Console and paste from these files:
+
+| File | Use in Play Console |
+|---|---|
+| `title.txt` | App name |
+| `short_description.txt` | Short description |
+| `full_description.txt` | Full description |
+| `changelogs/20100.txt` | Release notes for 2.1.0 (versionCode 20100) |
+| `images/icon.png` | App icon, 512 × 512 |
+| `images/featureGraphic.png` | Feature graphic, 1024 × 500 |
+| `images/phoneScreenshots/1.png` to `7.png` | Phone screenshots, 1080 × 1920, in this order |
+
+Table 2a. Files to upload. The screenshots come from the real app with a demo shop
+(`StoreScreenshotsTest`); `python3 tools/store/make_store_graphics.py` adds the captions and
+rebuilds every image after a screen changes.
 
 | Field | Limit | Draft |
 |---|---|---|
@@ -187,8 +208,9 @@ camera, contacts, location, SMS or storage permissions.
   A verified Play developer account is expected to cover the GitHub APK as well *(check when
   the rule reaches India)*.
 
-## 9. What Claude can do next
+## 9. Status
 
-1. Add the signed `.aab` to the release workflow (section 2).
-2. Produce the 512 px icon, the feature graphic and six 1080 × 1920 screenshots (section 4).
-3. Put the store texts into a file ready to paste, and the release notes for 2.1.0.
+Done: the signed `.aab` in the release workflow (section 2), the icon, feature graphic and
+seven screenshots, and the store texts with release notes (section 4). The remaining steps
+need the owner: the developer account (section 1), Play App Signing with the existing key
+(section 3), the App content forms (section 5), and the closed test (section 6).

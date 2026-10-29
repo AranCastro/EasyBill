@@ -1,6 +1,7 @@
 name: Release APK
 
-# Push a tag such as v1.5.0 to build, sign, verify and publish the release APK.
+# Push a tag such as v1.5.0 to build, sign, verify and publish the release APK, and the
+# app bundle (.aab) for Google Play, signed with the same key.
 # The tag must be on the default branch and must equal "v" + versionName in app/build.gradle.kts.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
@@ -109,8 +110,8 @@ jobs:
       - name: Tests and lint
         run: ./gradlew testDebugUnitTest :core:model:test :core:common:test lintDebug
 
-      - name: Build release APK
-        run: ./gradlew :app:assembleRelease
+      - name: Build release APK and app bundle
+        run: ./gradlew :app:assembleRelease :app:bundleRelease
 
       - name: Sign and verify
         env:
@@ -145,6 +146,20 @@ jobs:
           fi
           "$BT/zipalign" -c -P 16 -v 4 "$APK" | tail -1
           sha256sum "$APK" > "$APK.sha256"
+          # The app bundle for Google Play: signed with the same key (it is also the upload key)
+          AAB="ModernKallaaPetti-${TAG}.aab"
+          jarsigner -keystore "$KS" -storetype PKCS12 -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD \
+            -sigalg SHA256withRSA -digestalg SHA-256 -signedjar "$AAB" app/build/outputs/bundle/release/app-release.aab "$KEY_ALIAS"
+          # Android certificates are self-signed, so -strict is not used; the fingerprint check below is what counts
+          jarsigner -verify "$AAB" > verify-aab.txt
+          grep -q "jar verified" verify-aab.txt
+          keytool -printcert -jarfile "$AAB" > cert-aab.txt
+          GOT_AAB="$(grep -m1 'SHA256:' cert-aab.txt | sed 's/.*SHA256: *//' | tr -d ':' | tr 'A-F' 'a-f')"
+          if [ "$GOT_AAB" != "$WANT" ]; then
+            echo "App bundle certificate mismatch. Signed with $GOT_AAB but expected $WANT." >&2
+            exit 1
+          fi
+          sha256sum "$AAB" > "$AAB.sha256"
           # Readable crash reports need the mapping file of this exact build
           cp app/build/outputs/mapping/release/mapping.txt "mapping-${TAG}.txt"
 
@@ -177,4 +192,5 @@ jobs:
           gh release create "$TAG" --target "$GITHUB_SHA" $FLAGS --title "Modern Kallaa Petti ${TAG#v}" \
             --notes-file notes.md \
             "ModernKallaaPetti-${TAG}.apk" "ModernKallaaPetti-${TAG}.apk.sha256" \
+            "ModernKallaaPetti-${TAG}.aab" "ModernKallaaPetti-${TAG}.aab.sha256" \
             "mapping-${TAG}.txt"

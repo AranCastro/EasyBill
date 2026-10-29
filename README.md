@@ -155,8 +155,8 @@ copies in two safe places, and note the certificate fingerprint:
 ```bash
 bash tools/make-release-keystore.sh          # asks for a password, writes the key outside the repository
 # Windows PowerShell: powershell -ExecutionPolicy Bypass -File tools\make-release-keystore.ps1
-./gradlew :app:assembleRelease
-bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 1.5.0
+./gradlew :app:assembleRelease :app:bundleRelease
+bash tools/sign-release.sh ~/kallaa-petti-signing/kallaa-petti-release.jks 2.1.0   # signs the APK and the .aab
 ```
 
 Losing the key means no update can ever be installed over the installed app.
@@ -164,7 +164,10 @@ Losing the key means no update can ever be installed over the installed app.
 Official releases are signed with the certificate whose SHA-256 fingerprint is
 `42:65:F6:84:1D:D6:FC:BC:AA:6A:B3:0F:4F:4D:7C:1C:3A:12:C3:0A:6D:30:AA:4A:EC:8E:36:7E:F7:33:D0:F8`.
 Check a downloaded APK with `apksigner verify --print-certs ModernKallaaPetti-vX.Y.Z.apk`.
-The GitHub release workflow signs the same way when a tag `vX.Y.Z` is pushed.
+The GitHub release workflow signs the same way when a tag `vX.Y.Z` is pushed, and also
+publishes the signed app bundle (`.aab`) for Google Play. The Play Store steps, and the
+store texts and images in `fastlane/metadata/android/en-IN/`, are described in
+[docs/easybill_play-store-plan_v1.md](docs/easybill_play-store-plan_v1.md).
 The full runbook, the GitHub secrets, the version-number rule and the
 decisions needed before the first public release are in
 [docs/easybill_release-plan_v1.md](docs/easybill_release-plan_v1.md).

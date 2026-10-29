@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Signs the release APK exactly as the GitHub release workflow does, so a local build
+# Signs the release APK (and the app bundle, if built) exactly as the GitHub release workflow does, so a local build
 # and a published build are signed the same way.
 # Usage: bash tools/sign-release.sh <keystore.jks> <version, e.g. 1.5.0> [alias]
 # The keystore password is read from the prompt (or from KEYSTORE_PASSWORD).
@@ -39,3 +39,15 @@ rm -f "$ALIGNED"
 ( cd "$OUT" && sha256sum "$(basename "$APK")" | tee "$(basename "$APK").sha256" )
 cp "$ROOT/app/build/outputs/mapping/release/mapping.txt" "$OUT/mapping-v$VERSION.txt" 2>/dev/null || true
 echo "Signed APK: $APK"
+
+# The app bundle for Google Play, when ./gradlew :app:bundleRelease has been run
+BUNDLE="$ROOT/app/build/outputs/bundle/release/app-release.aab"
+if [ -f "$BUNDLE" ]; then
+  AAB="$OUT/ModernKallaaPetti-v$VERSION.aab"
+  rm -f "$AAB"
+  jarsigner -keystore "$KS" -storetype PKCS12 -storepass:env KEYSTORE_PASSWORD -keypass:env KEYSTORE_PASSWORD \
+    -sigalg SHA256withRSA -digestalg SHA-256 -signedjar "$AAB" "$BUNDLE" "$ALIAS"
+  keytool -printcert -jarfile "$AAB" | grep -m1 "SHA256:"
+  ( cd "$OUT" && sha256sum "$(basename "$AAB")" | tee "$(basename "$AAB").sha256" )
+  echo "Signed app bundle: $AAB"
+fi

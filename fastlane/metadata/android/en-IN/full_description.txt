@@ -1,0 +1,35 @@
+Modern Kallaa Petti is a free billing app for shops, traders, salons, clinics, tutors and other small businesses in India. Everything is stored on your phone. There is no sign-up, no advertisement and no subscription, and it works without the Internet.
+
+<b>Bills</b>
+• GST and non-GST bills, estimates (quotations), purchase bills, sale returns (credit notes) and purchase returns (debit notes)
+• CGST and SGST, or IGST for another state, worked out from the customer's GSTIN
+• UPI QR code on every bill, so customers can pay by scanning
+• Share the bill as a PDF on WhatsApp, or print it on a Bluetooth thermal printer (58 mm or 80 mm)
+• Counter billing for walk-in customers: tap items or scan a barcode, then charge
+• Your logo, signature and colour on every bill
+
+<b>Items and stock</b>
+• Items with HSN code, tax rate, purchase price and barcode
+• Stock follows every sale, purchase and return; low-stock alerts
+• Ready-made item lists for salons, clinics, tuition centres and other services
+
+<b>Customers and suppliers</b>
+• Balance of every party, with a statement as PDF
+• Payment reminder on WhatsApp with your UPI ID
+• Add a customer from your phone contacts
+• Overdue bills marked clearly
+
+<b>Money</b>
+• Payments received and paid, settled against the oldest bills first
+• Expenses by category: rent, salary, electricity and more
+• Capital and loans: record your own money put into the business and loans from family, friends or a bank, and see what is left to repay to each lender. These are kept out of sales and profit.
+
+<b>Reports (PDF or Excel/CSV)</b>
+Sales and purchase registers, profit and loss, day book, item-wise sales, stock summary, GST summary (GSTR-1 B2B, B2C and HSN, and GSTR-3B totals), party balances, expenses, cash flow, and capital and loans. Choose any date range, including the Indian financial year.
+
+<b>Safety</b>
+• Back up to Google Drive, a pen drive or any folder, and restore with checks
+• Optional app lock with your phone's screen lock or fingerprint
+• Your data stays on your phone. The app does not have an account and does not send your bills anywhere.
+
+Free and open source under the MIT licence. Created by Dr Aran Castro (draran.online). Suggestions are welcome at arancastro17@gmail.com.

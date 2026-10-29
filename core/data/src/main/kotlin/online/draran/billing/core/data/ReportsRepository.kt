@@ -5,6 +5,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import online.draran.billing.core.database.BillingDatabase
+import online.draran.billing.core.model.Capital
+import online.draran.billing.core.model.CapitalEntry
+import online.draran.billing.core.model.CapitalSummary
 import online.draran.billing.core.model.DateRange
 import online.draran.billing.core.model.DaySales
 import online.draran.billing.core.model.DocType
@@ -133,18 +136,30 @@ data class DayBookEntry(
 ) {
     /** +1 money/value coming in, -1 going out, 0 neutral (estimates). */
     val flow: Int get() = when (kind) {
-        "SALE", "PAYMENT_IN", "PURCHASE_RETURN" -> 1
-        "PURCHASE", "PAYMENT_OUT", "EXPENSE", "SALE_RETURN" -> -1
+        "SALE", "PAYMENT_IN", "PURCHASE_RETURN", "CAPITAL_IN" -> 1
+        "PURCHASE", "PAYMENT_OUT", "EXPENSE", "SALE_RETURN", "CAPITAL_OUT" -> -1
         else -> 0
     }
 }
 
 data class ItemSales(val name: String, val qtyMilli: Long, val unit: String, val total: Money, val cost: Money)
 
-data class CashFlow(val range: DateRange, val received: List<Pair<String, Money>>, val paid: List<Pair<String, Money>>, val expenses: Money) {
-    val totalIn: Money get() = received.map { it.second }.sum()
-    val totalOut: Money get() = paid.map { it.second }.sum() + expenses
+data class CashFlow(
+    val range: DateRange,
+    val received: List<Pair<String, Money>>,
+    val paid: List<Pair<String, Money>>,
+    val expenses: Money,
+    /** Loans received and own money added, by kind. Real cash, but not income. */
+    val capitalIn: List<Pair<String, Money>> = emptyList(),
+    /** Loan repayments and money taken out, by kind. */
+    val capitalOut: List<Pair<String, Money>> = emptyList(),
+) {
+    val totalIn: Money get() = received.map { it.second }.sum() + capitalIn.map { it.second }.sum()
+    val totalOut: Money get() = paid.map { it.second }.sum() + expenses + capitalOut.map { it.second }.sum()
 }
+
+/** Capital and loans as of today, with every entry. */
+data class CapitalReport(val summary: CapitalSummary, val entries: List<CapitalEntry>)
 
 data class DashboardData(
     val businessName: String,
@@ -235,12 +250,20 @@ class ReportsRepository @Inject constructor(
         val rows = db.paymentDao().modeTotals(range.start.toDay(), range.end.toDay())
         val expenses = expensesByCategory(range).map { it.second }.sum()
         fun modeLabel(m: String) = online.draran.billing.core.model.PaymentMode.entries.firstOrNull { it.name == m }?.label ?: m
+        val capital = db.capitalDao().kindTotals(range.start.toDay(), range.end.toDay()).sortedBy { it.kind.ordinal }
         return CashFlow(
             range = range,
             received = rows.filter { it.direction == "IN" }.map { modeLabel(it.mode) to Money(it.total) },
             paid = rows.filter { it.direction == "OUT" }.map { modeLabel(it.mode) to Money(it.total) },
             expenses = expenses,
+            capitalIn = capital.filter { it.kind.moneyIn }.map { it.kind.label to Money(it.total) },
+            capitalOut = capital.filter { !it.kind.moneyIn }.map { it.kind.label to Money(it.total) },
         )
+    }
+
+    suspend fun capital(): CapitalReport {
+        val entries = db.capitalDao().all().map { it.toModel() }
+        return CapitalReport(Capital.summarise(entries), entries)
     }
 
     suspend fun stock(): List<ItemWithStock> = itemRepository.items().first()

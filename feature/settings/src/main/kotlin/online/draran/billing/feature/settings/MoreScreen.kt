@@ -21,7 +21,7 @@ import online.draran.billing.core.designsystem.theme.BillingTheme
 import online.draran.billing.core.designsystem.theme.Spacing
 
 /** Destinations reachable from the More tab. */
-enum class MoreDestination { COUNTER, PURCHASES, ESTIMATES, PAYMENTS, EXPENSES, REPORTS, BACKUP, SETTINGS, ABOUT }
+enum class MoreDestination { COUNTER, PURCHASES, ESTIMATES, PAYMENTS, EXPENSES, CAPITAL, REPORTS, BACKUP, SETTINGS, ABOUT }
 
 /** "More" tab: everything that is not on the bottom bar. */
 @Composable
@@ -62,6 +62,7 @@ fun MoreScreen(
                 listOf(
                     Entry(AppIcons.HandCoins, "Payments", "Money received and paid", MoreDestination.PAYMENTS, ext.received, ext.receivedContainer),
                     Entry(AppIcons.Wallet, "Expenses", "Rent, salary, electricity and more", MoreDestination.EXPENSES, scheme.error, scheme.errorContainer),
+                    Entry(AppIcons.PiggyBank, "Capital and loans", "Money you put in or borrowed, and repayments", MoreDestination.CAPITAL, ext.received, ext.receivedContainer),
                     Entry(AppIcons.ChartBar, "Reports", "Sales, profit, stock and GST reports", MoreDestination.REPORTS, ext.received, ext.receivedContainer),
                 ),
                 onOpen,

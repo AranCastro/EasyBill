@@ -37,6 +37,7 @@ import androidx.navigation.toRoute
 import online.draran.billing.R
 import online.draran.billing.core.designsystem.component.AppFab
 import online.draran.billing.core.designsystem.icon.AppIcons
+import online.draran.billing.core.model.CapitalKind
 import online.draran.billing.core.model.BusinessType
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.PartyType
@@ -52,6 +53,8 @@ import online.draran.billing.feature.dashboard.DashboardDestination
 import online.draran.billing.feature.dashboard.DashboardRoute
 import online.draran.billing.feature.items.ItemEditorRoute
 import online.draran.billing.feature.items.ItemsRoute
+import online.draran.billing.feature.money.CapitalEditorRoute
+import online.draran.billing.feature.money.CapitalRoute
 import online.draran.billing.feature.money.ExpenseEditorRoute
 import online.draran.billing.feature.money.ExpensesRoute
 import online.draran.billing.feature.money.PaymentEditorRoute
@@ -77,6 +80,8 @@ import online.draran.billing.navigation.NavBusinessProfile
 import online.draran.billing.navigation.NavCounter
 import online.draran.billing.navigation.NavDocuments
 import online.draran.billing.feature.billing.DocFilter
+import online.draran.billing.navigation.NavCapital
+import online.draran.billing.navigation.NavCapitalEditor
 import online.draran.billing.navigation.NavExpenseEditor
 import online.draran.billing.navigation.NavExpenses
 import online.draran.billing.navigation.NavHome
@@ -215,6 +220,7 @@ fun BillingApp(
                         when (t.type) {
                             TransactionType.PAYMENT_IN, TransactionType.PAYMENT_OUT -> nav.go(NavPaymentEditor(PaymentDirection.IN.name, id = t.id))
                             TransactionType.EXPENSE -> nav.go(NavExpenseEditor(t.id))
+                            TransactionType.CAPITAL_IN, TransactionType.CAPITAL_OUT -> nav.go(NavCapitalEditor(t.id))
                             else -> openInvoice(t.id)
                         }
                     },
@@ -242,6 +248,7 @@ fun BillingApp(
                             MoreDestination.ESTIMATES -> nav.go(NavDocuments(DocList.ESTIMATES.name))
                             MoreDestination.PAYMENTS -> nav.go(NavPayments)
                             MoreDestination.EXPENSES -> nav.go(NavExpenses)
+                            MoreDestination.CAPITAL -> nav.go(NavCapital)
                             MoreDestination.REPORTS -> nav.go(NavReports)
                             MoreDestination.BACKUP -> nav.go(NavBackup)
                             MoreDestination.SETTINGS -> nav.go(NavSettings)
@@ -357,6 +364,17 @@ fun BillingApp(
                 ExpensesRoute(onBack = { nav.back() }, onOpen = { nav.go(NavExpenseEditor(it)) }, onNew = { nav.go(NavExpenseEditor()) })
             }
             composable<NavExpenseEditor> { entry -> ExpenseEditorRoute(entry.toRoute<NavExpenseEditor>().id, onBack = { nav.back() }) }
+            composable<NavCapital> {
+                CapitalRoute(
+                    onBack = { nav.back() },
+                    onOpen = { nav.go(NavCapitalEditor(it)) },
+                    onNew = { kind, person -> nav.go(NavCapitalEditor(kind = kind?.name.orEmpty(), person = person)) },
+                )
+            }
+            composable<NavCapitalEditor> { entry ->
+                val r = entry.toRoute<NavCapitalEditor>()
+                CapitalEditorRoute(r.id, CapitalKind.entries.firstOrNull { it.name == r.kind }, r.person, onBack = { nav.back() })
+            }
 
             // Reports
             composable<NavReports> { ReportsHubRoute(onBack = { nav.back() }, onOpen = { nav.go(NavReport(it.name)) }) }

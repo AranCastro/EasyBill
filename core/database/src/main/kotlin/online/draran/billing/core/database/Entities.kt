@@ -6,6 +6,7 @@ import androidx.room.Fts4
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import online.draran.billing.core.model.CapitalKind
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.ItemType
 import online.draran.billing.core.model.PartyType
@@ -258,4 +259,22 @@ data class StockAdjustmentEntity(
 data class DocCounterEntity(
     @PrimaryKey val key: String,
     val last: Long,
+)
+
+/**
+ * Money the owner puts in or takes out, and loans taken for the business with their
+ * repayments. Not income or expense, so it stays out of sales, profit and party balances.
+ * Added in version 7.
+ */
+@Entity(tableName = "capital_entry", indices = [Index("date")])
+data class CapitalEntryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: CapitalKind,
+    /** Lender for a loan; owner or partner (may be empty) for own money. */
+    val person: String,
+    val date: Long,
+    val amount: Long,
+    val mode: PaymentMode,
+    val note: String,
+    val createdAt: Long,
 )

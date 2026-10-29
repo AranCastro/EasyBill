@@ -30,7 +30,7 @@ data class DayTotalRow(val date: Long, val total: Long)
 /** A dashboard / day-book row from invoices, payments or expenses. */
 data class ActivityRow(
     val id: Long,
-    /** DocType name, "PAYMENT_IN", "PAYMENT_OUT" or "EXPENSE". */
+    /** DocType name, "PAYMENT_IN", "PAYMENT_OUT", "EXPENSE", "CAPITAL_IN" or "CAPITAL_OUT". */
     val kind: String,
     val number: String,
     val partyName: String,
@@ -95,3 +95,5 @@ data class ModeTotalRow(val direction: String, val mode: String, val total: Long
 
 /** A bill that a credit or debit note has been set against. */
 data class AgainstRow(val number: String, val date: Long)
+
+data class CapitalKindTotalRow(val kind: online.draran.billing.core.model.CapitalKind, val total: Long)

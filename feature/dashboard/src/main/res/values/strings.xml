@@ -59,4 +59,5 @@
     <string name="txn_estimate">Estimate</string>
     <string name="txn_sale_return">Sale return</string>
     <string name="txn_purchase_return">Purchase return</string>
+    <string name="txn_capital">Capital</string>
 </resources>

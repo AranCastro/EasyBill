@@ -80,7 +80,7 @@ class DashboardViewModel @Inject constructor(
                 id = it.id,
                 type = runCatching { TransactionType.valueOf(it.kind) }.getOrDefault(TransactionType.SALE),
                 number = it.number,
-                partyName = it.partyName.ifBlank { if (it.kind == "EXPENSE") it.number else "" },
+                partyName = it.partyName.ifBlank { if (it.kind == "EXPENSE" || it.kind.startsWith("CAPITAL_")) it.number else "" },
                 date = it.date,
                 total = it.amount,
                 balanceDue = it.balance,

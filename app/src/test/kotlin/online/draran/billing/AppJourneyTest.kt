@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onNodeWithTag
@@ -461,5 +462,44 @@ class AppJourneyTest {
         waitForText("Bill fields")
         compose.onNodeWithText("Bill fields").performScrollTo()
         capture("invoice_settings_fields")
+    }
+
+    /** A loan from family: recorded, part repaid, and a repayment larger than the balance refused. */
+    @Test fun capitalAndLoans() {
+        prefix = "capital"
+        skipOnboarding()
+        clickText("More")
+        clickText("Capital and loans")
+        waitForText("No capital or loans yet")
+        capture("empty")
+        clickFab("Add entry")
+        waitForText("Save entry")
+        compose.onNode(hasSetTextAction() and hasText("Lent by *")).performTextInput("Father")
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextInput("1000")
+        capture("loan")
+        clickText("Save entry")
+        waitForText("Record repayment")
+        settle(1_500)
+        capture("list")
+
+        clickText("Record repayment")
+        waitForText("Still owed: ₹1,000.00")
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextClearance()
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextInput("400")
+        clickText("Save entry")
+        waitForText("Repaid ₹400")
+
+        clickText("Record repayment")
+        waitForText("Still owed: ₹600.00")
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextClearance()
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextInput("700")
+        clickText("Save entry")
+        waitForText("Only ₹600.00 is still owed to Father")
+        capture("too_much")
+        back()
+        clickText("Discard")
+        waitForText("Repaid ₹400")
+        settle(1_500)
+        capture("part_repaid")
     }
 }

@@ -606,6 +606,8 @@ private fun TransactionRow(txn: RecentTransaction, onClick: () -> Unit) {
         TransactionType.ESTIMATE -> Quad(AppIcons.NotePencil, ext.due, ext.dueContainer, R.string.txn_estimate)
         TransactionType.SALE_RETURN -> Quad(AppIcons.Return, scheme.error, scheme.errorContainer, R.string.txn_sale_return)
         TransactionType.PURCHASE_RETURN -> Quad(AppIcons.Return, ext.due, ext.dueContainer, R.string.txn_purchase_return)
+        TransactionType.CAPITAL_IN -> Quad(AppIcons.PiggyBank, ext.received, ext.receivedContainer, R.string.txn_capital)
+        TransactionType.CAPITAL_OUT -> Quad(AppIcons.Bank, scheme.error, scheme.errorContainer, R.string.txn_capital)
     }
     Row(
         modifier = Modifier

@@ -14,9 +14,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import online.draran.billing.core.data.CapitalRepository
 import online.draran.billing.core.data.ExpenseRepository
 import online.draran.billing.core.data.PartyRepository
 import online.draran.billing.core.data.PaymentRepository
+import online.draran.billing.core.model.Capital
+import online.draran.billing.core.model.CapitalEntry
+import online.draran.billing.core.model.CapitalKind
+import online.draran.billing.core.model.CapitalSummary
 import online.draran.billing.core.model.EXPENSE_CATEGORIES
 import online.draran.billing.core.model.Expense
 import online.draran.billing.core.model.Money
@@ -184,6 +189,130 @@ class ExpenseEditorViewModel @Inject constructor(private val repository: Expense
     fun delete(onDone: () -> Unit) {
         viewModelScope.launch {
             try { repository.delete(expenseId); onDone() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { saveError = "The expense could not be deleted. Try again." }
+        }
+    }
+}
+
+@HiltViewModel
+class CapitalViewModel @Inject constructor(repository: CapitalRepository) : ViewModel() {
+    val entries: StateFlow<List<CapitalEntry>> = repository.entries.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val summary: StateFlow<CapitalSummary> = repository.summary.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CapitalSummary())
+}
+
+@HiltViewModel
+class CapitalEditorViewModel @Inject constructor(private val repository: CapitalRepository) : ViewModel() {
+    val summary: StateFlow<CapitalSummary> = repository.summary.stateIn(viewModelScope, SharingStarted.Eagerly, CapitalSummary())
+
+    var entryId by mutableStateOf(0L)
+        private set
+    var kind by mutableStateOf(CapitalKind.LOAN_RECEIVED)
+        private set
+    var person by mutableStateOf("")
+    var amount by mutableStateOf("")
+    var date by mutableStateOf(LocalDate.now())
+    var mode by mutableStateOf(PaymentMode.CASH)
+    var note by mutableStateOf("")
+    var showErrors by mutableStateOf(false)
+        private set
+    private var loaded = false
+    private var original: CapitalEntry? = null
+    private var givenPerson = ""
+    private var suggested = ""
+
+    fun load(id: Long, startKind: CapitalKind?, startPerson: String) {
+        if (loaded) return
+        loaded = true
+        if (id == 0L) {
+            startKind?.let { kind = it }
+            if (startPerson.isNotBlank()) {
+                givenPerson = startPerson
+                viewModelScope.launch {
+                    // Wait for the balances, so a repayment can start at the amount still owed
+                    val s = repository.summaryNow()
+                    person = startPerson
+                    suggestOwed(s)
+                }
+            }
+            return
+        }
+        viewModelScope.launch {
+            val e = repository.get(id) ?: return@launch
+            original = e
+            entryId = e.id; kind = e.kind; person = e.person; amount = MoneyParse.toInput(e.amount); date = e.date; mode = e.mode; note = e.note
+        }
+    }
+
+    fun selectKind(k: CapitalKind) {
+        kind = k
+        suggestOwed(summary.value)
+    }
+
+    fun selectPerson(name: String) {
+        person = name
+        suggestOwed(summary.value)
+    }
+
+    /** For a new repayment with no amount typed yet, start with what is still owed. */
+    private fun suggestOwed(s: CapitalSummary) {
+        if (entryId != 0L || (amount.isNotBlank() && amount != suggested)) return
+        val owed = owedTo(s)
+        amount = if (kind == CapitalKind.LOAN_REPAID && owed != null && owed.paise > 0) MoneyParse.toInput(owed) else ""
+        suggested = amount
+    }
+
+    /** What is still owed to the lender typed, not counting this repayment itself when editing it. */
+    fun owedTo(s: CapitalSummary = summary.value): Money? {
+        val key = Capital.key(person)
+        if (key.isEmpty()) return null
+        val loan = s.loans.firstOrNull { it.key == key } ?: return null
+        val own = original?.takeIf { it.kind == CapitalKind.LOAN_REPAID && Capital.key(it.person) == key }?.amount ?: Money.ZERO
+        return loan.outstanding + own
+    }
+
+    /** Lenders to choose from: all for a new loan, only those still owed for a repayment. */
+    fun lenderChoices(s: CapitalSummary): List<String> = when (kind) {
+        CapitalKind.LOAN_RECEIVED -> s.loans.map { it.lender }
+        CapitalKind.LOAN_REPAID -> s.loans.filter { !it.isCleared || it.key == Capital.key(person) }.map { it.lender }
+        else -> emptyList()
+    }
+
+    val amountError: String? get() = if ((MoneyParse.parse(amount)?.paise ?: 0) <= 0) "Enter the amount" else null
+    val personError: String? get() = if (kind.isLoan && person.isBlank()) "Enter the lender's name" else null
+
+    val isDirty: Boolean get() = entryId == 0L && !saving &&
+        (note.isNotBlank() || (amount.isNotBlank() && amount != suggested) || (person.isNotBlank() && person != givenPerson))
+
+    var saving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
+
+    fun save(onDone: () -> Unit) {
+        showErrors = true
+        if (amountError != null || personError != null) return
+        if (saving) return // a double tap must not record it twice
+        saving = true
+        saveError = null
+        viewModelScope.launch {
+            try {
+                repository.save(CapitalEntry(entryId, kind, person, date, MoneyParse.parse(amount) ?: Money.ZERO, mode, note))
+                onDone()
+            } catch (e: Exception) {
+                saveError = e.userMessage("Could not save. Try again.")
+                saving = false
+            }
+        }
+    }
+
+    fun delete(onDone: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.delete(entryId); onDone()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                saveError = e.userMessage("The entry could not be deleted. Try again.")
+            }
         }
     }
 }

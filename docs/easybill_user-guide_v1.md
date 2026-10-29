@@ -1,4 +1,4 @@
-# Modern Kallaa Petti: User Guide (v2.0.0)
+# Modern Kallaa Petti: User Guide (v2.1.0)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -117,6 +117,24 @@ scans the QR on your screen) or Card, then **Paid · Save bill**.
   amount settles that party's oldest unpaid bills first.
 - **Remind** on a party page opens WhatsApp with a polite reminder and your UPI ID.
 - **More › Expenses** for rent, salary, electricity and other costs.
+
+### Capital and loans
+
+Use **More › Capital and loans** for money that is not a sale or an expense:
+
+- **Loan received**: money borrowed for the business, for example ₹1,000 from a
+  family member to start a side business. Type the lender's name (or pick it from
+  the phone's contacts).
+- **Loan repaid**: each time you pay some of it back. The lender's card has a
+  **Record repayment** button that starts at the amount still owed. The app does
+  not let you repay more than is owed.
+- **Own money added** and **Money taken out**: your own money put in, and money you
+  take out for home use. These are not paid back.
+
+The screen shows **Loans to repay** (all lenders together), each lender's balance,
+and your **Own capital**. None of this changes your sales or profit. It does show in
+the Cash flow report (lines marked Capital), the Day book, and the Capital and loans
+report.
 
 ## 7. Reports
 **More › Reports**: sales and purchase registers, profit & loss, day book,

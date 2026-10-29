@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import online.draran.billing.core.database.BillingDatabase
 import online.draran.billing.core.model.Business
+import online.draran.billing.core.model.CapitalEntry
+import online.draran.billing.core.model.CapitalKind
 import online.draran.billing.core.model.DateRange
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.InvoiceLine
@@ -40,6 +42,7 @@ class RepositoryTest {
     private lateinit var payments: PaymentRepository
     private lateinit var expenses: ExpenseRepository
     private lateinit var reports: ReportsRepository
+    private lateinit var capital: CapitalRepository
     private val today = LocalDate.of(2026, 10, 3)
 
     @Before fun setUp() = runTest {
@@ -53,6 +56,7 @@ class RepositoryTest {
         payments = PaymentRepository(db, allocator)
         expenses = ExpenseRepository(db)
         reports = ReportsRepository(db, business, parties, items)
+        capital = CapitalRepository(db)
         business.save(Business(name = "Sharma Store", stateCode = "33", gstEnabled = true, gstin = "33AAAAA0000A1Z5", roundOff = false, onboarded = true))
     }
 
@@ -681,5 +685,51 @@ class RepositoryTest {
         assertEquals(r(0), c.cashSgst)
         assertEquals(r(80 - 50 - 20), c.cashIgst)
         assertEquals(r(0), c.carry)
+    }
+
+    private fun capitalEntry(kind: CapitalKind, person: String, rupees: Long, id: Long = 0) =
+        CapitalEntry(id = id, kind = kind, person = person, date = today, amount = Money.rupees(rupees))
+
+    @Test fun loanIsNotIncomeButShowsInCashFlow() = runTest {
+        capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "Father", 1_000))
+        capital.save(capitalEntry(CapitalKind.OWNER_IN, "", 500))
+        val month = DateRange.thisMonth(today)
+        val pl = reports.profitLoss(month)
+        assertEquals(Money.ZERO, pl.netSales)
+        assertEquals(Money.ZERO, pl.netProfit)
+        assertTrue(parties.parties.first().isEmpty())
+        val cf = reports.cashFlow(month)
+        assertEquals(Money.rupees(1_500), cf.totalIn)
+        assertEquals(listOf("Loan received" to Money.rupees(1_000), "Own money added" to Money.rupees(500)), cf.capitalIn)
+        val book = reports.dayBook(month).first()
+        assertEquals(listOf("CAPITAL_IN", "CAPITAL_IN"), book.map { it.kind })
+        assertEquals(setOf("Loan received", "Own money added"), book.map { it.number }.toSet())
+        assertEquals(Money.rupees(1_000), capital.summaryNow().toRepay)
+    }
+
+    @Test fun repaymentCannotBeMoreThanIsOwed() = runTest {
+        capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "Father", 1_000))
+        val first = capital.save(capitalEntry(CapitalKind.LOAN_REPAID, "father", 600))
+        val tooMuch = runCatching { capital.save(capitalEntry(CapitalKind.LOAN_REPAID, "Father", 500)) }.exceptionOrNull()
+        assertEquals("Only ₹400.00 is still owed to Father", tooMuch?.message)
+        // Editing the repayment checks against the balance without itself
+        capital.save(capitalEntry(CapitalKind.LOAN_REPAID, "Father", 1_000, id = first))
+        assertEquals(Money.ZERO, capital.summaryNow().toRepay)
+        val noLoan = runCatching { capital.save(capitalEntry(CapitalKind.LOAN_REPAID, "Bank", 10)) }.exceptionOrNull()
+        assertEquals("Nothing is owed to Bank now", noLoan?.message)
+        val noName = runCatching { capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "  ", 10)) }.exceptionOrNull()
+        assertEquals("Enter who lent the money", noName?.message)
+    }
+
+    @Test fun loanWithRepaymentsCannotBeDeletedOrCut() = runTest {
+        val loan = capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "Father", 1_000))
+        val repaid = capital.save(capitalEntry(CapitalKind.LOAN_REPAID, "Father", 700))
+        assertTrue(runCatching { capital.delete(loan) }.isFailure)
+        assertTrue(runCatching { capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "Father", 500, id = loan)) }.isFailure)
+        // Moving the loan to another name would leave Father repaid with no loan
+        assertTrue(runCatching { capital.save(capitalEntry(CapitalKind.LOAN_RECEIVED, "Mother", 1_000, id = loan)) }.isFailure)
+        capital.delete(repaid)
+        capital.delete(loan)
+        assertTrue(capital.summaryNow().loans.isEmpty())
     }
 }

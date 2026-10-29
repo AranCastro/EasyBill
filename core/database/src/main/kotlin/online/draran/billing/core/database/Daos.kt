@@ -369,6 +369,30 @@ interface ExpenseDao {
 }
 
 @Dao
+interface CapitalDao {
+    @Insert
+    suspend fun insert(entry: CapitalEntryEntity): Long
+
+    @Update
+    suspend fun update(entry: CapitalEntryEntity)
+
+    @Query("DELETE FROM capital_entry WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM capital_entry WHERE id = :id")
+    suspend fun get(id: Long): CapitalEntryEntity?
+
+    @Query("SELECT * FROM capital_entry ORDER BY date DESC, id DESC")
+    fun observeAll(): Flow<List<CapitalEntryEntity>>
+
+    @Query("SELECT * FROM capital_entry ORDER BY date DESC, id DESC")
+    suspend fun all(): List<CapitalEntryEntity>
+
+    @Query("SELECT kind, SUM(amount) AS total FROM capital_entry WHERE date BETWEEN :from AND :to GROUP BY kind")
+    suspend fun kindTotals(from: Long, to: Long): List<CapitalKindTotalRow>
+}
+
+@Dao
 interface ActivityDao {
     @Query(
         "SELECT i.id AS id, i.type AS kind, i.number AS number, i.partyName AS partyName, i.date AS date, i.total AS amount, " +
@@ -377,6 +401,10 @@ interface ActivityDao {
             "UNION ALL SELECT id, CASE direction WHEN 'IN' THEN 'PAYMENT_IN' ELSE 'PAYMENT_OUT' END, number, partyName, date, amount, 0, mode, createdAt " +
             "FROM payment WHERE date BETWEEN :from AND :to AND invoiceId IS NULL " +
             "UNION ALL SELECT id, 'EXPENSE', category, note, date, amount, 0, mode, createdAt FROM expense WHERE date BETWEEN :from AND :to " +
+            // Capital and loans: the kind's label (as in CapitalKind) goes in the number column
+            "UNION ALL SELECT id, CASE WHEN kind IN ('LOAN_RECEIVED', 'OWNER_IN') THEN 'CAPITAL_IN' ELSE 'CAPITAL_OUT' END, " +
+            "CASE kind WHEN 'LOAN_RECEIVED' THEN 'Loan received' WHEN 'LOAN_REPAID' THEN 'Loan repaid' WHEN 'OWNER_IN' THEN 'Own money added' ELSE 'Money taken out' END, " +
+            "person, date, amount, 0, mode, createdAt FROM capital_entry WHERE date BETWEEN :from AND :to " +
             "ORDER BY date DESC, createdAt DESC LIMIT :limit",
     )
     fun observe(from: Long, to: Long, limit: Int): Flow<List<ActivityRow>>

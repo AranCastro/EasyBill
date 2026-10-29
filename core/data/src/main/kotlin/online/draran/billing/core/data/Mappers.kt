@@ -1,6 +1,7 @@
 package online.draran.billing.core.data
 
 import online.draran.billing.core.database.BusinessEntity
+import online.draran.billing.core.database.CapitalEntryEntity
 import online.draran.billing.core.database.ExpenseEntity
 import online.draran.billing.core.database.InvoiceEntity
 import online.draran.billing.core.database.InvoiceLineEntity
@@ -13,6 +14,7 @@ import online.draran.billing.core.database.PaymentEntity
 import online.draran.billing.core.model.BillTotals
 import online.draran.billing.core.model.Business
 import online.draran.billing.core.model.DocType
+import online.draran.billing.core.model.CapitalEntry
 import online.draran.billing.core.model.Expense
 import online.draran.billing.core.model.Invoice
 import online.draran.billing.core.model.InvoiceLine
@@ -123,3 +125,5 @@ internal fun PaymentEntity.toModel() = Payment(
 )
 
 internal fun ExpenseEntity.toModel() = Expense(id, category, date.toDate(), Money(amount), mode, note)
+
+internal fun CapitalEntryEntity.toModel() = CapitalEntry(id, kind, person, date.toDate(), Money(amount), mode, note)

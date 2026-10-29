@@ -69,4 +69,23 @@ class MigrationTest {
             assertEquals(1, c.getInt(4))
         }
     }
+
+    /** A 2.0.0 database (schema 6) opened by 2.1: gains the empty capital table and keeps its expenses. */
+    @Test fun migrate6To7AddsCapitalTable() {
+        helper.createDatabase("migration-test-7", 6).apply {
+            execSQL("INSERT INTO expense (id, category, date, amount, mode, note, createdAt) VALUES (1, 'Rent', 20000, 500000, 'CASH', 'October', 0)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migration-test-7", 7, true)
+        db.query("SELECT category, amount FROM expense").use { c ->
+            c.moveToFirst()
+            assertEquals("Rent", c.getString(0))
+            assertEquals(500000L, c.getLong(1))
+        }
+        db.query("SELECT COUNT(*) FROM capital_entry").use { c ->
+            c.moveToFirst()
+            assertEquals(0, c.getInt(0))
+        }
+        db.execSQL("INSERT INTO capital_entry (kind, person, date, amount, mode, note, createdAt) VALUES ('LOAN_RECEIVED', 'Father', 20000, 100000, 'CASH', '', 0)")
+    }
 }

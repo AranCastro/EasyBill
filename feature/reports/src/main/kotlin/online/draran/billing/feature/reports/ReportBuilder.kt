@@ -24,6 +24,7 @@ enum class ReportKind(val title: String, val description: String, val usesRange:
     PARTY_BALANCES("Party balances", "Who owes you and whom you owe", usesRange = false),
     EXPENSES("Expense report", "Spending by category"),
     CASH_FLOW("Cash flow", "Money in and out by payment mode"),
+    CAPITAL("Capital and loans", "Loans to repay by lender, and your own capital", usesRange = false),
 }
 
 enum class Tone { NEUTRAL, GOOD, BAD, BRAND }
@@ -56,6 +57,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
         ReportKind.PARTY_BALANCES -> partyBalances()
         ReportKind.EXPENSES -> expenses(range)
         ReportKind.CASH_FLOW -> cashFlow(range)
+        ReportKind.CAPITAL -> capital()
     }
 
     private suspend fun register(type: DocType, range: DateRange, paidWord: String): ReportContent {
@@ -107,7 +109,8 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                 Kpi("Net profit", pl.netProfit, if (pl.netProfit.isNegative) Tone.BAD else Tone.GOOD),
             ),
             sections = listOf(ReportSection(null, listOf("Particulars", "Amount"), rows)),
-            note = "Cost of goods uses each item's purchase price at the time of sale. Keep purchase prices updated for accurate profit.",
+            note = "Cost of goods uses each item's purchase price at the time of sale. Keep purchase prices updated for accurate profit. " +
+                "Loans and the owner's own money are not income, so they are not shown here (see Capital and loans).",
         )
     }
 
@@ -117,14 +120,20 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
             "PAYMENT_IN" -> "Payment in"
             "PAYMENT_OUT" -> "Payment out"
             "EXPENSE" -> "Expense"
+            "CAPITAL_IN" -> "Capital / loan in"
+            "CAPITAL_OUT" -> "Capital / loan out"
             else -> DocType.entries.firstOrNull { it.name == kind }?.shortTitle ?: kind
         }
         // Separate kinds only: a credit sale and the receipt that later settles it must not both count as money in
         val sales = entries.filter { it.kind == "SALE" }.map { it.amount }.sum()
         val paymentsIn = entries.filter { it.kind == "PAYMENT_IN" }.map { it.amount }.sum()
         val paymentsOut = entries.filter { it.kind == "PAYMENT_OUT" || it.kind == "EXPENSE" }.map { it.amount }.sum()
+        // Capital and loans are listed, but kept out of the sales and payment totals
+        val capitalIn = entries.filter { it.kind == "CAPITAL_IN" }.map { it.amount }.sum()
+        val capitalOut = entries.filter { it.kind == "CAPITAL_OUT" }.map { it.amount }.sum()
         return ReportContent(
-            kpis = listOf(Kpi("Sales billed", sales, Tone.BRAND), Kpi("Payments in", paymentsIn, Tone.GOOD), Kpi("Payments out & expenses", paymentsOut, Tone.BAD)),
+            kpis = listOf(Kpi("Sales billed", sales, Tone.BRAND), Kpi("Payments in", paymentsIn, Tone.GOOD), Kpi("Payments out & expenses", paymentsOut, Tone.BAD)) +
+                if (capitalIn.isZero && capitalOut.isZero) emptyList() else listOf(Kpi("Capital and loans in", capitalIn), Kpi("Repaid and taken out", capitalOut)),
             sections = listOf(
                 ReportSection(
                     null,
@@ -248,12 +257,48 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
 
     private suspend fun cashFlow(range: DateRange): ReportContent {
         val cf = repo.cashFlow(range)
+        val hasCapital = cf.capitalIn.isNotEmpty() || cf.capitalOut.isNotEmpty()
+        val received = cf.received.map { listOf(it.first, rs(it.second)) } + cf.capitalIn.map { listOf("Capital: ${it.first.lowercase()}", rs(it.second)) }
+        val paid = cf.paid.map { listOf(it.first, rs(it.second)) } + listOf(listOf("Expenses", rs(cf.expenses))) +
+            cf.capitalOut.map { listOf("Capital: ${it.first.lowercase()}", rs(it.second)) }
         return ReportContent(
             kpis = listOf(Kpi("Money in", cf.totalIn, Tone.GOOD), Kpi("Money out", cf.totalOut, Tone.BAD), Kpi("Net", cf.totalIn - cf.totalOut, Tone.BRAND)),
             sections = listOf(
-                ReportSection("Received", listOf("Mode", "Amount"), cf.received.map { listOf(it.first, rs(it.second)) }, listOf("Total" to rs(cf.totalIn))),
-                ReportSection("Paid", listOf("Mode", "Amount"), cf.paid.map { listOf(it.first, rs(it.second)) } + listOf(listOf("Expenses", rs(cf.expenses))), listOf("Total" to rs(cf.totalOut))),
+                ReportSection("Received", listOf("Mode", "Amount"), received, listOf("Total" to rs(cf.totalIn))),
+                ReportSection("Paid", listOf("Mode", "Amount"), paid, listOf("Total" to rs(cf.totalOut))),
             ),
+            note = if (hasCapital) "Lines marked Capital are loans and the owner's own money. They are cash, but not income or expense." else null,
+        )
+    }
+
+    private suspend fun capital(): ReportContent {
+        val report = repo.capital()
+        val s = report.summary
+        return ReportContent(
+            kpis = listOf(
+                Kpi("Loans to repay", s.toRepay, Tone.BAD),
+                Kpi("Loans repaid", s.loansRepaid, Tone.GOOD),
+                Kpi("Own capital", s.ownCapital, Tone.BRAND),
+            ),
+            sections = listOf(
+                ReportSection(
+                    "Loans by lender",
+                    listOf("Lender", "Received", "Repaid", "To repay"),
+                    s.loans.map { listOf(it.lender, rs(it.received), rs(it.repaid), rs(it.outstanding)) },
+                    listOf("Received" to rs(s.loansReceived), "Repaid" to rs(s.loansRepaid), "To repay" to rs(s.toRepay)),
+                ),
+                ReportSection(
+                    "Own capital",
+                    listOf("Particulars", "Amount"),
+                    listOf(listOf("Own money added", rs(s.ownIn)), listOf("Money taken out", rs(-s.ownOut)), listOf("Own capital", rs(s.ownCapital))),
+                ),
+                ReportSection(
+                    "All entries",
+                    listOf("Date", "Type", "Person", "Mode", "Amount"),
+                    report.entries.map { listOf(it.date.pretty(), it.kind.label, it.person, it.mode.label, rs(it.amount)) },
+                ),
+            ),
+            note = "Balances to date. Loans and the owner's own money are not income, so they are not in sales or profit.",
         )
     }
 }

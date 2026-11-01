@@ -471,4 +471,53 @@ class AppJourneyTest {
         settle(1_500)
         capture("part_repaid")
     }
+
+    /** Cash in hand from an opening balance: a cash sale adds to it, a UPI expense does not, a count and a deposit adjust it. */
+    @Test fun cashAndBank() {
+        prefix = "cash"
+        skipOnboarding()
+        clickText("More")
+        clickText("Cash and bank")
+        waitForText("Set your opening balance")
+        capture("empty")
+        clickText("Set opening balance")
+        waitForText("Balances on")
+        compose.onNode(hasSetTextAction() and hasText("Cash in hand")).performTextInput("10000")
+        clickText("Save")
+        waitForText("Counted from")
+        runBlocking {
+            val today = LocalDate.now()
+            invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(InvoiceLine(itemId = null, name = "Rice", qtyMilli = 1000, rate = Money.rupees(5_000))), paidNow = Money.rupees(5_000)))
+            expenses.save(Expense(category = "Rent", date = today, amount = Money.rupees(700), mode = online.draran.billing.core.model.PaymentMode.UPI))
+        }
+        waitForText("Bal ₹15,000")
+        settle(1_500)
+        capture("cash_book")
+
+        clickText("Count cash")
+        waitForText("As per your entries: ₹15,000.00")
+        compose.onNode(hasSetTextAction() and hasText("Cash in the drawer *")).performTextInput("14950")
+        waitForText("Short by ₹50.00")
+        capture("count")
+        clickText("Save count")
+        waitForText("Cash count: short")
+
+        clickText("Move money")
+        waitForText("Cash to bank")
+        compose.onNode(hasSetTextAction() and hasText("Amount *")).performTextInput("5000")
+        clickText("Save")
+        waitForText("Cash deposited in bank")
+        waitForText("Bal ₹9,950")
+        settle(1_500)
+        capture("after_deposit")
+        clickText("Bank and UPI")
+        waitForText("Expense: Rent")
+        settle(1_000)
+        capture("bank_book")
+        back()
+        clickText("Home")
+        waitForText("Cash in hand")
+        settle(1_500)
+        capture("home")
+    }
 }

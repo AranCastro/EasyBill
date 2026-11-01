@@ -29,7 +29,7 @@ SOFT = (224, 231, 255)
 
 # Raw screen name -> caption shown above it on the store
 SCREENS = [
-    ("1_home", "Today's sales, dues and stock at a glance"),
+    ("1_home", "Sales, dues and cash in hand at a glance"),
     ("2_bill", "GST bills with UPI QR, shared as PDF on WhatsApp"),
     ("7_counter", "Fast counter billing for walk-in customers"),
     ("4_party", "Customer balances, statements and reminders"),

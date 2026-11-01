@@ -25,6 +25,7 @@ enum class ReportKind(val title: String, val description: String, val usesRange:
     EXPENSES("Expense report", "Spending by category"),
     CASH_FLOW("Cash flow", "Money in and out by payment mode"),
     CAPITAL("Capital and loans", "Loans to repay by lender, and your own capital", usesRange = false),
+    CASH_BOOK("Cash book", "Cash in hand day by day, with the balance after each entry"),
 }
 
 enum class Tone { NEUTRAL, GOOD, BAD, BRAND }
@@ -58,6 +59,7 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
         ReportKind.EXPENSES -> expenses(range)
         ReportKind.CASH_FLOW -> cashFlow(range)
         ReportKind.CAPITAL -> capital()
+        ReportKind.CASH_BOOK -> cashBook(range)
     }
 
     private suspend fun register(type: DocType, range: DateRange, paidWord: String): ReportContent {
@@ -268,6 +270,35 @@ class ReportBuilder @Inject constructor(private val repo: ReportsRepository) {
                 ReportSection("Paid", listOf("Mode", "Amount"), paid, listOf("Total" to rs(cf.totalOut))),
             ),
             note = if (hasCapital) "Lines marked Capital are loans and the owner's own money. They are cash, but not income or expense." else null,
+        )
+    }
+
+    private suspend fun cashBook(range: DateRange): ReportContent {
+        val r = repo.cashBook(range)
+        return ReportContent(
+            kpis = listOf(
+                Kpi("Opening cash", r.opening),
+                Kpi("Cash in", r.cashIn, Tone.GOOD),
+                Kpi("Cash out", r.cashOut, Tone.BAD),
+                Kpi("Closing cash", r.closing, Tone.BRAND),
+            ),
+            sections = listOf(
+                ReportSection(
+                    null,
+                    listOf("Date", "Entry", "Details", "In", "Out", "Balance"),
+                    listOf(listOf(range.start.pretty(), "Opening balance", "", "", "", rs(r.opening))) +
+                        r.lines.map { l ->
+                            val m = l.movement
+                            listOf(
+                                m.date.pretty(), m.title, listOfNotNull(m.detail.takeIf { it.isNotBlank() }, m.mode?.label).joinToString(" · "),
+                                if (m.amount.isNegative) "" else rs(m.amount), if (m.amount.isNegative) rs(-m.amount) else "", rs(l.balance),
+                            )
+                        },
+                    listOf("Cash in" to rs(r.cashIn), "Cash out" to rs(r.cashOut), "Closing cash" to rs(r.closing), "Bank and UPI" to rs(r.bankClosing)),
+                ),
+            ),
+            note = if (r.setUp) "Cash entries only: UPI, card, bank transfer and cheque entries go to the bank balance. Profit is not affected."
+            else "Set the opening cash in More › Cash and bank for an exact balance. Until then the book starts from zero.",
         )
     }
 

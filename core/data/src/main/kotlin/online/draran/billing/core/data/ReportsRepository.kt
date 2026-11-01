@@ -158,6 +158,19 @@ data class CashFlow(
     val totalOut: Money get() = paid.map { it.second }.sum() + expenses + capitalOut.map { it.second }.sum()
 }
 
+/** Cash in hand over a period: balance at the start, every cash entry with the balance after it, and the bank balance at the end. */
+data class CashBookReport(
+    val range: DateRange,
+    val opening: Money,
+    val lines: List<online.draran.billing.core.model.CashBookLine>,
+    val closing: Money,
+    val bankClosing: Money,
+    val setUp: Boolean,
+) {
+    val cashIn: Money get() = lines.map { it.movement.amount }.filter { !it.isNegative }.sum()
+    val cashOut: Money get() = -lines.map { it.movement.amount }.filter { it.isNegative }.sum()
+}
+
 /** Capital and loans as of today, with every entry. */
 data class CapitalReport(val summary: CapitalSummary, val entries: List<CapitalEntry>)
 
@@ -258,6 +271,22 @@ class ReportsRepository @Inject constructor(
             expenses = expenses,
             capitalIn = capital.filter { it.kind.moneyIn }.map { it.kind.label to Money(it.total) },
             capitalOut = capital.filter { !it.kind.moneyIn }.map { it.kind.label to Money(it.total) },
+        )
+    }
+
+    suspend fun cashBook(range: DateRange): CashBookReport {
+        val setup = db.cashDao().setup()?.toModel()
+        val movements = db.cashDao().movements().map { it.toModel() }
+        val cash = online.draran.billing.core.model.MoneyAccount.CASH
+        val bank = online.draran.billing.core.model.MoneyAccount.BANK
+        val book = online.draran.billing.core.model.CashBook
+        return CashBookReport(
+            range = range,
+            opening = book.balanceAsOf(setup, movements, cash, range.start.minusDays(1)),
+            lines = book.lines(setup, movements, cash).filter { !it.movement.date.isBefore(range.start) && !it.movement.date.isAfter(range.end) },
+            closing = book.balanceAsOf(setup, movements, cash, range.end),
+            bankClosing = book.balanceAsOf(setup, movements, bank, range.end),
+            setUp = setup != null,
         )
     }
 

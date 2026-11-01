@@ -35,6 +35,7 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     reports: ReportsRepository,
     backup: BackupManager,
+    cash: online.draran.billing.core.data.CashBankRepository,
     businessRepository: BusinessRepository,
     branding: BrandingManager,
 ) : ViewModel() {
@@ -56,7 +57,9 @@ class DashboardViewModel @Inject constructor(
     }.distinctUntilChanged()
 
     val state: StateFlow<DashboardUiState> = today.flatMapLatest { day ->
-        combine(reports.dashboard(day), backup.lastBackup) { data, last -> data.toUi(last) }
+        combine(reports.dashboard(day), backup.lastBackup, cash.balances) { data, last, money ->
+            data.toUi(last).copy(cashInHand = money.cash, bankBalance = money.bank, cashSetUp = money.setup != null)
+        }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),

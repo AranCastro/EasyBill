@@ -88,4 +88,22 @@ class MigrationTest {
         }
         db.execSQL("INSERT INTO capital_entry (kind, person, date, amount, mode, note, createdAt) VALUES ('LOAN_RECEIVED', 'Father', 20000, 100000, 'CASH', '', 0)")
     }
+
+    /** A 2.1.0 database (schema 7) opened by 2.2: gains the cash tables and keeps its capital entries. */
+    @Test fun migrate7To8AddsCashTables() {
+        helper.createDatabase("migration-test-8", 7).apply {
+            execSQL("INSERT INTO capital_entry (kind, person, date, amount, mode, note, createdAt) VALUES ('LOAN_RECEIVED', 'Father', 20000, 100000, 'CASH', '', 0)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migration-test-8", 8, true)
+        db.query("SELECT person, amount FROM capital_entry").use { c ->
+            c.moveToFirst()
+            assertEquals("Father", c.getString(0))
+            assertEquals(100000L, c.getLong(1))
+        }
+        db.query("SELECT (SELECT COUNT(*) FROM cash_setup) + (SELECT COUNT(*) FROM cash_move)").use { c ->
+            c.moveToFirst()
+            assertEquals(0, c.getInt(0))
+        }
+    }
 }

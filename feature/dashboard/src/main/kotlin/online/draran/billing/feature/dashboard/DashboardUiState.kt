@@ -42,6 +42,11 @@ data class DashboardUiState(
     val overdue: Money = Money.ZERO,
     /** Best sellers this month. */
     val topItems: List<TopItemUi> = emptyList(),
+    /** Worked out from cash entries since the opening date; null until loaded. */
+    val cashInHand: Money? = null,
+    val bankBalance: Money? = null,
+    /** False until the opening cash balance has been set. */
+    val cashSetUp: Boolean = true,
 ) {
     /** A short message to share the day's figures on WhatsApp. */
     fun summaryText(today: LocalDate): String = buildString {
@@ -78,5 +83,5 @@ data class TopItemUi(val name: String, val quantity: String, val amount: Money)
 /** Where the dashboard can send the user. The app module maps these to routes. */
 enum class DashboardDestination {
     NEW_SALE, COUNTER, PAYMENT_IN, ADD_ITEM, PURCHASE, EXPENSE, ESTIMATE, REPORTS,
-    TO_COLLECT, TO_PAY, LOW_STOCK, ALL_TRANSACTIONS, BACKUP, SETTINGS, OVERDUE, ITEM_SALES,
+    TO_COLLECT, TO_PAY, LOW_STOCK, ALL_TRANSACTIONS, BACKUP, SETTINGS, OVERDUE, ITEM_SALES, CASH_BANK,
 }

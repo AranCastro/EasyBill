@@ -8,7 +8,7 @@ on the phone; there is no server and no running cost. (Android's own
 Google account backup may also keep an encrypted copy of the app data, which
 you can switch off in the phone's backup settings.)
 
-**Status: v2.1.0.** Feature-complete for daily shop use (Phases 1–3 of the
+**Status: v2.2.0.** Feature-complete for daily shop use (Phases 1–3 of the
 [project plan](docs/easybill_project-plan_v2.md)), plus business logo,
 authorised signature and industry modes for service businesses
 ([plan](docs/easybill_industry-plan_v1.md)). User guide:
@@ -98,11 +98,15 @@ authorised signature and industry modes for service businesses
 - Capital and loans: the owner's own money put in or taken out, and loans from
   family, friends or a bank with each repayment. Shows what is left to repay to
   each lender; kept out of sales, profit and party balances.
+- Cash and bank: live cash in hand and bank (UPI, card, bank transfer, cheque)
+  balances worked out from the entries already made, from an opening balance;
+  cash deposits and withdrawals, cash counts with shortage or excess, and a
+  cash book with the balance after each entry. Profit is not affected.
 
 **Reports** (date ranges incl. Indian FY, share as PDF or Excel/CSV)
 - Sales and purchase registers, profit & loss, day book, item-wise sales,
   stock summary, GST summary (GSTR-1 B2B/B2C/HSN and GSTR-3B totals), party
-  balances, expenses, cash flow, capital and loans.
+  balances, expenses, cash flow, capital and loans, cash book.
 
 **Safety and comfort**
 - Backup to a file you choose (Google Drive, Downloads, pen drive) and restore;
@@ -203,6 +207,19 @@ decisions needed before the first public release are in
 
 ## Changelog
 
+- **2.2.0**: Cash and bank.
+  - New: More › Cash and bank (and two cards on Home) shows cash in hand and the
+    bank and UPI balance, starting from an opening balance entered once. Every
+    entry already made updates them by its payment method: cash sales, purchases,
+    payments, expenses and capital entries paid in cash change cash in hand; UPI,
+    card, bank transfer and cheque change the bank balance; a credit sale changes
+    neither until it is paid. Balances are recalculated from the entries each
+    time, so editing or deleting an old entry corrects them (database v8).
+  - Move money between cash and bank (deposits and withdrawals), count the cash
+    in the drawer to record a shortage or excess, and a cash book with the
+    balance after each entry; a new Cash book report (PDF/CSV). Profit is not
+    affected.
+  - Suggested by a user, Mansoor Bohari.
 - **2.1.0**: Capital and loans.
   - New: More › Capital and loans records the owner's own money put into the
     business, money taken out, loans received (from family, a friend or a bank)

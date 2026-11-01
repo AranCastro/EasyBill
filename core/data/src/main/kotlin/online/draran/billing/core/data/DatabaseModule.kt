@@ -25,5 +25,6 @@ object DatabaseModule {
     @Provides fun paymentDao(db: BillingDatabase) = db.paymentDao()
     @Provides fun expenseDao(db: BillingDatabase) = db.expenseDao()
     @Provides fun capitalDao(db: BillingDatabase) = db.capitalDao()
+    @Provides fun cashDao(db: BillingDatabase) = db.cashDao()
     @Provides fun activityDao(db: BillingDatabase) = db.activityDao()
 }

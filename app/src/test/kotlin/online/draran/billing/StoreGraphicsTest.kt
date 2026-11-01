@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -28,6 +31,7 @@ import online.draran.billing.core.data.PartyRepository
 import online.draran.billing.core.data.PaymentRepository
 import online.draran.billing.core.model.CapitalEntry
 import online.draran.billing.core.model.CapitalKind
+import online.draran.billing.core.model.CashSetup
 import online.draran.billing.core.model.Money
 import online.draran.billing.core.model.PaymentMode
 import org.junit.Before
@@ -60,6 +64,7 @@ class StoreScreenshotsTest {
     @Inject lateinit var payments: PaymentRepository
     @Inject lateinit var expenses: ExpenseRepository
     @Inject lateinit var capital: CapitalRepository
+    @Inject lateinit var cash: online.draran.billing.core.data.CashBankRepository
 
     @Before fun inject() = hilt.inject()
 
@@ -105,8 +110,9 @@ class StoreScreenshotsTest {
         }
         waitForText("Today's sales")
         runBlocking {
-            seedDemoShop(items, parties, invoices, payments, expenses)
             val today = LocalDate.now()
+            cash.saveSetup(CashSetup(today.minusDays(130), Money.rupees(15_000), Money.rupees(40_000)))
+            seedDemoShop(items, parties, invoices, payments, expenses)
             fun entry(kind: CapitalKind, person: String, rupees: Long, daysAgo: Long, mode: PaymentMode = PaymentMode.CASH) =
                 CapitalEntry(kind = kind, person = person, date = today.minusDays(daysAgo), amount = Money.rupees(rupees), mode = mode)
             capital.save(entry(CapitalKind.OWNER_IN, "", 25_000, 120))
@@ -141,6 +147,9 @@ class StoreScreenshotsTest {
         capture("5_capital")
         back()
 
+        // Reports sits below the fold of the More list on this screen size. Scroll past it, so it is
+        // not left under the bottom bar (a tap there would land on the Items tab)
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Backup and restore"))
         clickText("Reports")
         clickText("GST summary")
         waitForText("Output tax")

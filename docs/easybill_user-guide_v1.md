@@ -1,4 +1,4 @@
-# Modern Kallaa Petti: User Guide (v2.1.0)
+# Modern Kallaa Petti: User Guide (v2.2.0)
 
 ## 1. Install
 1. Copy the APK to the phone (WhatsApp to yourself, USB or Google Drive) and tap it.
@@ -135,6 +135,28 @@ The screen shows **Loans to repay** (all lenders together), each lender's balanc
 and your **Own capital**. None of this changes your sales or profit. It does show in
 the Cash flow report (lines marked Capital), the Day book, and the Capital and loans
 report.
+
+### Cash in hand and bank balance
+
+**More › Cash and bank** (or the Cash in hand card on Home) shows how much cash you
+should have in the drawer, and your bank and UPI balance.
+
+1. Tap **Set opening balance** once: the date, the cash in your drawer that morning,
+   and your bank balance (optional).
+2. From then on, nothing extra is needed. The app works the balances out from your
+   entries by their payment method:
+   - a cash sale of ₹5,000 adds ₹5,000 to cash in hand;
+   - a purchase or expense paid in cash takes it out of cash in hand;
+   - anything paid or received by UPI, card, bank transfer or cheque changes the bank
+     balance instead;
+   - a credit sale changes neither until the customer pays.
+3. **Move money** records cash put into the bank, or taken out of the bank or an ATM.
+4. **Count cash** compares the cash in your drawer with the app's figure and records
+   any shortage or excess, so the two match again.
+
+The cash book lists every cash entry with the balance after it; tap an entry to open
+it. If you edit or delete an old entry, the balance corrects itself. Profit is not
+affected. The **Cash book** report gives the same list for any period as PDF or Excel.
 
 ## 7. Reports
 **More › Reports**: sales and purchase registers, profit & loss, day book,

@@ -60,4 +60,7 @@
     <string name="txn_sale_return">Sale return</string>
     <string name="txn_purchase_return">Purchase return</string>
     <string name="txn_capital">Capital</string>
+    <string name="dashboard_cash_in_hand">Cash in hand</string>
+    <string name="dashboard_bank">Bank and UPI</string>
+    <string name="dashboard_cash_set_up">Set opening cash</string>
 </resources>

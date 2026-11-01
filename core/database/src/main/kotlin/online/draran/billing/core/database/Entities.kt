@@ -7,6 +7,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import online.draran.billing.core.model.CapitalKind
+import online.draran.billing.core.model.CashMoveKind
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.ItemType
 import online.draran.billing.core.model.PartyType
@@ -275,6 +276,28 @@ data class CapitalEntryEntity(
     val date: Long,
     val amount: Long,
     val mode: PaymentMode,
+    val note: String,
+    val createdAt: Long,
+)
+
+/** Opening cash and bank balances and the date they apply from (one row, id 1). Added in version 8. */
+@Entity(tableName = "cash_setup")
+data class CashSetupEntity(
+    @PrimaryKey val id: Int = 1,
+    val startDate: Long,
+    val cash: Long,
+    val bank: Long,
+)
+
+/** Cash deposited in or withdrawn from the bank, and cash counts. Added in version 8. */
+@Entity(tableName = "cash_move", indices = [Index("date")])
+data class CashMoveEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: CashMoveKind,
+    val date: Long,
+    /** Deposits and withdrawals: the amount moved. Counts: counted minus expected (may be negative). */
+    val amount: Long,
+    val counted: Long?,
     val note: String,
     val createdAt: Long,
 )

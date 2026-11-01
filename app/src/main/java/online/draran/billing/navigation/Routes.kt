@@ -27,6 +27,10 @@ import kotlin.reflect.KClass
 @Serializable data object NavExpenses
 @Serializable data class NavExpenseEditor(val id: Long = 0)
 @Serializable data object NavCapital
+@Serializable data object NavCashBank
+@Serializable data object NavCashSetup
+@Serializable data class NavCashMove(val id: Long = 0, val kind: String = "")
+@Serializable data object NavCashCount
 @Serializable data class NavCapitalEditor(val id: Long = 0, val kind: String = "", val person: String = "")
 @Serializable data object NavReports
 @Serializable data class NavReport(val kind: String)

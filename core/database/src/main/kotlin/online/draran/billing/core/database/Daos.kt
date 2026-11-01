@@ -393,6 +393,58 @@ interface CapitalDao {
 }
 
 @Dao
+interface CashDao {
+    @Query("SELECT * FROM cash_setup WHERE id = 1")
+    fun observeSetup(): Flow<CashSetupEntity?>
+
+    @Query("SELECT * FROM cash_setup WHERE id = 1")
+    suspend fun setup(): CashSetupEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveSetup(setup: CashSetupEntity)
+
+    @Insert
+    suspend fun insert(move: CashMoveEntity): Long
+
+    @Update
+    suspend fun update(move: CashMoveEntity)
+
+    @Query("DELETE FROM cash_move WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM cash_move WHERE id = :id")
+    suspend fun get(id: Long): CashMoveEntity?
+
+    /**
+     * Every change to cash or bank, worked out from what the user already entered: payments
+     * (including those taken with a bill), expenses, capital and loans, and moves between cash
+     * and bank. Cash mode goes to cash; UPI, card, bank transfer and cheque go to the bank.
+     */
+    @Query(MOVEMENTS)
+    fun observeMovements(): Flow<List<CashMovementRow>>
+
+    @Query(MOVEMENTS)
+    suspend fun movements(): List<CashMovementRow>
+
+    companion object {
+        private const val ACCOUNT = "CASE mode WHEN 'CASH' THEN 'CASH' ELSE 'BANK' END"
+        const val MOVEMENTS =
+            "SELECT 'PAYMENT' AS source, p.id AS id, p.invoiceId AS refId, p.date AS date, " +
+                "CASE p.mode WHEN 'CASH' THEN 'CASH' ELSE 'BANK' END AS account, " +
+                "CASE p.direction WHEN 'IN' THEN p.amount ELSE -p.amount END AS amount, p.number AS title, p.partyName AS detail, " +
+                "p.mode AS mode, p.createdAt AS createdAt, i.type AS docType, i.number AS docNumber " +
+                "FROM payment p LEFT JOIN invoice i ON i.id = p.invoiceId " +
+                "UNION ALL SELECT 'EXPENSE', id, NULL, date, $ACCOUNT, -amount, category, note, mode, createdAt, NULL, NULL FROM expense " +
+                "UNION ALL SELECT 'CAPITAL', id, NULL, date, $ACCOUNT, " +
+                "CASE WHEN kind IN ('LOAN_RECEIVED', 'OWNER_IN') THEN amount ELSE -amount END, kind, person, mode, createdAt, NULL, NULL FROM capital_entry " +
+                "UNION ALL SELECT 'MOVE', id, NULL, date, 'CASH', CASE kind WHEN 'DEPOSIT' THEN -amount ELSE amount END, kind, note, NULL, createdAt, NULL, NULL FROM cash_move " +
+                "UNION ALL SELECT 'MOVE', id, NULL, date, 'BANK', CASE kind WHEN 'DEPOSIT' THEN amount ELSE -amount END, kind, note, NULL, createdAt, NULL, NULL " +
+                "FROM cash_move WHERE kind IN ('DEPOSIT', 'WITHDRAWAL') " +
+                "ORDER BY date, createdAt, id"
+    }
+}
+
+@Dao
 interface ActivityDao {
     @Query(
         "SELECT i.id AS id, i.type AS kind, i.number AS number, i.partyName AS partyName, i.date AS date, i.total AS amount, " +

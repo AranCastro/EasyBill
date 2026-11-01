@@ -97,3 +97,19 @@ data class ModeTotalRow(val direction: String, val mode: String, val total: Long
 data class AgainstRow(val number: String, val date: Long)
 
 data class CapitalKindTotalRow(val kind: online.draran.billing.core.model.CapitalKind, val total: Long)
+
+/** One change to cash or bank; see CashDao.observeMovements. */
+data class CashMovementRow(
+    val source: String,
+    val id: Long,
+    val refId: Long?,
+    val date: Long,
+    val account: String,
+    val amount: Long,
+    val title: String,
+    val detail: String,
+    val mode: String?,
+    val createdAt: Long,
+    val docType: String?,
+    val docNumber: String?,
+)

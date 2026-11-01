@@ -43,6 +43,7 @@ class RepositoryTest {
     private lateinit var expenses: ExpenseRepository
     private lateinit var reports: ReportsRepository
     private lateinit var capital: CapitalRepository
+    private lateinit var cash: CashBankRepository
     private val today = LocalDate.of(2026, 10, 3)
 
     @Before fun setUp() = runTest {
@@ -57,6 +58,7 @@ class RepositoryTest {
         expenses = ExpenseRepository(db)
         reports = ReportsRepository(db, business, parties, items)
         capital = CapitalRepository(db)
+        cash = CashBankRepository(db)
         business.save(Business(name = "Sharma Store", stateCode = "33", gstEnabled = true, gstin = "33AAAAA0000A1Z5", roundOff = false, onboarded = true))
     }
 
@@ -731,5 +733,72 @@ class RepositoryTest {
         capital.delete(repaid)
         capital.delete(loan)
         assertTrue(capital.summaryNow().loans.isEmpty())
+    }
+
+    /** The examples from the user who asked for this: cash follows cash entries only; credit and UPI do not touch it. */
+    @Test fun cashInHandFollowsEntriesByPaymentMethod() = runTest {
+        cash.saveSetup(online.draran.billing.core.model.CashSetup(today.minusDays(1), Money.rupees(10_000), Money.rupees(2_000)))
+        val customer = parties.save(Party(name = "Ravi"))
+        // Cash sale of 5,000
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 5_000)), paidNow = Money.rupees(5_000)))
+        // Purchase of 1,000 paid in cash
+        invoices.save(InvoiceDraft(type = DocType.PURCHASE, number = "", date = today, lines = listOf(line(null, 1, 1_000)), paidNow = Money.rupees(1_000)))
+        // Credit sale: no cash until paid
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, partyId = customer, partyName = "Ravi", lines = listOf(line(null, 1, 3_000))))
+        // UPI expense goes to the bank
+        expenses.save(online.draran.billing.core.model.Expense(category = "Rent", date = today, amount = Money.rupees(700), mode = online.draran.billing.core.model.PaymentMode.UPI))
+        // Owner adds 2,000 in cash, then takes 500 out
+        capital.save(capitalEntry(CapitalKind.OWNER_IN, "", 2_000))
+        capital.save(capitalEntry(CapitalKind.OWNER_OUT, "", 500))
+        var b = cash.balances.first()
+        assertEquals(Money.rupees(10_000 + 5_000 - 1_000 + 2_000 - 500), b.cash)
+        assertEquals(Money.rupees(2_000 - 700), b.bank)
+
+        // The credit customer pays 3,000 by UPI: bank goes up, cash does not
+        payments.save(Payment(direction = PaymentDirection.IN, number = "", partyId = customer, partyName = "Ravi", date = today, amount = Money.rupees(3_000), mode = online.draran.billing.core.model.PaymentMode.UPI))
+        // 4,000 cash deposited in the bank
+        cash.saveMove(online.draran.billing.core.model.CashMove(kind = online.draran.billing.core.model.CashMoveKind.DEPOSIT, date = today, amount = Money.rupees(4_000)))
+        b = cash.balances.first()
+        assertEquals(Money.rupees(15_500 - 4_000), b.cash)
+        assertEquals(Money.rupees(1_300 + 3_000 + 4_000), b.bank)
+        // None of it changed profit: sales 5,000 + 3,000 less purchase cost 0 (no items) and rent 700
+        assertEquals(Money.rupees(8_000 - 700), reports.profitLoss(DateRange.thisMonth(today)).netProfit)
+    }
+
+    @Test fun editingAnOldEntryCorrectsTheBalance() = runTest {
+        cash.saveSetup(online.draran.billing.core.model.CashSetup(today.minusDays(5), Money.rupees(1_000), Money.ZERO))
+        val id = expenses.save(online.draran.billing.core.model.Expense(category = "Tea", date = today.minusDays(2), amount = Money.rupees(100)))
+        assertEquals(Money.rupees(900), cash.balances.first().cash)
+        expenses.save(online.draran.billing.core.model.Expense(id = id, category = "Tea", date = today.minusDays(2), amount = Money.rupees(150)))
+        assertEquals(Money.rupees(850), cash.balances.first().cash)
+        expenses.delete(id)
+        assertEquals(Money.rupees(1_000), cash.balances.first().cash)
+        // Entries before the opening date are not counted
+        expenses.save(online.draran.billing.core.model.Expense(category = "Old", date = today.minusDays(9), amount = Money.rupees(300)))
+        assertEquals(Money.rupees(1_000), cash.balances.first().cash)
+        val early = runCatching { cash.saveMove(online.draran.billing.core.model.CashMove(kind = online.draran.billing.core.model.CashMoveKind.WITHDRAWAL, date = today.minusDays(9), amount = Money.rupees(10))) }.exceptionOrNull()
+        assertTrue(early?.message.orEmpty().startsWith("Choose a date on or after the opening date"))
+    }
+
+    @Test fun cashCountRecordsShortage() = runTest {
+        cash.saveSetup(online.draran.billing.core.model.CashSetup(today, Money.rupees(2_000), Money.ZERO))
+        val diff = cash.countCash(today, Money.rupees(1_950))
+        assertEquals(Money.rupees(-50), diff)
+        assertEquals(Money.rupees(1_950), cash.balances.first().cash)
+        val book = online.draran.billing.core.model.CashBook.lines(cash.setupNow(), cash.movementsNow(), online.draran.billing.core.model.MoneyAccount.CASH)
+        assertEquals("Cash count: short", book.single().movement.title)
+        assertEquals(Money.rupees(1_950), book.single().balance)
+    }
+
+    @Test fun cashBookReportHasOpeningAndClosing() = runTest {
+        cash.saveSetup(online.draran.billing.core.model.CashSetup(today.minusDays(10), Money.rupees(1_000), Money.ZERO))
+        expenses.save(online.draran.billing.core.model.Expense(category = "Tea", date = today.minusDays(5), amount = Money.rupees(100)))
+        invoices.save(InvoiceDraft(type = DocType.SALE, number = "", date = today, lines = listOf(line(null, 1, 400)), paidNow = Money.rupees(400)))
+        val r = reports.cashBook(DateRange(today.minusDays(1), today, "test"))
+        assertEquals(Money.rupees(900), r.opening)
+        assertEquals(Money.rupees(400), r.cashIn)
+        assertEquals(Money.ZERO, r.cashOut)
+        assertEquals(Money.rupees(1_300), r.closing)
+        assertEquals(1, r.lines.size)
     }
 }

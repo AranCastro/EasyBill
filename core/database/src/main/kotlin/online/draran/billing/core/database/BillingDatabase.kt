@@ -19,6 +19,8 @@ import androidx.room.RoomDatabase
         StockAdjustmentEntity::class,
         DocCounterEntity::class,
         CapitalEntryEntity::class,
+        CashSetupEntity::class,
+        CashMoveEntity::class,
     ],
     version = BillingDatabase.VERSION,
     exportSchema = true,
@@ -35,6 +37,8 @@ import androidx.room.RoomDatabase
         AutoMigration(from = 5, to = 6),
         // v2.1: capital and loans
         AutoMigration(from = 6, to = 7),
+        // v2.2: cash and bank
+        AutoMigration(from = 7, to = 8),
     ],
 )
 abstract class BillingDatabase : RoomDatabase() {
@@ -47,11 +51,12 @@ abstract class BillingDatabase : RoomDatabase() {
     abstract fun activityDao(): ActivityDao
     abstract fun counterDao(): CounterDao
     abstract fun capitalDao(): CapitalDao
+    abstract fun cashDao(): CashDao
 
     companion object {
         const val NAME = "kallaa_petti.db"
 
         /** Schema version; the newest file in schemas/. Backups from a higher version are refused. */
-        const val VERSION = 7
+        const val VERSION = 8
     }
 }

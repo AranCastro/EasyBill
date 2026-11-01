@@ -183,6 +183,31 @@ fun DashboardScreen(
                     )
                 }
             }
+            if (state.cashInHand != null && state.bankBalance != null) {
+                item(key = "cash") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        KpiCard(
+                            label = stringResource(R.string.dashboard_cash_in_hand),
+                            amount = state.cashInHand,
+                            icon = AppIcons.Money,
+                            accent = if (state.cashInHand.isNegative) MaterialTheme.colorScheme.error else ext.received,
+                            accentContainer = if (state.cashInHand.isNegative) MaterialTheme.colorScheme.errorContainer else ext.receivedContainer,
+                            caption = stringResource(R.string.dashboard_cash_set_up).takeIf { !state.cashSetUp },
+                            onClick = { onNavigate(DashboardDestination.CASH_BANK) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        KpiCard(
+                            label = stringResource(R.string.dashboard_bank),
+                            amount = state.bankBalance,
+                            icon = AppIcons.Bank,
+                            accent = MaterialTheme.colorScheme.primary,
+                            accentContainer = MaterialTheme.colorScheme.primaryContainer,
+                            onClick = { onNavigate(DashboardDestination.CASH_BANK) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
             if (state.overdueCount > 0) {
                 item(key = "overdue") {
                     OverdueCard(state.overdueCount, state.overdue, onClick = { onNavigate(DashboardDestination.OVERDUE) })

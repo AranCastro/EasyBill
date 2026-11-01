@@ -38,6 +38,8 @@ import online.draran.billing.R
 import online.draran.billing.core.designsystem.component.AppFab
 import online.draran.billing.core.designsystem.icon.AppIcons
 import online.draran.billing.core.model.CapitalKind
+import online.draran.billing.core.model.CashMoveKind
+import online.draran.billing.core.model.MovementSource
 import online.draran.billing.core.model.BusinessType
 import online.draran.billing.core.model.DocType
 import online.draran.billing.core.model.PartyType
@@ -54,6 +56,10 @@ import online.draran.billing.feature.dashboard.DashboardRoute
 import online.draran.billing.feature.items.ItemEditorRoute
 import online.draran.billing.feature.items.ItemsRoute
 import online.draran.billing.feature.money.CapitalEditorRoute
+import online.draran.billing.feature.money.CashBankRoute
+import online.draran.billing.feature.money.CashCountRoute
+import online.draran.billing.feature.money.CashMoveRoute
+import online.draran.billing.feature.money.CashSetupRoute
 import online.draran.billing.feature.money.CapitalRoute
 import online.draran.billing.feature.money.ExpenseEditorRoute
 import online.draran.billing.feature.money.ExpensesRoute
@@ -82,6 +88,10 @@ import online.draran.billing.navigation.NavDocuments
 import online.draran.billing.feature.billing.DocFilter
 import online.draran.billing.navigation.NavCapital
 import online.draran.billing.navigation.NavCapitalEditor
+import online.draran.billing.navigation.NavCashBank
+import online.draran.billing.navigation.NavCashCount
+import online.draran.billing.navigation.NavCashMove
+import online.draran.billing.navigation.NavCashSetup
 import online.draran.billing.navigation.NavExpenseEditor
 import online.draran.billing.navigation.NavExpenses
 import online.draran.billing.navigation.NavHome
@@ -214,6 +224,7 @@ fun BillingApp(
                             DashboardDestination.SETTINGS -> nav.go(NavSettings)
                             DashboardDestination.OVERDUE -> nav.go(NavDocuments(DocList.SALES.name, filter = DocFilter.OVERDUE.name))
                             DashboardDestination.ITEM_SALES -> nav.go(NavReport(ReportKind.ITEM_SALES.name))
+                            DashboardDestination.CASH_BANK -> nav.go(NavCashBank)
                         }
                     },
                     onOpenRecent = { t ->
@@ -249,6 +260,7 @@ fun BillingApp(
                             MoreDestination.PAYMENTS -> nav.go(NavPayments)
                             MoreDestination.EXPENSES -> nav.go(NavExpenses)
                             MoreDestination.CAPITAL -> nav.go(NavCapital)
+                            MoreDestination.CASH_BANK -> nav.go(NavCashBank)
                             MoreDestination.REPORTS -> nav.go(NavReports)
                             MoreDestination.BACKUP -> nav.go(NavBackup)
                             MoreDestination.SETTINGS -> nav.go(NavSettings)
@@ -371,6 +383,28 @@ fun BillingApp(
                     onNew = { kind, person -> nav.go(NavCapitalEditor(kind = kind?.name.orEmpty(), person = person)) },
                 )
             }
+            composable<NavCashBank> {
+                CashBankRoute(
+                    onBack = { nav.back() },
+                    onSetup = { nav.go(NavCashSetup) },
+                    onMove = { nav.go(NavCashMove()) },
+                    onCount = { nav.go(NavCashCount) },
+                    onOpen = { m ->
+                        when (m.source) {
+                            MovementSource.PAYMENT -> m.billId?.let { openInvoice(it) } ?: nav.go(NavPaymentEditor(PaymentDirection.IN.name, id = m.id))
+                            MovementSource.EXPENSE -> nav.go(NavExpenseEditor(m.id))
+                            MovementSource.CAPITAL -> nav.go(NavCapitalEditor(m.id))
+                            MovementSource.MOVE -> nav.go(NavCashMove(m.id))
+                        }
+                    },
+                )
+            }
+            composable<NavCashSetup> { CashSetupRoute(onBack = { nav.back() }) }
+            composable<NavCashMove> { entry ->
+                val r = entry.toRoute<NavCashMove>()
+                CashMoveRoute(r.id, CashMoveKind.entries.firstOrNull { it.name == r.kind }, onBack = { nav.back() })
+            }
+            composable<NavCashCount> { CashCountRoute(onBack = { nav.back() }) }
             composable<NavCapitalEditor> { entry ->
                 val r = entry.toRoute<NavCapitalEditor>()
                 CapitalEditorRoute(r.id, CapitalKind.entries.firstOrNull { it.name == r.kind }, r.person, onBack = { nav.back() })

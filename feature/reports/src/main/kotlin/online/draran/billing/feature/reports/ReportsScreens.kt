@@ -82,6 +82,7 @@ internal fun ReportKind.icon(): ImageVector = when (this) {
     ReportKind.EXPENSES -> AppIcons.Wallet
     ReportKind.CASH_FLOW -> AppIcons.Coins
     ReportKind.CAPITAL -> AppIcons.PiggyBank
+    ReportKind.CASH_BOOK -> AppIcons.Money
 }
 
 @Composable
